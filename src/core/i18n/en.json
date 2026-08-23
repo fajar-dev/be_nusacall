@@ -1,0 +1,72 @@
+{
+    "common": {
+        "Success": "Success",
+        "Created": "Created",
+        "Updated": "Updated",
+        "Deleted": "Deleted",
+        "Validation failed": "Validation failed",
+        "Internal Server Error": "Internal Server Error",
+        "Bad Request": "Bad Request",
+        "Unauthorized Access": "Unauthorized Access",
+        "Unauthorized access": "Unauthorized access",
+        "Resource not found": "Resource not found",
+        "Forbidden": "Forbidden",
+        "Conflict": "Conflict",
+        "Too Many Requests": "Too Many Requests"
+    },
+
+    "auth": {
+        "User registered successfully": "User registered successfully",
+        "Logged in successfully": "Logged in successfully",
+        "Logged out successfully": "Logged out successfully",
+        "Token refreshed successfully": "Token refreshed successfully",
+        "User profile retrieved successfully": "User profile retrieved successfully",
+        "Password reset instructions have been sent to your email": "Password reset instructions have been sent to your email",
+        "Token is valid": "Token is valid",
+        "Password has been successfully reset": "Password has been successfully reset",
+        "Profile updated successfully": "Profile updated successfully",
+        "Password updated successfully": "Password updated successfully",
+        "Email already in use": "Email already in use",
+        "Email not found": "Email not found",
+        "User not registered": "User not registered",
+        "Account is inactive": "Account is inactive",
+        "Invalid credentials": "Invalid credentials",
+        "Invalid or expired refresh token": "Invalid or expired refresh token",
+        "Invalid or expired reset token": "Invalid or expired reset token",
+        "Invalid or expired token": "Invalid or expired token",
+        "Old password is required": "Old password is required",
+        "Invalid old password": "Invalid old password",
+        "Authentication token is required": "Authentication token is required",
+        "Missing or invalid authorization header": "Missing or invalid authorization header",
+        "Missing or invalid API key": "Missing or invalid API key"
+    },
+
+    "user": {
+        "User created successfully": "User created successfully",
+        "User updated successfully": "User updated successfully",
+        "User deleted successfully": "User deleted successfully",
+        "User retrieved successfully": "User retrieved successfully",
+        "Users retrieved successfully": "Users retrieved successfully",
+        "User not found": "User not found"
+    },
+
+    "contact": {
+        "Contact created successfully": "Contact created successfully",
+        "Contact updated successfully": "Contact updated successfully",
+        "Contact deleted successfully": "Contact deleted successfully",
+        "Contact retrieved successfully": "Contact retrieved successfully",
+        "Contacts retrieved successfully": "Contacts retrieved successfully",
+        "Contact not found": "Contact not found"
+    },
+
+    "validation": {
+        "Name is required": "Name is required",
+        "Invalid email format": "Invalid email format",
+        "Email is required": "Email is required",
+        "Password is required": "Password is required",
+        "Password must be at least 6 characters": "Password must be at least 6 characters",
+        "Reset token is required": "Reset token is required",
+        "Refresh token is required": "Refresh token is required",
+        "Code is required": "Code is required"
+    }
+}

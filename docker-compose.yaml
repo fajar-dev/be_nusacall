@@ -1,0 +1,67 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hono-be
+    restart: always
+    ports:
+      - "${PORT:-4000}:4000"
+    environment:
+      - PORT=4000
+      - ENV=${ENV:-production}
+      - APP_URL=${APP_URL}
+      - DB_TYPE=${DB_TYPE:-postgres}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASS=${DB_PASS:-postgres}
+      - DB_NAME=${DB_NAME:-hono_be}
+      - DB_SYNC=${DB_SYNC:-false}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - API_KEY=${API_KEY}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+      - MINIO_PORT=${MINIO_PORT:-9000}
+      - MINIO_USE_SSL=${MINIO_USE_SSL:-false}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_BUCKET=${MINIO_BUCKET:-hono-be}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - hono-be-network
+
+  db:
+    image: postgres:16-alpine
+    container_name: hono-be-db
+    restart: always
+    environment:
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASS:-postgres}
+      - POSTGRES_DB=${DB_NAME:-hono_be}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      timeout: 10s
+      retries: 5
+    networks:
+      - hono-be-network
+
+networks:
+  hono-be-network:
+    driver: bridge
+
+volumes:
+  pg_data:

@@ -1,0 +1,72 @@
+{
+    "common": {
+        "Success": "Berhasil",
+        "Created": "Berhasil dibuat",
+        "Updated": "Berhasil diperbarui",
+        "Deleted": "Berhasil dihapus",
+        "Validation failed": "Validasi gagal",
+        "Internal Server Error": "Terjadi kesalahan pada server",
+        "Bad Request": "Permintaan tidak valid",
+        "Unauthorized Access": "Akses tidak diizinkan",
+        "Unauthorized access": "Akses tidak diizinkan",
+        "Resource not found": "Data tidak ditemukan",
+        "Forbidden": "Akses ditolak",
+        "Conflict": "Data sudah ada",
+        "Too Many Requests": "Terlalu banyak permintaan"
+    },
+
+    "auth": {
+        "User registered successfully": "Registrasi berhasil",
+        "Logged in successfully": "Berhasil masuk",
+        "Logged out successfully": "Berhasil keluar",
+        "Token refreshed successfully": "Token berhasil diperbarui",
+        "User profile retrieved successfully": "Profil pengguna berhasil diambil",
+        "Password reset instructions have been sent to your email": "Instruksi reset kata sandi telah dikirim ke email Anda",
+        "Token is valid": "Token valid",
+        "Password has been successfully reset": "Kata sandi berhasil direset",
+        "Profile updated successfully": "Profil berhasil diperbarui",
+        "Password updated successfully": "Kata sandi berhasil diperbarui",
+        "Email already in use": "Email sudah digunakan",
+        "Email not found": "Email tidak ditemukan",
+        "User not registered": "Pengguna belum terdaftar",
+        "Account is inactive": "Akun tidak aktif",
+        "Invalid credentials": "Email atau kata sandi salah",
+        "Invalid or expired refresh token": "Refresh token tidak valid atau kedaluwarsa",
+        "Invalid or expired reset token": "Token reset tidak valid atau kedaluwarsa",
+        "Invalid or expired token": "Token tidak valid atau kedaluwarsa",
+        "Old password is required": "Kata sandi lama wajib diisi",
+        "Invalid old password": "Kata sandi lama salah",
+        "Authentication token is required": "Token autentikasi wajib disertakan",
+        "Missing or invalid authorization header": "Header otorisasi tidak ada atau tidak valid",
+        "Missing or invalid API key": "API key tidak ada atau tidak valid"
+    },
+
+    "user": {
+        "User created successfully": "Pengguna berhasil dibuat",
+        "User updated successfully": "Pengguna berhasil diperbarui",
+        "User deleted successfully": "Pengguna berhasil dihapus",
+        "User retrieved successfully": "Data pengguna berhasil diambil",
+        "Users retrieved successfully": "Daftar pengguna berhasil diambil",
+        "User not found": "Pengguna tidak ditemukan"
+    },
+
+    "contact": {
+        "Contact created successfully": "Kontak berhasil dibuat",
+        "Contact updated successfully": "Kontak berhasil diperbarui",
+        "Contact deleted successfully": "Kontak berhasil dihapus",
+        "Contact retrieved successfully": "Data kontak berhasil diambil",
+        "Contacts retrieved successfully": "Daftar kontak berhasil diambil",
+        "Contact not found": "Kontak tidak ditemukan"
+    },
+
+    "validation": {
+        "Name is required": "Nama wajib diisi",
+        "Invalid email format": "Format email tidak valid",
+        "Email is required": "Email wajib diisi",
+        "Password is required": "Kata sandi wajib diisi",
+        "Password must be at least 6 characters": "Kata sandi minimal 6 karakter",
+        "Reset token is required": "Token reset wajib diisi",
+        "Refresh token is required": "Refresh token wajib diisi",
+        "Code is required": "Kode wajib diisi"
+    }
+}

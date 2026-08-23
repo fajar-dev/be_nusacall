@@ -1,0 +1,7 @@
+# deps
+node_modules/
+.env
+public/uploads
+database/
+dist
+logs/

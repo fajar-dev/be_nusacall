@@ -1,0 +1,28 @@
+{
+  "name": "hono-boilerplate",
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "build": "bun build --minify --outfile dist/index.js --target bun src/index.ts",
+    "start": "bun run src/index.ts",
+    "test": "bun test --timeout 30000"
+  },
+  "dependencies": {
+    "@hono/swagger-ui": "^0.6.1",
+    "@hono/zod-validator": "^0.7.6",
+    "bcryptjs": "^3.0.3",
+    "google-auth-library": "^10.7.0",
+    "hono": "^4.12.8",
+    "minio": "^8.0.7",
+    "mysql2": "^3.20.0",
+    "pg": "^8.16.0",
+    "nodemailer": "^8.0.3",
+    "reflect-metadata": "^0.2.2",
+    "typeorm": "^0.3.28",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/bun": "latest",
+    "@types/nodemailer": "^7.0.11"
+  }
+}

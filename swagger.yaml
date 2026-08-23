@@ -1,0 +1,736 @@
+openapi: 3.0.0
+info:
+  title: Hono BE API
+  description: >-
+    API Documentation for Hono BE Backend Service.
+    Language is detected from the `Accept-Language` header (`en` default, `id` supported)
+    and echoed back via the `Content-Language` response header on every response.
+  version: 2.0.0
+servers:
+  - url: http://localhost:4000/api
+    description: Local development server
+  - url: /api
+    description: Relative API server
+
+tags:
+  - name: Auth
+    description: Registration, login, session, and password management
+  - name: Contact
+    description: Contact CRUD
+  - name: User
+    description: User CRUD (admin/management)
+  - name: Upload
+    description: File upload & retrieval via MinIO object storage
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "JWT access token. Expires in 15 minutes."
+
+  parameters:
+    AcceptLanguage:
+      name: Accept-Language
+      in: header
+      required: false
+      description: >-
+        Preferred response language. Supported: `en` (default), `id`.
+        Missing or unsupported values fall back to `en`.
+      schema:
+        type: string
+        enum: [en, id]
+        default: en
+      example: id
+
+  headers:
+    ContentLanguage:
+      description: Resolved response language (`en` or `id`), echoed back from `Accept-Language`.
+      schema:
+        type: string
+        enum: [en, id]
+
+  schemas:
+    # --- Base Wrapper Schemas ---
+    BaseResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        statusCode: { type: integer, example: 200 }
+        message: { type: string, example: "Operation successful" }
+
+    ErrorResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        statusCode: { type: integer, example: 400 }
+        message: { type: string, example: "Something went wrong" }
+        errors: { type: object, nullable: true, example: null }
+
+    ValidationError:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        statusCode: { type: integer, example: 422 }
+        message: { type: string, example: "Validation failed" }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string, example: "email" }
+              message: { type: string, example: "Invalid email format" }
+
+    # --- Auth Schemas ---
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, example: "budi@example.com" }
+        password: { type: string, example: "secret123" }
+
+    GoogleLoginRequest:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, example: "4/0AX4XfWh..." }
+
+
+    # --- Auth User Schema (response shape from AuthSerializer) ---
+    AuthUser:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        name: { type: string, example: "Budi Santoso" }
+        photo: { type: string, nullable: true, example: "https://cdn.example.com/photo.jpg" }
+        email: { type: string, format: email, example: "budi@example.com" }
+        isActive: { type: boolean, example: true }
+        hasPassword:
+          type: boolean
+          description: Whether the account has a password set (false for Google-only accounts)
+          example: true
+
+    AuthResponse:
+      type: object
+      properties:
+        user: { $ref: "#/components/schemas/AuthUser" }
+        accessToken:
+          type: string
+          description: "JWT access token, expires in 15 minutes"
+          example: "eyJhbGciOiJIUzI1NiIs..."
+        refreshToken:
+          type: string
+          description: "JWT refresh token, expires in 7 days"
+          example: "eyJhbGciOiJIUzI1NiIs..."
+
+
+    # --- Contact Schemas ---
+    Salutation:
+      type: string
+      enum: [mr, mrs]
+      example: mr
+
+    ContactType:
+      type: string
+      enum: [customer, vendor, supplier, other]
+      default: customer
+      example: customer
+
+    Contact:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        name: { type: string, example: "John Doe" }
+        salutation: { allOf: [{ $ref: "#/components/schemas/Salutation" }], nullable: true }
+        email: { type: string, format: email, nullable: true, example: "john@example.com" }
+        phone: { type: string, nullable: true, example: "081234567890" }
+        type: { $ref: "#/components/schemas/ContactType" }
+        isActive: { type: boolean, example: true }
+        createdAt: { type: string, format: date-time, example: "2026-06-01T08:00:00.000Z" }
+        updatedAt: { type: string, format: date-time, example: "2026-06-01T08:00:00.000Z" }
+
+    CreateContactRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, example: "John Doe" }
+        salutation: { allOf: [{ $ref: "#/components/schemas/Salutation" }], nullable: true }
+        email: { type: string, format: email, example: "john@example.com" }
+        phone: { type: string, example: "081234567890" }
+        type: { $ref: "#/components/schemas/ContactType" }
+        isActive: { type: boolean, default: true, example: true }
+
+    UpdateContactRequest:
+      type: object
+      properties:
+        name: { type: string, example: "John Doe" }
+        salutation: { allOf: [{ $ref: "#/components/schemas/Salutation" }], nullable: true }
+        email: { type: string, format: email, nullable: true, example: "john@example.com" }
+        phone: { type: string, nullable: true, example: "081234567890" }
+        type: { $ref: "#/components/schemas/ContactType" }
+        isActive: { type: boolean, example: true }
+
+    # --- User Schemas (response shape from UserSerializer, distinct from AuthUser) ---
+    PaginationMeta:
+      type: object
+      properties:
+        total: { type: integer, example: 50 }
+        perPage: { type: integer, example: 10 }
+        currentPage: { type: integer, example: 1 }
+        lastPage: { type: integer, example: 5 }
+        from: { type: integer, example: 1 }
+        to: { type: integer, example: 10 }
+
+    User:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        name: { type: string, example: "John Doe" }
+        photo: { type: string, nullable: true, example: "https://cdn.example.com/photo.jpg" }
+        email: { type: string, format: email, example: "john@example.com" }
+        isActive: { type: boolean, example: true }
+        createdAt: { type: string, format: date-time, example: "2026-06-01T08:00:00.000Z" }
+
+    CreateUserRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name: { type: string, example: "John Doe" }
+        email: { type: string, format: email, example: "john@example.com" }
+        password: { type: string, minLength: 6, example: "secret123" }
+        photo: { type: string, nullable: true, example: "users/abc-123.png" }
+        isActive: { type: boolean, default: true, example: true }
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        name: { type: string, example: "John Doe" }
+        email: { type: string, format: email, example: "john@example.com" }
+        password: { type: string, minLength: 6, example: "newSecret123" }
+        photo: { type: string, nullable: true, example: "users/abc-123.png" }
+        isActive: { type: boolean, example: true }
+
+paths:
+  # ── Login ─────────────────────────────────────────────────────────────────
+  /auth/login:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+    post:
+      tags: [Auth]
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Logged in successfully
+          headers:
+            Content-Language: { $ref: "#/components/headers/ContentLanguage" }
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/AuthResponse" }
+        "401":
+          description: User not registered, account inactive, or invalid credentials
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationError" }
+
+  # ── Google Login ──────────────────────────────────────────────────────────
+  /auth/google:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+    post:
+      tags: [Auth]
+      summary: Login with Google OAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GoogleLoginRequest" }
+      responses:
+        "200":
+          description: Logged in successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/AuthResponse" }
+        "400":
+          description: User not registered or account inactive
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationError" }
+
+  # ── Logout ───────────────────────────────────────────────────────────────
+  /auth/logout:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+    post:
+      tags: [Auth]
+      summary: Logout current user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Logged out successfully
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BaseResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  # ── Contact List ─────────────────────────────────────────────────────────
+  /contact:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+    get:
+      tags: [Contact]
+      summary: Get all contacts (paginated)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10 }
+        - name: q
+          in: query
+          description: Search by name, email, or phone
+          schema: { type: string }
+        - name: sortBy
+          in: query
+          description: "Column to sort by. Falls back to id if omitted or not sortable."
+          schema: { type: string, enum: [name, email, phone, type, isActive, createdAt] }
+        - name: order
+          in: query
+          schema: { type: string, enum: [ASC, DESC], default: DESC }
+      responses:
+        "200":
+          description: Contacts retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Contact" }
+                      meta: { $ref: "#/components/schemas/PaginationMeta" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+    # ── Contact Create ───────────────────────────────────────────────────────
+    post:
+      tags: [Contact]
+      summary: Create a new contact
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateContactRequest" }
+      responses:
+        "201":
+          description: Contact created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Contact" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationError" }
+
+  # ── Contact Detail / Update / Delete ─────────────────────────────────────
+  /contact/{id}:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [Contact]
+      summary: Get contact by ID
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Contact retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Contact" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: Contact not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+    put:
+      tags: [Contact]
+      summary: Update a contact
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateContactRequest" }
+      responses:
+        "200":
+          description: Contact updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Contact" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: Contact not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationError" }
+
+    delete:
+      tags: [Contact]
+      summary: Delete a contact
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Contact deleted successfully
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BaseResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: Contact not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  # ── User List ────────────────────────────────────────────────────────────
+  /user:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+    get:
+      tags: [User]
+      summary: Get all users (paginated)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10 }
+        - name: q
+          in: query
+          description: Search by name or email
+          schema: { type: string }
+        - name: isActive
+          in: query
+          description: Filter by status ("1" = active, "0" = inactive)
+          schema: { type: string, enum: ["1", "0"] }
+        - name: sortBy
+          in: query
+          description: "Column to sort by. Falls back to id if omitted or not sortable."
+          schema: { type: string, enum: [name, email, isActive, createdAt] }
+        - name: order
+          in: query
+          schema: { type: string, enum: [ASC, DESC], default: DESC }
+      responses:
+        "200":
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/User" }
+                      meta: { $ref: "#/components/schemas/PaginationMeta" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+    post:
+      tags: [User]
+      summary: Create a new user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateUserRequest" }
+      responses:
+        "201":
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/User" }
+        "400":
+          description: Email already in use
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationError" }
+
+  # ── User Detail / Update / Delete ────────────────────────────────────────
+  /user/{id}:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [User]
+      summary: Get user by ID
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/User" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+    put:
+      tags: [User]
+      summary: Update a user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateUserRequest" }
+      responses:
+        "200":
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/User" }
+        "400":
+          description: Email already in use
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationError" }
+
+    delete:
+      tags: [User]
+      summary: Delete a user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User deleted successfully
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BaseResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  # ── Upload File ──────────────────────────────────────────────────────────
+  /upload:
+    post:
+      tags: [Upload]
+      summary: Upload a file to MinIO
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The file to upload
+      responses:
+        "200":
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          path: { type: string, example: "users/abc-123.png" }
+        "400":
+          description: No file uploaded or invalid file
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  # ── Proxy File ───────────────────────────────────────────────────────────
+  /proxy:
+    get:
+      tags: [Upload]
+      summary: Stream a file stored in MinIO
+      description: Public endpoint (no auth) that streams the raw file content for the given object path, e.g. the `path` returned by `POST /upload`.
+      parameters:
+        - name: path
+          in: query
+          required: true
+          description: Object path/key in the MinIO bucket
+          schema: { type: string }
+      responses:
+        "200":
+          description: File stream
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "400":
+          description: Missing 'path' query parameter
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: "Missing 'path' query parameter" }
