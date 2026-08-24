@@ -1,8 +1,7 @@
-import { TypeOrmContactRepository } from "./repositories/contact.repository"
+import { nusawaClient } from "../../infrastructure/nusawa/nusawa.client"
 import { ContactService } from "./contact.service"
 import { ContactController } from "./contact.controller"
 
-const contactRepository = new TypeOrmContactRepository()
-const contactService = new ContactService(contactRepository)
+const contactService = new ContactService(nusawaClient)
 
 export const contactController = new ContactController(contactService)

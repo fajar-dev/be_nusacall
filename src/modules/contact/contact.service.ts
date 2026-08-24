@@ -1,40 +1,62 @@
-import { Contact } from "./entities/contact.entity"
-import { NotFoundException } from "../../core/exceptions/base"
-import { EntityManager } from "typeorm"
-import { IContactRepository } from "./interfaces/contact.repository.interface"
-import { SortOrder } from "../../core/interfaces/base.repository.interface"
+import { NusawaClient } from "../../infrastructure/nusawa/nusawa.client"
+import { nusawaSessionRegistry } from "../../infrastructure/nusawa/nusawa-session.registry"
+import { NusawaContactsResponse } from "../../infrastructure/nusawa/nusawa.types"
+import { config } from "../../config/config"
+import { UnauthorizedException, ServiceUnavailableException } from "../../core/exceptions/base"
+import { logger } from "../../core/helpers/logger"
 
+interface ContactListParams {
+    page: number
+    limit: number
+    search?: string
+}
+
+interface CacheEntry {
+    response: NusawaContactsResponse
+    expiresAt: number
+}
+
+/**
+ * Read-only proxy over nusawa's contact list — NusaCall owns no contact
+ * data of its own. Uses the agent's own nusawa token, cached at login by
+ * `NusawaSessionRegistry` (that endpoint is gated behind agent JWT, not an
+ * API key). Missing/expired token → ask the agent to log in again.
+ */
 export class ContactService {
-    constructor(private readonly repository: IContactRepository) {}
+    private readonly cache = new Map<string, CacheEntry>()
 
-    async getAll(page: number, limit: number, q: string, sortBy?: string, order?: SortOrder): Promise<{ data: Contact[]; total: number }> {
-        return await this.repository.findAll(page, limit, q, sortBy, order)
-    }
+    constructor(private readonly nusawaClient: NusawaClient) {}
 
-    async getById(id: number): Promise<Contact> {
-        const contact = await this.repository.findById(id)
-        if (!contact) {
-            throw new NotFoundException("Contact not found")
+    async getAll(username: string, params: ContactListParams): Promise<NusawaContactsResponse> {
+        const cacheKey = `${username}:${params.page}:${params.limit}:${params.search ?? ""}`
+        const cached = this.cache.get(cacheKey)
+        if (cached && cached.expiresAt > Date.now()) {
+            return cached.response
         }
-        return contact
-    }
 
-    async create(data: Partial<Contact>): Promise<Contact> {
-        return await this.repository.save(data)
-    }
+        const nusawaToken = nusawaSessionRegistry.get(username)
+        if (!nusawaToken) {
+            throw new UnauthorizedException("Nusawa session expired — please log in again to view contacts")
+        }
 
-    async update(id: number, data: Partial<Contact>): Promise<Contact> {
-        const contact = await this.getById(id)
-        this.repository.merge(contact, data)
-        return await this.repository.save(contact)
-    }
+        let response: NusawaContactsResponse
+        try {
+            response = await this.nusawaClient.listContacts(nusawaToken, params)
+        } catch (err) {
+            const statusCode = (err as { statusCode?: number }).statusCode
+            if (statusCode === 401) {
+                nusawaSessionRegistry.clear(username)
+                throw new UnauthorizedException("Nusawa session expired — please log in again to view contacts")
+            }
+            logger.error("nusawa is unreachable while listing contacts", { err })
+            throw new ServiceUnavailableException("Contact directory (nusawa) is currently unreachable")
+        }
 
-    async delete(id: number): Promise<void> {
-        await this.getById(id)
-        await this.repository.delete(id)
-    }
+        this.cache.set(cacheKey, {
+            response,
+            expiresAt: Date.now() + config.nusawa.contactCacheTtlSeconds * 1000,
+        })
 
-    async save(data: Partial<Contact>, manager?: EntityManager): Promise<Contact> {
-        return await this.repository.save(data, manager)
+        return response
     }
 }

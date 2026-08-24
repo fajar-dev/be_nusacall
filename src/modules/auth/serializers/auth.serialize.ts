@@ -1,24 +1,17 @@
-import { User } from "../../user/entities/user.entity"
-import { minio } from "../../../core/helpers/minio"
+import { Agent } from "../../agent/entities/agent.entity"
 
 export class AuthSerializer {
-    private static async resolvePhotoUrl(photo?: string | null): Promise<string | null> {
-        if (!photo) return null
-        return await minio.getPresignedUrl(photo)
-    }
-
-    static async single(user: User) {
+    static loginResponse(agent: Agent, accessToken: string, expiresIn: number) {
         return {
-            id: user.id,
-            name: user.name,
-            photo: await this.resolvePhotoUrl(user.photo),
-            email: user.email,
-            isActive: Boolean(user.isActive),
-            hasPassword: !!user.password,
+            accessToken,
+            expiresIn,
+            tokenType: "Bearer",
+            user: {
+                username: agent.username,
+                displayName: agent.displayName,
+                role: agent.role,
+                canReceiveCalls: agent.canReceiveCalls,
+            },
         }
-    }
-
-    static async collection(users: User[]) {
-        return Promise.all(users.map(u => this.single(u)))
     }
 }

@@ -1,21 +1,21 @@
-import { Contact } from "../entities/contact.entity"
+import { NusawaContactDTO, unwrapNullString } from "../../../infrastructure/nusawa/nusawa.types"
 
 export class ContactSerializer {
-    static single(contact: Contact) {
+    static single(contact: NusawaContactDTO) {
         return {
-            id: contact.id,
-            name: contact.name,
-            salutation: contact.salutation || null,
-            email: contact.email || null,
-            phone: contact.phone || null,
-            type: contact.type,
-            isActive: Boolean(contact.isActive),
-            createdAt: contact.createdAt,
-            updatedAt: contact.updatedAt,
+            phoneNumber: contact.phone_number,
+            name: unwrapNullString(contact.name),
+            groups: unwrapNullString(contact.groups),
+            timezone: unwrapNullString(contact.timezone),
+            branchCode: unwrapNullString(contact.branch_code),
+            ownedByPhoneNumber: contact.owned_by_phone_number,
+            isGroup: contact.is_group === 1,
+            createdAt: contact.created_at,
+            updatedAt: contact.updated_at,
         }
     }
 
-    static collection(contacts: Contact[]) {
-        return contacts.map(c => this.single(c))
+    static collection(contacts: NusawaContactDTO[]) {
+        return contacts.map((c) => this.single(c))
     }
 }
