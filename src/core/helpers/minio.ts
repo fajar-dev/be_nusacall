@@ -79,6 +79,14 @@ class MinioHelper {
         return { stream, stat }
     }
 
+    /** Buffers a whole object into memory — only for small objects (e.g. transcript JSON), never recordings. */
+    async download(objectName: string, bucket: string = BUCKET): Promise<Buffer> {
+        const { stream } = await this.getObject(objectName, bucket)
+        const chunks: Buffer[] = []
+        for await (const chunk of stream) chunks.push(chunk as Buffer)
+        return Buffer.concat(chunks)
+    }
+
     /**
      * Delete an object from MinIO
      * @param objectName - The object key in the bucket

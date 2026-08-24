@@ -7,10 +7,11 @@ import { config } from "../../config/config"
 import { logger } from "../../core/helpers/logger"
 import { NotFoundException, GoneException } from "../../core/exceptions/base"
 
-/** The two MinioHelper methods this service needs — injected so tests don't hit a real bucket. */
+/** The MinioHelper methods this service needs — injected so tests don't hit a real bucket. */
 export interface IObjectStorage {
     upload(objectName: string, buffer: Buffer, contentType: string): Promise<string>
     getPresignedUrl(objectName: string, expirySeconds?: number): Promise<string>
+    download(objectName: string): Promise<Buffer>
 }
 
 export interface RecordingAvailablePayload {
@@ -71,26 +72,40 @@ export class CallRecordingService {
         })
     }
 
-    /** GET /api/call/:id/recording. */
+    /** GET /api/call/:id/recording — a presigned URL, streamed straight into an <audio> element. */
     async getRecordingUrl(callId: number): Promise<string> {
         const row = await this.repository.findByCallId(callId)
-        return this.presignedUrlFor(row, "recording", row?.recordingStatus, row?.recordingS3Key)
+        const s3Key = this.readyS3Key(row, "recording", row?.recordingStatus, row?.recordingS3Key)
+        return this.storage.getPresignedUrl(s3Key)
     }
 
-    /** GET /api/call/:id/transcript. */
-    async getTranscriptUrl(callId: number): Promise<string> {
+    /**
+     * GET /api/call/:id/transcript — parsed JSON content, not a URL. Unlike
+     * the recording, the browser needs to actually read this (speaker
+     * segments), and MinIO presigned URLs may not have CORS enabled for
+     * direct browser fetch — going through this authenticated endpoint
+     * sidesteps that entirely instead of depending on bucket CORS config.
+     */
+    async getTranscriptContent(callId: number): Promise<unknown> {
         const row = await this.repository.findByCallId(callId)
-        return this.presignedUrlFor(row, "transcript", row?.transcriptStatus, row?.transcriptS3Key)
+        const s3Key = this.readyS3Key(row, "transcript", row?.transcriptStatus, row?.transcriptS3Key)
+        const bytes = await this.storage.download(s3Key)
+        try {
+            return JSON.parse(bytes.toString("utf-8"))
+        } catch (err) {
+            logger.error("Stored transcript is not valid JSON", { callId, s3Key, err })
+            throw new NotFoundException("Transcript is corrupted")
+        }
     }
 
-    private async presignedUrlFor(
+    private readyS3Key(
         row: CallRecording | null, kind: "recording" | "transcript",
         status: RecordingArtifactStatus | undefined, s3Key: string | null | undefined,
-    ): Promise<string> {
+    ): string {
         if (!row || !status) throw new NotFoundException(`No ${kind} for this call`)
         if (status === RecordingArtifactStatus.EXPIRED) throw new GoneException(`This ${kind} expired before it could be downloaded`)
         if (status !== RecordingArtifactStatus.STORED || !s3Key) throw new NotFoundException(`${kind} is not ready yet (status: ${status})`)
-        return this.storage.getPresignedUrl(s3Key)
+        return s3Key
     }
 
     /**

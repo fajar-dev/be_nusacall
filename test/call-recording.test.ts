@@ -41,6 +41,7 @@ function fakeStorage(): { uploads: { key: string; contentType: string }[]; stora
                 return objectName
             },
             getPresignedUrl: async (objectName) => `https://fake-minio/${objectName}`,
+            download: async () => Buffer.from(JSON.stringify({ transcript: { text: "fake transcript" } })),
         },
     }
 }
@@ -177,6 +178,59 @@ describe("CallRecordingService.processDueDownloads", () => {
         expect(after.recordingStatus).toBe(RecordingArtifactStatus.PENDING) // retried next tick, not silently accepted
         expect(after.recordingError).toContain("SHA-256 mismatch")
         expect(uploads).toHaveLength(0)
+    })
+})
+
+describe("CallRecordingService.getRecordingUrl / getTranscriptContent", () => {
+    test("getRecordingUrl returns a presigned URL once STORED", async () => {
+        const wacid = "wacid.REC8"
+        const call = await seedAnsweredCall(wacid)
+        const row = await callRecordingRepository.findOrCreate(call.id, wacid)
+        await callRecordingRepository.updateRecording(row.id, { status: RecordingArtifactStatus.STORED, s3Key: "recordings/2026/08/24/x.ogg" })
+
+        const service = new CallRecordingService(callRecordingRepository, fakeMetaClient(), fakeStorage().storage)
+        const url = await service.getRecordingUrl(call.id)
+        expect(url).toContain("recordings/2026/08/24/x.ogg")
+    })
+
+    test("getTranscriptContent parses and returns the stored JSON", async () => {
+        const wacid = "wacid.REC9"
+        const call = await seedAnsweredCall(wacid)
+        const row = await callRecordingRepository.findOrCreate(call.id, wacid)
+        await callRecordingRepository.updateTranscript(row.id, { status: RecordingArtifactStatus.STORED, s3Key: "recordings/2026/08/24/x-transcript.json" })
+
+        const storage: IObjectStorage = {
+            upload: async () => "",
+            getPresignedUrl: async () => "",
+            download: async () => Buffer.from(JSON.stringify({ transcript: { text: "halo, ada yang bisa dibantu?", segments: [] } })),
+        }
+        const service = new CallRecordingService(callRecordingRepository, fakeMetaClient(), storage)
+        const content = await service.getTranscriptContent(call.id) as { transcript: { text: string } }
+        expect(content.transcript.text).toBe("halo, ada yang bisa dibantu?")
+    })
+
+    test("getTranscriptContent throws NotFound on corrupted JSON rather than returning garbage", async () => {
+        const wacid = "wacid.REC10"
+        const call = await seedAnsweredCall(wacid)
+        const row = await callRecordingRepository.findOrCreate(call.id, wacid)
+        await callRecordingRepository.updateTranscript(row.id, { status: RecordingArtifactStatus.STORED, s3Key: "recordings/2026/08/24/x-transcript.json" })
+
+        const storage: IObjectStorage = {
+            upload: async () => "", getPresignedUrl: async () => "",
+            download: async () => Buffer.from("{ not valid json"),
+        }
+        const service = new CallRecordingService(callRecordingRepository, fakeMetaClient(), storage)
+        await expect(service.getTranscriptContent(call.id)).rejects.toThrow()
+    })
+
+    test("throws Gone (410 semantics) once EXPIRED", async () => {
+        const wacid = "wacid.REC11"
+        const call = await seedAnsweredCall(wacid)
+        const row = await callRecordingRepository.findOrCreate(call.id, wacid)
+        await callRecordingRepository.updateRecording(row.id, { status: RecordingArtifactStatus.EXPIRED })
+
+        const service = new CallRecordingService(callRecordingRepository, fakeMetaClient(), fakeStorage().storage)
+        await expect(service.getRecordingUrl(call.id)).rejects.toThrow()
     })
 })
 

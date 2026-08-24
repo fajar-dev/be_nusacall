@@ -764,13 +764,20 @@ paths:
         schema: { type: integer }
     get:
       tags: [Call]
-      summary: Get a presigned download URL for this call's transcript
-      description: Same lifecycle/semantics as /call/{id}/recording, independent artifact.
+      summary: Get this call's transcript content
+      description: >-
+        Same PENDING/EXPIRED lifecycle as /call/{id}/recording, but returns the
+        parsed transcript JSON directly (Meta's documented shape: metadata,
+        transcript.text/language/confidence, transcript.segments[] with
+        speaker/channel/start/end/words) rather than a URL — the browser needs
+        to actually read this, and a MinIO presigned URL may not have CORS
+        enabled for direct fetch, so this goes through the authenticated API
+        instead of the object store directly.
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: Presigned URL retrieved
+          description: Transcript content retrieved
           content:
             application/json:
               schema:
@@ -780,8 +787,7 @@ paths:
                     properties:
                       data:
                         type: object
-                        properties:
-                          url: { type: string }
+                        description: Meta's transcript document — see description above
         "401":
           description: Unauthorized
           content:

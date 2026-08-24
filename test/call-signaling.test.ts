@@ -385,7 +385,7 @@ describe("WebhookService + CallSignalingService — terminate logging", () => {
         )
         const webhook = new WebhookService(
             callStateService, noopMedia, signaling, callRepository,
-            new CallRecordingService(new TypeOrmCallRecordingRepository(), fakeMetaClient(), { upload: async () => "", getPresignedUrl: async () => "" }),
+            new CallRecordingService(new TypeOrmCallRecordingRepository(), fakeMetaClient(), { upload: async () => "", getPresignedUrl: async () => "", download: async () => Buffer.from("") }),
         )
 
         const payload = createTerminateWebhookPayload({ wacid, status: "COMPLETED", duration: 42 })
@@ -419,7 +419,7 @@ describe("WebhookService + CallSignalingService — terminate logging", () => {
         )
         const webhook = new WebhookService(
             callStateService, noopMedia, signaling, callRepository,
-            new CallRecordingService(new TypeOrmCallRecordingRepository(), fakeMetaClient(), { upload: async () => "", getPresignedUrl: async () => "" }),
+            new CallRecordingService(new TypeOrmCallRecordingRepository(), fakeMetaClient(), { upload: async () => "", getPresignedUrl: async () => "", download: async () => Buffer.from("") }),
         )
 
         // Agent hangs up first (already logs once)...

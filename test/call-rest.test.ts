@@ -162,3 +162,27 @@ describe("GET /api/call/:id/recording", () => {
         expect(body.data.url.length).toBeGreaterThan(0)
     })
 })
+
+describe("GET /api/call/:id/transcript", () => {
+    test("requires authentication", async () => {
+        const { status } = await request(app, "/api/call/1/transcript")
+        expect(status).toBe(401)
+    })
+
+    test("404s when the call has no transcript row at all", async () => {
+        const { headers } = await createAgentAndToken()
+        const call = await seedCall()
+        const { status } = await request(app, `/api/call/${call.id}/transcript`, { headers })
+        expect(status).toBe(404)
+    })
+
+    test("410s when Meta's 7-day window passed before we downloaded it", async () => {
+        const { headers } = await createAgentAndToken()
+        const call = await seedCall()
+        await getDataSource().getRepository(CallRecording).save({
+            callId: call.id, wacid: call.wacid, transcriptStatus: RecordingArtifactStatus.EXPIRED,
+        })
+        const { status } = await request(app, `/api/call/${call.id}/transcript`, { headers })
+        expect(status).toBe(410)
+    })
+})
