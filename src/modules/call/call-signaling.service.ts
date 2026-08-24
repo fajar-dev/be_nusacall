@@ -43,6 +43,19 @@ export class CallSignalingService implements ICallSignalingNotifier {
         const decision = this.routing.decide(call, context)
 
         if (decision.kind === "reject") {
+            // pre_accept already went out (establishEarly() runs before this
+            // is ever called — see WebhookService.handleConnect) — Meta is
+            // waiting for either `accept` or `reject` next. Tearing down only
+            // our own session and never telling Meta left the caller hanging
+            // until MET's own timeout fired, surfacing as a confusing "no
+            // media received from the business" error instead of a clean
+            // decline. Best-effort: a failure here shouldn't block our own
+            // cleanup, Meta will eventually time the call out on its own.
+            try {
+                await this.metaClient.reject(call.phoneNumberId, call.wacid)
+            } catch (err) {
+                logger.error("Meta reject failed for no-agent-available call", { wacid: call.wacid, err })
+            }
             await this.callState.transition(call.wacid, CallStatus.MISSED, {
                 endReason: decision.reason ?? EndReason.NO_AGENT_AVAILABLE,
                 endedAt: new Date(),

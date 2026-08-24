@@ -141,7 +141,7 @@ describe("CallRecordingService.processDueDownloads", () => {
         const row = await callRecordingRepository.findOrCreate(call.id, wacid)
         const bytes = Buffer.from("real-audio-bytes")
         const { createHash } = await import("node:crypto")
-        const sha256 = createHash("sha256").update(bytes).digest("base64")
+        const sha256 = createHash("sha256").update(bytes).digest("hex")
         await callRecordingRepository.updateRecording(row.id, {
             status: RecordingArtifactStatus.PENDING, mediaId: "media.ok", sha256, mimeType: "audio/ogg; codecs=opus",
             availableAt: new Date(), expiresAt: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),

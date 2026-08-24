@@ -189,7 +189,7 @@ export function createRecordingAvailableWebhookPayload(overrides: RecordingAvail
             type: "audio",
             audio: {
                 id: overrides.mediaId || "media.recording1",
-                sha256: overrides.sha256 || "fakeSha256Recording==",
+                sha256: overrides.sha256 || "aaaa1111recording0000000000000000000000000000000000000000000000",
                 mime_type: overrides.mimeType || "audio/ogg; codecs=opus",
                 url: overrides.url || "https://lookaside.fbsbx.com/whatsapp_business/attachments/recording",
             },
@@ -211,7 +211,7 @@ export function createTranscriptionAvailableWebhookPayload(overrides: RecordingA
         call_transcript: {
             document: {
                 id: overrides.mediaId || "media.transcript1",
-                sha256: overrides.sha256 || "fakeSha256Transcript==",
+                sha256: overrides.sha256 || "bbbb2222transcript000000000000000000000000000000000000000000000",
                 mime_type: overrides.mimeType || "application/json",
                 url: overrides.url || "https://lookaside.fbsbx.com/whatsapp_business/attachments/transcript",
             },

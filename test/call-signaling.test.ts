@@ -169,17 +169,47 @@ describe("CallSignalingService.notifyIncoming", () => {
         expect(expiresAt).toBeGreaterThan(Date.now())
     })
 
-    test("marks the call MISSED when no agent is available", async () => {
+    test("marks the call MISSED when no agent is available, and tells Meta reject (not just local cleanup)", async () => {
         const call = await callStateService.findOrCreate("wacid.SIGMISSED1", {
             phoneNumberId: "202063559668129", waId: "628123456789",
             direction: CallDirection.INBOUND, status: CallStatus.PENDING, statusRank: 10,
         })
 
+        // Regression: pre_accept already went out by the time notifyIncoming
+        // runs (WebhookService.handleConnect calls establishEarly() first) —
+        // Meta is left waiting for accept/reject next. Only tearing down our
+        // own session and never calling Meta's reject left the caller
+        // hanging until Meta's own timeout, surfacing as a confusing "no
+        // media received from the business" error instead of a clean decline.
+        const rejectedIds: string[] = []
         const notifier = new FakeNotifier()
-        const service = new CallSignalingService(notifier, callRepository, callStateService, fakeMetaClient(), new RoutingService(), fakeNusawaClient(), fakeNusawaLog().service)
+        const service = new CallSignalingService(
+            notifier, callRepository, callStateService,
+            fakeMetaClient({ reject: async (_pn, id) => { rejectedIds.push(id); return { success: true } } }),
+            new RoutingService(), fakeNusawaClient(), fakeNusawaLog().service,
+        )
         await service.notifyIncoming(call)
 
+        expect(rejectedIds).toEqual(["wacid.SIGMISSED1"])
         const updated = await callRepository.findByWacid("wacid.SIGMISSED1")
+        expect(updated!.status).toBe(CallStatus.MISSED)
+    })
+
+    test("still marks the call MISSED even if Meta's reject call itself fails", async () => {
+        const call = await callStateService.findOrCreate("wacid.SIGMISSED2", {
+            phoneNumberId: "202063559668129", waId: "628123456789",
+            direction: CallDirection.INBOUND, status: CallStatus.PENDING, statusRank: 10,
+        })
+
+        const notifier = new FakeNotifier()
+        const service = new CallSignalingService(
+            notifier, callRepository, callStateService,
+            fakeMetaClient({ reject: async () => { throw new Error("Meta is down") } }),
+            new RoutingService(), fakeNusawaClient(), fakeNusawaLog().service,
+        )
+        await service.notifyIncoming(call)
+
+        const updated = await callRepository.findByWacid("wacid.SIGMISSED2")
         expect(updated!.status).toBe(CallStatus.MISSED)
     })
 

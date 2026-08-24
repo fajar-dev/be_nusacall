@@ -158,7 +158,11 @@ export class CallRecordingService {
             const media = await this.metaClient.getMediaUrl(mediaId)
             const bytes = await this.metaClient.downloadMedia(media.url)
 
-            const actualSha256 = createHash("sha256").update(bytes).digest("base64")
+            // Confirmed against a real webhook delivery: Meta sends this as
+            // lowercase hex, not base64 (docs said base64 — docs were wrong,
+            // or this changed). A base64 digest here made every download
+            // fail this check even when the bytes were byte-for-byte correct.
+            const actualSha256 = createHash("sha256").update(bytes).digest("hex")
             if (expectedSha256 && actualSha256 !== expectedSha256) {
                 throw new Error(`SHA-256 mismatch: expected ${expectedSha256}, got ${actualSha256}`)
             }
