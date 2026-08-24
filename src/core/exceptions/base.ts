@@ -66,3 +66,24 @@ export class ValidationException extends BaseException {
         })))
     }
 }
+
+/**
+ * NusaCall-specific additions (not in base boilerplate)
+ */
+export class GoneException extends BaseException {
+    constructor(message: string = "Resource is no longer available") {
+        super(message, 410)
+    }
+}
+
+export class BadGatewayException extends BaseException {
+    constructor(message: string = "Upstream service returned an error", errors: any = null) {
+        super(message, 502, errors)
+    }
+}
+
+export class ServiceUnavailableException extends BaseException {
+    constructor(message: string = "Service temporarily unavailable") {
+        super(message, 503)
+    }
+}
