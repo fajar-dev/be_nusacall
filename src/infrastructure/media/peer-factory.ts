@@ -27,6 +27,11 @@ export function createPeerConnection(): RTCPeerConnection {
         // no STUN server configured either, so this is the only way the
         // server advertises a reachable address. See docs/ENVIRONMENT.md.
         iceAdditionalHostAddresses: config.media.publicIp ? [config.media.publicIp] : undefined,
+        // Pins actual RTP traffic to MEDIA_UDP_PORT_MIN..MAX so a NAT/router
+        // port-forward rule targeting that same range actually covers it —
+        // without this werift picks arbitrary OS-assigned UDP ports and
+        // forwarding a fixed range wouldn't reach them.
+        icePortRange: [config.media.udpPortMin, config.media.udpPortMax],
     })
 }
 
