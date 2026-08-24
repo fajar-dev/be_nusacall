@@ -53,7 +53,7 @@ export const config = {
         appSecret: requireEnv('META_APP_SECRET'),
         verifyToken: requireEnv('META_VERIFY_TOKEN'),
         accessToken: requireEnv('META_ACCESS_TOKEN'),
-        graphVersion: process.env.META_GRAPH_VERSION || 'v18.0',
+        graphVersion: process.env.META_GRAPH_VERSION || 'v26.0',
         graphBaseUrl: process.env.META_GRAPH_BASE_URL || 'https://graph.facebook.com',
     },
 
