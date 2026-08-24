@@ -1,0 +1,24 @@
+import { PhoneNumber } from "../entities/phone-number.entity"
+
+export class PhoneNumberSerializer {
+    static single(phoneNumber: PhoneNumber) {
+        return {
+            id: phoneNumber.id,
+            phoneNumberId: phoneNumber.phoneNumberId,
+            displayPhoneNumber: phoneNumber.displayPhoneNumber,
+            label: phoneNumber.label,
+            isTestNumber: phoneNumber.isTestNumber,
+            callingEnabled: phoneNumber.callingEnabled,
+            callIconVisibility: phoneNumber.callIconVisibility,
+            callHours: phoneNumber.callHours ?? null,
+            callerWhitelist: phoneNumber.callerWhitelist,
+            answerTimeoutSeconds: phoneNumber.answerTimeoutSeconds,
+            routingStrategy: phoneNumber.routingStrategy,
+            lastSyncedAt: phoneNumber.lastSyncedAt ?? null,
+        }
+    }
+
+    static collection(phoneNumbers: PhoneNumber[]) {
+        return phoneNumbers.map((p) => this.single(p))
+    }
+}
