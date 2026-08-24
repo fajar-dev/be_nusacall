@@ -175,7 +175,17 @@ export class CallSignalingService implements ICallSignalingNotifier {
         }
 
         session.startForwarding()
-        await this.callState.transition(wacid, CallStatus.ACTIVE, { answeredAt: new Date() })
+        await this.callState.transition(wacid, CallStatus.ACTIVE, {
+            answeredAt: new Date(),
+            // Reflects what was actually requested on THIS accept() call
+            // (config.recording.*) — not just "recording is on globally
+            // right now", since that can change between calls. Without
+            // this, DetailModal's `v-if="call.recordingEnabled"` never
+            // shows the recording/transcript sections even when Meta
+            // genuinely recorded the call.
+            recordingEnabled: config.recording.recordingEnabled,
+            transcriptionEnabled: config.recording.transcriptionEnabled,
+        })
         this.notifier.send(agentUsername, packet("call_state", wacid, { status: "active" }))
     }
 

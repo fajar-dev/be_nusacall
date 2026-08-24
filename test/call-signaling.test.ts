@@ -14,6 +14,7 @@ import { CallStatus } from "../src/modules/call/enum/call-status.enum"
 import { CallDirection } from "../src/modules/call/enum/call-direction.enum"
 import { sessionRegistry } from "../src/infrastructure/media/session-registry"
 import { presenceRegistry } from "../src/modules/agent/presence.registry"
+import { config } from "../src/config/config"
 import type { ICallMediaCoordinator } from "../src/modules/call/interfaces/call-media-coordinator.interface"
 import type { MetaClient } from "../src/infrastructure/meta/meta.client"
 import type { NusawaClient } from "../src/infrastructure/nusawa/nusawa.client"
@@ -280,6 +281,33 @@ describe("CallSignalingService.handleAnswer", () => {
         const packets = notifier.packetsFor("agent1@nusa.id").map((p) => p.type)
         expect(packets).toContain("webrtc_answer")
         expect(packets).toContain("call_state")
+    })
+
+    test("stamps the Call row with recordingEnabled/transcriptionEnabled as actually requested on accept", async () => {
+        // Regression: these columns existed on the entity but nothing ever
+        // wrote to them — DetailModal's v-if="call.recordingEnabled" never
+        // showed the recording/transcript sections even when Meta genuinely
+        // recorded the call and it was sitting downloaded in MinIO.
+        const original = { recording: config.recording.recordingEnabled, transcription: config.recording.transcriptionEnabled }
+        config.recording.recordingEnabled = true
+        config.recording.transcriptionEnabled = false
+        try {
+            const wacid = "wacid.SIGANSWERRECORD1"
+            await createRingingCall(wacid)
+            const service = new CallSignalingService(
+                new FakeNotifier(), callRepository, callStateService, fakeMetaClient(),
+                new RoutingService(), fakeNusawaClient(), fakeNusawaLog().service,
+            )
+
+            await service.handleAnswer("agent1@nusa.id", wacid, await fakeBrowserOfferSdp())
+
+            const updated = await callRepository.findByWacid(wacid)
+            expect(updated!.recordingEnabled).toBe(true)
+            expect(updated!.transcriptionEnabled).toBe(false)
+        } finally {
+            config.recording.recordingEnabled = original.recording
+            config.recording.transcriptionEnabled = original.transcription
+        }
     })
 
     test("second agent to answer gets call_taken instead of stealing the call", async () => {
