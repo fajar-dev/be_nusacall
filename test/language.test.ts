@@ -1,7 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from "bun:test"
 import { Hono } from "hono"
 import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createTestApp, request } from "./setup"
-import { createUserData, resetCounters } from "./helpers"
 import en from "../src/core/i18n/en.json"
 import id from "../src/core/i18n/id.json"
 
@@ -20,8 +19,14 @@ afterAll(async () => {
 
 beforeEach(async () => {
     await cleanTestDatabase()
-    resetCounters()
 })
+
+// NOTE: These tests hit /api/agent (any authenticated route works, since
+// languageMiddleware and the global error handler run regardless of the
+// route's own logic). Success-message translation tests will return once
+// a NusaCall module with a plain ApiResponse.success() path exists — the
+// auth relay to nusawa (Milestone 1.3) is the natural candidate. See
+// docs/ROADMAP.md.
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Language Detection (Accept-Language header)
@@ -29,13 +34,13 @@ beforeEach(async () => {
 
 describe("Language detection", () => {
     test("defaults to English when Accept-Language header is not sent", async () => {
-        const { headers } = await request(app, "/api/contact")
+        const { headers } = await request(app, "/api/agent")
 
         expect(headers.get("Content-Language")).toBe("en")
     })
 
     test("uses Indonesian when Accept-Language: id is sent", async () => {
-        const { headers } = await request(app, "/api/contact", {
+        const { headers } = await request(app, "/api/agent", {
             headers: { "Accept-Language": "id" },
         })
 
@@ -43,7 +48,7 @@ describe("Language detection", () => {
     })
 
     test("uses English when Accept-Language: en is sent", async () => {
-        const { headers } = await request(app, "/api/contact", {
+        const { headers } = await request(app, "/api/agent", {
             headers: { "Accept-Language": "en" },
         })
 
@@ -51,7 +56,7 @@ describe("Language detection", () => {
     })
 
     test("resolves regional variants to the base language (id-ID -> id)", async () => {
-        const { headers } = await request(app, "/api/contact", {
+        const { headers } = await request(app, "/api/agent", {
             headers: { "Accept-Language": "id-ID,id;q=0.9" },
         })
 
@@ -59,7 +64,7 @@ describe("Language detection", () => {
     })
 
     test("falls back to English when the requested language is unsupported", async () => {
-        const { headers } = await request(app, "/api/contact", {
+        const { headers } = await request(app, "/api/agent", {
             headers: { "Accept-Language": "fr-FR,fr;q=0.9" },
         })
 
@@ -72,37 +77,8 @@ describe("Language detection", () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe("Localized response messages", () => {
-    test("success message is translated to Indonesian", async () => {
-        const userData = createUserData()
-        const { userService } = require("../src/modules/user/user.module")
-        await userService.create({ ...userData })
-
-        const { status, body } = await request(app, "/api/auth/login", {
-            method: "POST",
-            headers: { "Accept-Language": "id" },
-            body: { email: userData.email, password: userData.password },
-        })
-
-        expect(status).toBe(200)
-        expect(body.message).toBe("Berhasil masuk")
-    })
-
-    test("success message stays in English by default", async () => {
-        const userData = createUserData()
-        const { userService } = require("../src/modules/user/user.module")
-        await userService.create({ ...userData })
-
-        const { status, body } = await request(app, "/api/auth/login", {
-            method: "POST",
-            body: { email: userData.email, password: userData.password },
-        })
-
-        expect(status).toBe(200)
-        expect(body.message).toBe("Logged in successfully")
-    })
-
     test("exception message is translated to Indonesian", async () => {
-        const { status, body } = await request(app, "/api/contact", {
+        const { status, body } = await request(app, "/api/agent", {
             headers: { "Accept-Language": "id" },
         })
 
@@ -110,17 +86,11 @@ describe("Localized response messages", () => {
         expect(body.message).toBe("Header otorisasi tidak ada atau tidak valid")
     })
 
-    test("validation field messages are translated to Indonesian", async () => {
-        const { status, body } = await request(app, "/api/auth/login", {
-            method: "POST",
-            headers: { "Accept-Language": "id" },
-            body: { email: "not-an-email" },
-        })
+    test("exception message stays in English by default", async () => {
+        const { status, body } = await request(app, "/api/agent")
 
-        expect(status).toBe(422)
-        expect(body.message).toBe("Validasi gagal")
-        const emailError = body.errors.find((e: any) => e.field === "email")
-        expect(emailError.message).toBe("Email wajib diisi")
+        expect(status).toBe(401)
+        expect(body.message).toBe("Missing or invalid authorization header")
     })
 })
 

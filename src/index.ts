@@ -1,9 +1,13 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { AppDataSource } from './config/database'
-import { serveStatic } from 'hono/bun'
+import { serveStatic, websocket } from 'hono/bun'
 import { swaggerUI } from '@hono/swagger-ui'
 import api from './routes/api'
+import { webhookController } from './modules/webhook/webhook.module'
+import { signalingGateway } from './gateway/signaling.module'
+import { sessionRegistry } from './infrastructure/media/session-registry'
+import { startJobs } from './jobs'
 import { ApiResponse } from './core/helpers/response'
 import { BaseException, ValidationException } from './core/exceptions/base'
 import { ZodError } from 'zod'
@@ -14,27 +18,24 @@ import { languageMiddleware } from './core/middlewares/language.middleware'
 
 const app = new Hono()
 
-// Request Logger
 app.use('*', requestLogger)
-
-// CORS
 app.use('*', cors({
     origin: '*',
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 }))
-
-// Language Detection (Accept-Language header)
 app.use('*', languageMiddleware)
 
-// Database Connection
 AppDataSource.initialize()
-    .then(() => logger.info('Database connected successfully'))
+    .then(() => {
+        logger.info('Database connected successfully')
+        startJobs()
+    })
     .catch((err) => logger.error('Database connection failed', { err }))
 
-// Health Check (untuk load balancer, K8s, monitoring)
+// nusawa being unreachable is "degraded", not "unhealthy" — see docs/API-SPEC.md §9.
 app.get('/health', async (c) => {
     const dbConnected = AppDataSource.isInitialized
-    const status = dbConnected ? 'healthy' : 'degraded'
+    const status = dbConnected ? 'healthy' : 'unhealthy'
     const statusCode = dbConnected ? 200 : 503
 
     return c.json({
@@ -44,18 +45,34 @@ app.get('/health', async (c) => {
         environment: config.app.env,
         checks: {
             database: dbConnected ? 'connected' : 'disconnected',
-        }
+        },
+        media: {
+            activeSessions: sessionRegistry.activeCount,
+        },
     }, statusCode)
 })
 
-// Application Routes
+// Closes active media sessions before a rolling restart — the media plane
+// is stateful, a bare restart drops every active call (docs/SETUP.md §8).
+app.post('/internal/drain', async (c) => {
+    await sessionRegistry.closeAll('drain_requested')
+    return c.json({ drained: true, remainingSessions: sessionRegistry.activeCount })
+})
+
+// ── Meta Webhook (Calling API) ────────────────────────────────────────────
+// Mounted OUTSIDE /api and OUTSIDE authMiddleware — auth here is the Meta
+// signature check inside the controller itself. See docs/API-SPEC.md §7.
+app.get('/wh', (c) => webhookController.verify(c))
+app.post('/wh', (c) => webhookController.receive(c))
+
+// Softphone signaling — auth via `?token=` query string (docs/API-SPEC.md §8.1).
+app.get('/ws', signalingGateway.handler())
+
 app.route('/api', api)
 
-// Swagger UI
 app.get('/api/swagger.yaml', serveStatic({ path: './swagger.yaml' }))
 app.get('/api/docs', swaggerUI({ url: '/api/swagger.yaml' }))
 
-// Global Error Handler
 app.onError((err, c) => {
     const context = { requestId: c.get('requestId'), method: c.req.method, path: c.req.path }
 
@@ -83,4 +100,5 @@ app.onError((err, c) => {
 export default {
   port: config.app.port,
   fetch: app.fetch,
+  websocket,
 };
