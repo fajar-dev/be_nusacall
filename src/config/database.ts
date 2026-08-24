@@ -5,6 +5,7 @@ import { config } from "./config"
 import { Call } from "../modules/call/entities/call.entity"
 import { CallEvent } from "../modules/call/entities/call-event.entity"
 import { NusawaLogQueue } from "../modules/call/entities/nusawa-log-queue.entity"
+import { CallRecording } from "../modules/call/entities/call-recording.entity"
 import { PhoneNumber } from "../modules/phone-number/entities/phone-number.entity"
 import { Agent } from "../modules/agent/entities/agent.entity"
 
@@ -28,7 +29,7 @@ const defaultDataSource = new DataSource({
     // necessarily UTC), that silently corrupts every datetime round-trip.
     // "Z" forces UTC on both ends, independent of host timezone.
     timezone: "Z",
-    entities: [Call, CallEvent, NusawaLogQueue, PhoneNumber, Agent],
+    entities: [Call, CallEvent, NusawaLogQueue, CallRecording, PhoneNumber, Agent],
     migrations: [],
     subscribers: [],
 })

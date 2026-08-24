@@ -7,6 +7,8 @@ import { TypeOrmCallEventRepository } from "../src/modules/call/repositories/cal
 import { CallStateService } from "../src/modules/call/call-state.service"
 import { CallSignalingService } from "../src/modules/call/call-signaling.service"
 import { WebhookService } from "../src/modules/webhook/webhook.service"
+import { CallRecordingService } from "../src/modules/call/call-recording.service"
+import { TypeOrmCallRecordingRepository } from "../src/modules/call/repositories/call-recording.repository"
 import { RoutingService } from "../src/modules/routing/routing.service"
 import { CallStatus } from "../src/modules/call/enum/call-status.enum"
 import { CallDirection } from "../src/modules/call/enum/call-direction.enum"
@@ -381,7 +383,10 @@ describe("WebhookService + CallSignalingService — terminate logging", () => {
             notifier, callRepository, callStateService, fakeMetaClient(),
             new RoutingService(), fakeNusawaClient(), nusawaLog.service,
         )
-        const webhook = new WebhookService(callStateService, noopMedia, signaling)
+        const webhook = new WebhookService(
+            callStateService, noopMedia, signaling, callRepository,
+            new CallRecordingService(new TypeOrmCallRecordingRepository(), fakeMetaClient(), { upload: async () => "", getPresignedUrl: async () => "" }),
+        )
 
         const payload = createTerminateWebhookPayload({ wacid, status: "COMPLETED", duration: 42 })
         await webhook.process(JSON.stringify(payload))
@@ -412,7 +417,10 @@ describe("WebhookService + CallSignalingService — terminate logging", () => {
             new FakeNotifier(), callRepository, callStateService, fakeMetaClient(),
             new RoutingService(), fakeNusawaClient(), nusawaLog.service,
         )
-        const webhook = new WebhookService(callStateService, noopMedia, signaling)
+        const webhook = new WebhookService(
+            callStateService, noopMedia, signaling, callRepository,
+            new CallRecordingService(new TypeOrmCallRecordingRepository(), fakeMetaClient(), { upload: async () => "", getPresignedUrl: async () => "" }),
+        )
 
         // Agent hangs up first (already logs once)...
         await signaling.handleHangup("agent1@nusa.id", wacid)

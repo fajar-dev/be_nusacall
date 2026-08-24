@@ -170,6 +170,60 @@ export function createTerminateWebhookPayload(overrides: TerminatePayloadOverrid
     }
 }
 
+interface RecordingAvailablePayloadOverrides {
+    wacid: string
+    businessAccountId?: string
+    mediaId?: string
+    sha256?: string
+    mimeType?: string
+    url?: string
+}
+
+export function createRecordingAvailableWebhookPayload(overrides: RecordingAvailablePayloadOverrides) {
+    const businessAccountId = overrides.businessAccountId || "252757097922101"
+    const call: Record<string, unknown> = {
+        id: overrides.wacid,
+        event: "call_recording_available",
+        timestamp: String(Math.floor(Date.now() / 1000)),
+        call_recording: {
+            type: "audio",
+            audio: {
+                id: overrides.mediaId || "media.recording1",
+                sha256: overrides.sha256 || "fakeSha256Recording==",
+                mime_type: overrides.mimeType || "audio/ogg; codecs=opus",
+                url: overrides.url || "https://lookaside.fbsbx.com/whatsapp_business/attachments/recording",
+            },
+        },
+    }
+
+    return {
+        object: "whatsapp_business_account",
+        entry: [{ id: businessAccountId, changes: [{ field: "calls", value: { messaging_product: "whatsapp", calls: [call] } }] }],
+    }
+}
+
+export function createTranscriptionAvailableWebhookPayload(overrides: RecordingAvailablePayloadOverrides) {
+    const businessAccountId = overrides.businessAccountId || "252757097922101"
+    const call: Record<string, unknown> = {
+        id: overrides.wacid,
+        event: "call_transcription_available",
+        timestamp: String(Math.floor(Date.now() / 1000)),
+        call_transcript: {
+            document: {
+                id: overrides.mediaId || "media.transcript1",
+                sha256: overrides.sha256 || "fakeSha256Transcript==",
+                mime_type: overrides.mimeType || "application/json",
+                url: overrides.url || "https://lookaside.fbsbx.com/whatsapp_business/attachments/transcript",
+            },
+        },
+    }
+
+    return {
+        object: "whatsapp_business_account",
+        entry: [{ id: businessAccountId, changes: [{ field: "calls", value: { messaging_product: "whatsapp", calls: [call] } }] }],
+    }
+}
+
 // ── Response Assertions ─────────────────────────────────────────────────────
 
 export function expectSuccess(body: any, statusCode: number = 200) {

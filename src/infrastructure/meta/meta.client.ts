@@ -107,8 +107,34 @@ export class MetaClient {
             action: "accept",
             session: { sdp_type: "answer", sdp: answerSdp },
             ...(bizOpaqueCallbackData ? { biz_opaque_callback_data: bizOpaqueCallbackData } : {}),
+            ...this.recordingFields(),
         }
         return this.post(`/${phoneNumberId}/calls`, body)
+    }
+
+    /**
+     * `recording`/`transcription` on `accept` (Fase 2, docs/ROADMAP.md) —
+     * both must be requested per-call, Meta has no account-wide toggle.
+     * Omitted entirely when disabled rather than sent as `{status:
+     * "DISABLED"}`, since Meta defaults to disabled anyway.
+     */
+    private recordingFields(): Pick<MetaCallActionRequest, "recording" | "transcription"> {
+        const fields: Pick<MetaCallActionRequest, "recording" | "transcription"> = {}
+        if (config.recording.recordingEnabled) {
+            fields.recording = {
+                status: "ENABLED",
+                purpose: config.recording.purpose,
+                announcement_language: config.recording.announcementLanguage,
+            }
+        }
+        if (config.recording.transcriptionEnabled) {
+            fields.transcription = {
+                status: "ENABLED",
+                purpose: config.recording.purpose,
+                announcement_language: config.recording.announcementLanguage,
+            }
+        }
+        return fields
     }
 
     async reject(phoneNumberId: string, callId: string): Promise<MetaCallActionResponse> {
@@ -169,6 +195,28 @@ export class MetaClient {
     /** docs/INTEGRATION-META.md §5.5. */
     async getHealthStatus(phoneNumberId: string): Promise<MetaHealthStatusResponse> {
         return this.get(`/${phoneNumberId}?fields=health_status`)
+    }
+
+    /**
+     * Media API — refetches a fresh download URL by media id when the
+     * webhook's own `url` has already expired (recording: 5 min; transcript:
+     * short-lived too). Same `url`/`mime_type`/`sha256` shape either way.
+     */
+    async getMediaUrl(mediaId: string): Promise<{ url: string; mime_type: string; sha256: string; file_size?: number }> {
+        return this.get(`/${mediaId}`)
+    }
+
+    /**
+     * Downloads recording/transcript bytes from a Meta-hosted URL. NOT
+     * routed through `baseUrl()`/`post`/`get` — this is a `lookaside.fbsbx.com`
+     * asset URL, not a Graph API path, but still needs the same bearer token.
+     */
+    async downloadMedia(url: string): Promise<Buffer> {
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${config.meta.accessToken}` } })
+        if (!res.ok) {
+            throw new BadGatewayException(`Failed to download media (HTTP ${res.status})`)
+        }
+        return Buffer.from(await res.arrayBuffer())
     }
 }
 

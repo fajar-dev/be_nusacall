@@ -1,4 +1,4 @@
-import { callRepository, callEventRepository, callStateService } from "../call/call.module"
+import { callRepository, callEventRepository, callStateService, callRecordingService } from "../call/call.module"
 import { CallMediaCoordinator } from "../call/call-media.coordinator"
 import { metaClient } from "../../infrastructure/meta/meta.client"
 import { callSignalingService } from "../../gateway/signaling.module"
@@ -19,7 +19,7 @@ export function buildWebhookController(
     media: ICallMediaCoordinator = callMediaCoordinator,
     signaling: ICallSignalingNotifier = callSignalingService,
 ): WebhookController {
-    const service = new WebhookService(callStateService, media, signaling)
+    const service = new WebhookService(callStateService, media, signaling, callRepository, callRecordingService)
     return new WebhookController(service)
 }
 

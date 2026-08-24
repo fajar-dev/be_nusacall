@@ -1,12 +1,16 @@
 import { Context } from "hono"
 import { CallService } from "./call.service"
+import { CallRecordingService } from "./call-recording.service"
 import { CallSerializer } from "./serializers/call.serialize"
 import { ApiResponse } from "../../core/helpers/response"
 import { CallStatus } from "./enum/call-status.enum"
 import { SortOrder } from "../../core/interfaces/base.repository.interface"
 
 export class CallController {
-    constructor(private readonly service: CallService) {}
+    constructor(
+        private readonly service: CallService,
+        private readonly recordingService: CallRecordingService,
+    ) {}
 
     async index(c: Context) {
         const page = Number(c.req.query("page") || 1)
@@ -47,5 +51,17 @@ export class CallController {
             to: c.req.query("to") || undefined,
         })
         return ApiResponse.success(c, stats)
+    }
+
+    async recording(c: Context) {
+        const id = Number(c.req.param("id"))
+        const url = await this.recordingService.getRecordingUrl(id)
+        return ApiResponse.success(c, { url })
+    }
+
+    async transcript(c: Context) {
+        const id = Number(c.req.param("id"))
+        const url = await this.recordingService.getTranscriptUrl(id)
+        return ApiResponse.success(c, { url })
     }
 }

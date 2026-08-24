@@ -1,0 +1,216 @@
+import { describe, test, expect, beforeAll, afterAll, beforeEach } from "bun:test"
+import { initTestDatabase, destroyTestDatabase, cleanTestDatabase } from "./setup"
+import { createRecordingAvailableWebhookPayload, createTranscriptionAvailableWebhookPayload } from "./helpers"
+import { TypeOrmCallRepository } from "../src/modules/call/repositories/call.repository"
+import { TypeOrmCallEventRepository } from "../src/modules/call/repositories/call-event.repository"
+import { TypeOrmCallRecordingRepository } from "../src/modules/call/repositories/call-recording.repository"
+import { CallStateService } from "../src/modules/call/call-state.service"
+import { CallRecordingService, IObjectStorage } from "../src/modules/call/call-recording.service"
+import { RecordingArtifactStatus } from "../src/modules/call/enum/recording-artifact-status.enum"
+import { CallDirection } from "../src/modules/call/enum/call-direction.enum"
+import { CallStatus } from "../src/modules/call/enum/call-status.enum"
+import { WebhookService } from "../src/modules/webhook/webhook.service"
+import type { ICallMediaCoordinator } from "../src/modules/call/interfaces/call-media-coordinator.interface"
+import type { ICallSignalingNotifier } from "../src/modules/call/interfaces/call-signaling.interface"
+import type { MetaClient } from "../src/infrastructure/meta/meta.client"
+
+/**
+ * CallRecordingService + the webhook handlers that feed it (Fase 2,
+ * docs/ROADMAP.md). Real DB, fake Meta Media API + object storage — same
+ * split as everywhere else in this suite (real state, faked 3rd parties).
+ */
+
+const noopMedia: ICallMediaCoordinator = { establishEarly: async () => ({ ok: true }), teardown: async () => {} }
+const noopSignaling: ICallSignalingNotifier = { notifyIncoming: async () => {}, logCallOutcome: async () => {}, notifyCallEnded: () => {} }
+
+function fakeMetaClient(overrides: Partial<MetaClient> = {}): MetaClient {
+    return {
+        getMediaUrl: async (mediaId: string) => ({ url: `https://fake/${mediaId}`, mime_type: "audio/ogg; codecs=opus", sha256: "" }),
+        downloadMedia: async () => Buffer.from("fake-bytes"),
+        ...overrides,
+    } as unknown as MetaClient
+}
+
+function fakeStorage(): { uploads: { key: string; contentType: string }[]; storage: IObjectStorage } {
+    const uploads: { key: string; contentType: string }[] = []
+    return {
+        uploads,
+        storage: {
+            upload: async (objectName, _buffer, contentType) => {
+                uploads.push({ key: objectName, contentType })
+                return objectName
+            },
+            getPresignedUrl: async (objectName) => `https://fake-minio/${objectName}`,
+        },
+    }
+}
+
+let callRepository: TypeOrmCallRepository
+let callRecordingRepository: TypeOrmCallRecordingRepository
+let callStateService: CallStateService
+
+beforeAll(async () => {
+    await initTestDatabase()
+    callRepository = new TypeOrmCallRepository()
+    callRecordingRepository = new TypeOrmCallRecordingRepository()
+    callStateService = new CallStateService(callRepository, new TypeOrmCallEventRepository())
+})
+
+afterAll(async () => {
+    await destroyTestDatabase()
+})
+
+beforeEach(async () => {
+    await cleanTestDatabase()
+})
+
+async function seedAnsweredCall(wacid: string) {
+    const call = await callStateService.findOrCreate(wacid, {
+        phoneNumberId: "202063559668129", waId: "628123456789",
+        direction: CallDirection.INBOUND, status: CallStatus.PENDING, statusRank: 10,
+    })
+    await callStateService.transition(wacid, CallStatus.CONNECTING, { agentUsername: "agent1@nusa.id" })
+    await callStateService.transition(wacid, CallStatus.ACTIVE, { answeredAt: new Date() })
+    await callStateService.transition(wacid, CallStatus.COMPLETED, { endedAt: new Date() })
+    return call
+}
+
+describe("Webhook -> CallRecordingService — recording/transcript availability", () => {
+    test("call_recording_available creates a PENDING row with a ~7-day expiry", async () => {
+        const wacid = "wacid.REC1"
+        await seedAnsweredCall(wacid)
+
+        const recording = new CallRecordingService(callRecordingRepository, fakeMetaClient(), fakeStorage().storage)
+        const webhook = new WebhookService(callStateService, noopMedia, noopSignaling, callRepository, recording)
+
+        const payload = createRecordingAvailableWebhookPayload({ wacid, mediaId: "media.abc", sha256: "abc123==" })
+        await webhook.process(JSON.stringify(payload))
+
+        const row = await callRecordingRepository.findByCallId((await callRepository.findByWacid(wacid))!.id)
+        expect(row).not.toBeNull()
+        expect(row!.recordingStatus).toBe(RecordingArtifactStatus.PENDING)
+        expect(row!.recordingMediaId).toBe("media.abc")
+        expect(row!.recordingSha256).toBe("abc123==")
+        const daysUntilExpiry = (row!.recordingExpiresAt!.getTime() - Date.now()) / (24 * 60 * 60 * 1000)
+        expect(daysUntilExpiry).toBeGreaterThan(6.9)
+        expect(daysUntilExpiry).toBeLessThan(7.1)
+    })
+
+    test("call_transcription_available creates/updates the same row independently of recording", async () => {
+        const wacid = "wacid.REC2"
+        await seedAnsweredCall(wacid)
+
+        const recording = new CallRecordingService(callRecordingRepository, fakeMetaClient(), fakeStorage().storage)
+        const webhook = new WebhookService(callStateService, noopMedia, noopSignaling, callRepository, recording)
+
+        await webhook.process(JSON.stringify(createRecordingAvailableWebhookPayload({ wacid })))
+        await webhook.process(JSON.stringify(createTranscriptionAvailableWebhookPayload({ wacid, mediaId: "media.xyz" })))
+
+        const row = await callRecordingRepository.findByCallId((await callRepository.findByWacid(wacid))!.id)
+        expect(row!.recordingStatus).toBe(RecordingArtifactStatus.PENDING)
+        expect(row!.transcriptStatus).toBe(RecordingArtifactStatus.PENDING)
+        expect(row!.transcriptMediaId).toBe("media.xyz")
+    })
+
+    test("a duplicate call_recording_available webhook does not overwrite an already-processed row", async () => {
+        const wacid = "wacid.REC3"
+        const call = await seedAnsweredCall(wacid)
+
+        const recording = new CallRecordingService(callRecordingRepository, fakeMetaClient(), fakeStorage().storage)
+        const webhook = new WebhookService(callStateService, noopMedia, noopSignaling, callRepository, recording)
+
+        await webhook.process(JSON.stringify(createRecordingAvailableWebhookPayload({ wacid, mediaId: "media.first" })))
+        // Manually advance state past PENDING, as the download job would.
+        const row = (await callRecordingRepository.findByCallId(call.id))!
+        await callRecordingRepository.updateRecording(row.id, { status: RecordingArtifactStatus.STORED, s3Key: "some/key" })
+
+        // Meta redelivers the same webhook (no exactly-once guarantee).
+        await webhook.process(JSON.stringify(createRecordingAvailableWebhookPayload({ wacid, mediaId: "media.first" })))
+
+        const after = (await callRecordingRepository.findByCallId(call.id))!
+        expect(after.recordingStatus).toBe(RecordingArtifactStatus.STORED) // not reset back to PENDING
+        expect(after.recordingS3Key).toBe("some/key")
+    })
+})
+
+describe("CallRecordingService.processDueDownloads", () => {
+    test("downloads, verifies SHA-256, uploads to storage, and marks STORED", async () => {
+        const wacid = "wacid.REC4"
+        const call = await seedAnsweredCall(wacid)
+        const row = await callRecordingRepository.findOrCreate(call.id, wacid)
+        const bytes = Buffer.from("real-audio-bytes")
+        const { createHash } = await import("node:crypto")
+        const sha256 = createHash("sha256").update(bytes).digest("base64")
+        await callRecordingRepository.updateRecording(row.id, {
+            status: RecordingArtifactStatus.PENDING, mediaId: "media.ok", sha256, mimeType: "audio/ogg; codecs=opus",
+            availableAt: new Date(), expiresAt: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
+        })
+
+        const meta = fakeMetaClient({ downloadMedia: async () => bytes } as Partial<MetaClient>)
+        const { uploads, storage } = fakeStorage()
+        const service = new CallRecordingService(callRecordingRepository, meta, storage)
+
+        await service.processDueDownloads()
+
+        const after = (await callRecordingRepository.findByCallId(call.id))!
+        expect(after.recordingStatus).toBe(RecordingArtifactStatus.STORED)
+        expect(after.recordingS3Key).toContain(wacid)
+        expect(uploads).toHaveLength(1)
+    })
+
+    test("a SHA-256 mismatch is NOT stored, stays PENDING with an error for the next tick", async () => {
+        const wacid = "wacid.REC5"
+        const call = await seedAnsweredCall(wacid)
+        const row = await callRecordingRepository.findOrCreate(call.id, wacid)
+        await callRecordingRepository.updateRecording(row.id, {
+            status: RecordingArtifactStatus.PENDING, mediaId: "media.bad", sha256: "expected-does-not-match",
+            mimeType: "audio/ogg; codecs=opus", availableAt: new Date(), expiresAt: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
+        })
+
+        const meta = fakeMetaClient({ downloadMedia: async () => Buffer.from("tampered-bytes") } as Partial<MetaClient>)
+        const { uploads, storage } = fakeStorage()
+        const service = new CallRecordingService(callRecordingRepository, meta, storage)
+
+        await service.processDueDownloads()
+
+        const after = (await callRecordingRepository.findByCallId(call.id))!
+        expect(after.recordingStatus).toBe(RecordingArtifactStatus.PENDING) // retried next tick, not silently accepted
+        expect(after.recordingError).toContain("SHA-256 mismatch")
+        expect(uploads).toHaveLength(0)
+    })
+})
+
+describe("CallRecordingService.markExpired", () => {
+    test("marks a PENDING row EXPIRED once its expiry has passed", async () => {
+        const wacid = "wacid.REC6"
+        const call = await seedAnsweredCall(wacid)
+        const row = await callRecordingRepository.findOrCreate(call.id, wacid)
+        await callRecordingRepository.updateRecording(row.id, {
+            status: RecordingArtifactStatus.PENDING, mediaId: "media.toolate",
+            availableAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
+            expiresAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // expired yesterday
+        })
+
+        const service = new CallRecordingService(callRecordingRepository, fakeMetaClient(), fakeStorage().storage)
+        await service.markExpired()
+
+        const after = (await callRecordingRepository.findByCallId(call.id))!
+        expect(after.recordingStatus).toBe(RecordingArtifactStatus.EXPIRED)
+    })
+
+    test("does not touch a row that still has time left", async () => {
+        const wacid = "wacid.REC7"
+        const call = await seedAnsweredCall(wacid)
+        const row = await callRecordingRepository.findOrCreate(call.id, wacid)
+        await callRecordingRepository.updateRecording(row.id, {
+            status: RecordingArtifactStatus.PENDING, mediaId: "media.stillgood",
+            availableAt: new Date(), expiresAt: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
+        })
+
+        const service = new CallRecordingService(callRecordingRepository, fakeMetaClient(), fakeStorage().storage)
+        await service.markExpired()
+
+        const after = (await callRecordingRepository.findByCallId(call.id))!
+        expect(after.recordingStatus).toBe(RecordingArtifactStatus.PENDING)
+    })
+})

@@ -5,6 +5,8 @@ import { CallDirection, fromMetaDirection } from "../call/enum/call-direction.en
 import { EndReason } from "../call/enum/end-reason.enum"
 import { ICallMediaCoordinator } from "../call/interfaces/call-media-coordinator.interface"
 import { ICallSignalingNotifier } from "../call/interfaces/call-signaling.interface"
+import { ICallRepository } from "../call/interfaces/call.repository.interface"
+import { CallRecordingService } from "../call/call-recording.service"
 import { logger } from "../../core/helpers/logger"
 
 interface MetaCallObject {
@@ -23,6 +25,8 @@ interface MetaCallObject {
     deeplink_payload?: string
     biz_opaque_callback_data?: string
     errors?: Array<{ code: number; message?: string; error_data?: { details?: string } }>
+    call_recording?: { type: "audio"; audio: { id: string; sha256: string; mime_type: string; url: string } }
+    call_transcript?: { document: { id: string; sha256: string; mime_type: string; url: string } }
 }
 
 interface MetaStatusObject {
@@ -55,6 +59,8 @@ export class WebhookService {
         private readonly callState: CallStateService,
         private readonly media: ICallMediaCoordinator,
         private readonly signaling: ICallSignalingNotifier,
+        private readonly calls: ICallRepository,
+        private readonly recording: CallRecordingService,
     ) {}
 
     async process(rawBody: string): Promise<void> {
@@ -91,6 +97,10 @@ export class WebhookService {
                     await this.handleTerminate(callObj, metadata, businessAccountId, contacts, fullPayload)
                 } else if (callObj.event === "call_created") {
                     await this.handleCallCreated(callObj, metadata, businessAccountId, contacts, fullPayload)
+                } else if (callObj.event === "call_recording_available") {
+                    await this.handleRecordingAvailable(callObj)
+                } else if (callObj.event === "call_transcription_available") {
+                    await this.handleTranscriptAvailable(callObj)
                 } else {
                     logger.info("Unhandled call event type", { event: callObj.event, wacid: callObj.id })
                 }
@@ -283,6 +293,42 @@ export class WebhookService {
             await this.signaling.logCallOutcome(updatedCall, outcome, patch.durationSeconds ?? null)
             this.signaling.notifyCallEnded(updatedCall, patch.endReason ?? EndReason.MEDIA_FAILURE)
         }
+    }
+
+    // ── recording / transcript (Fase 2) ─────────────────────────────────
+
+    private async handleRecordingAvailable(callObj: MetaCallObject): Promise<void> {
+        const recording = callObj.call_recording?.audio
+        if (!recording) {
+            logger.warn("call_recording_available with no audio object", { wacid: callObj.id })
+            return
+        }
+        const call = await this.calls.findByWacid(callObj.id)
+        if (!call) {
+            logger.warn("call_recording_available for unknown wacid", { wacid: callObj.id })
+            return
+        }
+        await this.recording.recordingAvailable({
+            callId: call.id, wacid: callObj.id,
+            mediaId: recording.id, sha256: recording.sha256, mimeType: recording.mime_type, url: recording.url,
+        })
+    }
+
+    private async handleTranscriptAvailable(callObj: MetaCallObject): Promise<void> {
+        const transcript = callObj.call_transcript?.document
+        if (!transcript) {
+            logger.warn("call_transcription_available with no document object", { wacid: callObj.id })
+            return
+        }
+        const call = await this.calls.findByWacid(callObj.id)
+        if (!call) {
+            logger.warn("call_transcription_available for unknown wacid", { wacid: callObj.id })
+            return
+        }
+        await this.recording.transcriptAvailable({
+            callId: call.id, wacid: callObj.id,
+            mediaId: transcript.id, sha256: transcript.sha256, mimeType: transcript.mime_type, url: transcript.url,
+        })
     }
 
     private resolveTerminalState(callObj: MetaCallObject, currentStatus: CallStatus): CallStatus {

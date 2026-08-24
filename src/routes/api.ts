@@ -38,6 +38,8 @@ routes.get("/contact", authMiddleware, (c) => contactController.index(c))
 routes.get("/call", authMiddleware, (c) => callController.index(c))
 routes.get("/call/stats", authMiddleware, (c) => callController.stats(c))
 routes.get("/call/:id", authMiddleware, (c) => callController.show(c))
+routes.get("/call/:id/recording", authMiddleware, (c) => callController.recording(c))
+routes.get("/call/:id/transcript", authMiddleware, (c) => callController.transcript(c))
 
 routes.get("/phone-number", authMiddleware, (c) => phoneNumberController.index(c))
 routes.get("/phone-number/:id", authMiddleware, (c) => phoneNumberController.show(c))

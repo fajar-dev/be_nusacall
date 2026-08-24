@@ -82,4 +82,22 @@ export const config = {
         udpPortMin: Number(process.env.MEDIA_UDP_PORT_MIN) || 40000,
         udpPortMax: Number(process.env.MEDIA_UDP_PORT_MAX) || 40100,
     },
+
+    // ── Rekaman & transkrip panggilan (Fase 2) ────────────────────────────
+    recording: {
+        // Both must be requested per-call on the `accept` request (Meta has
+        // no account-wide toggle) — see docs/INTEGRATION-META.md §7.
+        recordingEnabled: process.env.CALL_RECORDING_ENABLED === 'true',
+        transcriptionEnabled: process.env.CALL_TRANSCRIPTION_ENABLED === 'true',
+        // Spoken to both parties before recording/transcription starts.
+        purpose: process.env.CALL_RECORDING_PURPOSE || 'quality assurance',
+        // Meta's documented example uses en_US; verify locale support before
+        // switching (docs/ROADMAP.md Fase 2 risk: "announcement tidak ada
+        // Bahasa Indonesia").
+        announcementLanguage: process.env.CALL_RECORDING_ANNOUNCEMENT_LANGUAGE || 'en_US',
+        // Meta deletes the media 7 days after the *_available webhook fires
+        // — this is fixed by Meta, not configurable.
+        metaRetentionDays: 7,
+        downloadJobIntervalMinutes: Number(process.env.RECORDING_DOWNLOAD_INTERVAL_MINUTES) || 5,
+    },
 }

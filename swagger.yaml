@@ -709,6 +709,95 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
 
+  /call/{id}/recording:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [Call]
+      summary: Get a presigned download URL for this call's recording
+      description: >-
+        Only returns a URL once the recording has been downloaded from Meta and
+        stored in MinIO (Fase 2). 404 if not requested/not ready yet, 410 if
+        Meta's 7-day retention window passed before we could download it.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Presigned URL retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          url: { type: string }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: No recording, or not downloaded yet
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "410":
+          description: Expired — Meta deleted the media before we downloaded it
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /call/{id}/transcript:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [Call]
+      summary: Get a presigned download URL for this call's transcript
+      description: Same lifecycle/semantics as /call/{id}/recording, independent artifact.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Presigned URL retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          url: { type: string }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: No transcript, or not downloaded yet
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "410":
+          description: Expired — Meta deleted the media before we downloaded it
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
   # ── Phone Number Admin ───────────────────────────────────────────────────
   /phone-number:
     parameters:
