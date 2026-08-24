@@ -17,7 +17,7 @@ Kamu adalah AI agent yang bekerja pada proyek **Hono BE Backend Boilerplate**. P
 - ORM: TypeORM (bukan Drizzle, bukan Prisma)
 - Validation: Zod + @hono/zod-validator
 - Auth: JWT via hono/jwt (bukan jsonwebtoken)
-- Database: PostgreSQL / MySQL (via DB_TYPE env)
+- Database: MySQL (via DB_HOST/DB_PORT/DB_USER/DB_PASS/DB_NAME env)
 - Email: Nodemailer
 - Object Storage: MinIO
 
@@ -215,7 +215,7 @@ Setiap perubahan **WAJIB** disertai test E2E.
 ### Menjalankan Test
 
 ```bash
-DB_TYPE=mysql bun test
+DB_TEST_NAME=nusacall_test bun test
 ```
 
 ### Checklist Testing untuk Fitur Baru

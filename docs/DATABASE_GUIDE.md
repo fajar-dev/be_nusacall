@@ -8,14 +8,10 @@ Dokumen ini menjelaskan standar dan panduan untuk entity, repository, TypeORM, d
 
 | Database | Driver | Default Port |
 |----------|--------|-------------|
-| PostgreSQL | `pg` | 5432 |
 | MySQL | `mysql2` | 3306 |
 
-Pemilihan database dikonfigurasi via environment variable `DB_TYPE`:
-
-```env
-DB_TYPE=postgres   # atau mysql
-```
+MySQL adalah satu-satunya database yang didukung — `type: "mysql"` di-hardcode di
+`src/config/database.ts`, tidak ada environment variable untuk memilih database lain.
 
 ---
 
@@ -25,14 +21,14 @@ DB_TYPE=postgres   # atau mysql
 
 ```typescript
 export const AppDataSource = new DataSource({
-    type: config.database.type,     // "postgres" | "mysql"
+    type: "mysql",
     host: config.database.host,
     port: config.database.port,
     username: config.database.user,
     password: config.database.pass,
     database: config.database.name,
     synchronize: config.database.sync,  // true = auto-sync schema
-    entities: [User, Contact],          // ← Daftarkan semua entity di sini
+    entities: [Call, CallEvent, NusawaLogQueue, PhoneNumber, Agent],  // ← Daftarkan semua entity di sini
     migrations: [],
     subscribers: [],
 })

@@ -112,7 +112,7 @@ hono-be/
 ├── .gitignore                               # Git ignore rules
 ├── .dockerignore                            # Docker ignore rules
 ├── Dockerfile                               # 🐳 Multi-stage Docker build
-├── docker-compose.yaml                      # 🐳 App + PostgreSQL compose
+├── docker-compose.yaml                      # 🐳 App + MySQL compose
 ├── ecosystem.config.js                      # 🔄 PM2 process manager config
 ├── package.json                             # 📦 Dependencies & scripts
 ├── bun.lock                                 # 🔒 Bun lockfile
@@ -258,24 +258,33 @@ src/core/middlewares/auth.middleware.ts
 |---------|-------|--------|
 | `hono` | ^4.12.8 | Web framework |
 | `@hono/swagger-ui` | ^0.6.1 | Swagger UI middleware |
+| `swagger-ui-dist` | ^5.32.14 | Swagger UI assets (peer dep dari `@hono/swagger-ui`) |
 | `@hono/zod-validator` | ^0.7.6 | Zod validation untuk Hono |
 | `zod` | ^4.3.6 | Schema validation |
 | `typeorm` | ^0.3.28 | ORM |
 | `reflect-metadata` | ^0.2.2 | Required by TypeORM decorators |
-| `pg` | ^8.16.0 | PostgreSQL driver |
-| `mysql2` | ^3.20.0 | MySQL driver |
-| `bcryptjs` | ^3.0.3 | Password hashing |
-| `nodemailer` | ^8.0.3 | Email sending |
-| `google-auth-library` | ^10.7.0 | Google OAuth |
+| `mysql2` | ^3.20.0 | MySQL driver (satu-satunya driver DB — lihat docs/DATABASE_GUIDE.md) |
+| `werift` | ^0.24.4 | WebRTC (media bridge) |
 | `minio` | ^8.0.7 | MinIO object storage client |
 
 ### Dev Dependencies
 
 | Package | Versi | Fungsi |
 |---------|-------|--------|
+| `typescript` | ^5.7.0 | Compiler — pinned ke 5.x (lihat catatan versi di bawah) |
 | `@types/bun` | latest | Bun type definitions |
-| `@types/bcryptjs` | ^3.0.0 | bcryptjs type definitions |
-| `@types/nodemailer` | ^7.0.11 | Nodemailer type definitions |
+| `@types/multicast-dns` | ^7.2.4 | Type declarations untuk dependency transitif `werift` |
+| `@types/swagger-ui-dist` | ^3.30.6 | Type declarations untuk `swagger-ui-dist` |
+
+> **Catatan versi TypeScript:** `typescript` sengaja di-pin ke rilis 5.x sebagai
+> devDependency langsung. Tanpa ini, `bunx tsc` mengunduh rilis **terbaru** setiap kali
+> dijalankan (termasuk TypeScript 7, port Go yang baru) — versi itu gagal me-resolve
+> ambient types `bun:test` dari `bun-types`. Jangan hapus entri ini demi "ngirit
+> dependency"; itu yang bikin `bunx tsc --noEmit` tampak rusak padahal kodenya tidak.
+> `bunx` ternyata masih **kadang** mengambil rilis terbaru meski entri ini ada (perilaku
+> resolusinya sendiri tidak selalu konsisten) — kalau `bunx tsc --noEmit` tiba-tiba
+> menampilkan teks bantuan generik atau `Version 7.x`, jalankan
+> `./node_modules/.bin/tsc --noEmit` langsung untuk memaksa memakai binary yang ter-pin.
 
 ---
 

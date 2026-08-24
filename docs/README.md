@@ -43,7 +43,7 @@ bun run start
 - **Runtime**: Bun
 - **Framework**: Hono
 - **ORM**: TypeORM
-- **Database**: PostgreSQL / MySQL
+- **Database**: MySQL
 - **Validation**: Zod + @hono/zod-validator
 - **Auth**: JWT (HS256) via hono/jwt
 - **Email**: Nodemailer (SMTP)

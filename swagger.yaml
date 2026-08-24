@@ -1,24 +1,31 @@
 openapi: 3.0.0
 info:
-  title: Hono BE API
+  title: NusaCall API
   description: >-
-    API Documentation for Hono BE Backend Service.
+    API Documentation for NusaCall — the WhatsApp Business Calling backend for Nusanet.
+    NusaCall owns calling only (signaling, media, routing); nusawa remains the source of
+    truth for agent identity and contacts. The frontend never talks to nusawa directly —
+    every nusawa call is relayed through this backend. See docs/INTEGRATION-NUSAWA.md.
     Language is detected from the `Accept-Language` header (`en` default, `id` supported)
     and echoed back via the `Content-Language` response header on every response.
-  version: 2.0.0
+  version: 1.0.0
 servers:
-  - url: http://localhost:4000/api
+  - url: http://localhost:4100/api
     description: Local development server
   - url: /api
     description: Relative API server
 
 tags:
   - name: Auth
-    description: Registration, login, session, and password management
+    description: Login/logout — relays credentials to nusawa, issues a NusaCall JWT
+  - name: Agent
+    description: Agent roster, presence, and call-receiving eligibility
   - name: Contact
-    description: Contact CRUD
-  - name: User
-    description: User CRUD (admin/management)
+    description: Read-only proxy over nusawa's contact directory
+  - name: Call
+    description: Call history and stats
+  - name: Phone Number
+    description: Per-number calling configuration, synced to Meta
   - name: Upload
     description: File upload & retrieval via MinIO object storage
 
@@ -28,7 +35,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: "JWT access token. Expires in 15 minutes."
+      description: "NusaCall-issued JWT access token. Expires in 8 hours."
 
   parameters:
     AcceptLanguage:
@@ -80,98 +87,8 @@ components:
             type: object
             properties:
               field: { type: string, example: "email" }
-              message: { type: string, example: "Invalid email format" }
+              message: { type: string, example: "email is required" }
 
-    # --- Auth Schemas ---
-    LoginRequest:
-      type: object
-      required: [email, password]
-      properties:
-        email: { type: string, format: email, example: "budi@example.com" }
-        password: { type: string, example: "secret123" }
-
-    GoogleLoginRequest:
-      type: object
-      required: [code]
-      properties:
-        code: { type: string, example: "4/0AX4XfWh..." }
-
-
-    # --- Auth User Schema (response shape from AuthSerializer) ---
-    AuthUser:
-      type: object
-      properties:
-        id: { type: integer, example: 1 }
-        name: { type: string, example: "Budi Santoso" }
-        photo: { type: string, nullable: true, example: "https://cdn.example.com/photo.jpg" }
-        email: { type: string, format: email, example: "budi@example.com" }
-        isActive: { type: boolean, example: true }
-        hasPassword:
-          type: boolean
-          description: Whether the account has a password set (false for Google-only accounts)
-          example: true
-
-    AuthResponse:
-      type: object
-      properties:
-        user: { $ref: "#/components/schemas/AuthUser" }
-        accessToken:
-          type: string
-          description: "JWT access token, expires in 15 minutes"
-          example: "eyJhbGciOiJIUzI1NiIs..."
-        refreshToken:
-          type: string
-          description: "JWT refresh token, expires in 7 days"
-          example: "eyJhbGciOiJIUzI1NiIs..."
-
-
-    # --- Contact Schemas ---
-    Salutation:
-      type: string
-      enum: [mr, mrs]
-      example: mr
-
-    ContactType:
-      type: string
-      enum: [customer, vendor, supplier, other]
-      default: customer
-      example: customer
-
-    Contact:
-      type: object
-      properties:
-        id: { type: integer, example: 1 }
-        name: { type: string, example: "John Doe" }
-        salutation: { allOf: [{ $ref: "#/components/schemas/Salutation" }], nullable: true }
-        email: { type: string, format: email, nullable: true, example: "john@example.com" }
-        phone: { type: string, nullable: true, example: "081234567890" }
-        type: { $ref: "#/components/schemas/ContactType" }
-        isActive: { type: boolean, example: true }
-        createdAt: { type: string, format: date-time, example: "2026-06-01T08:00:00.000Z" }
-        updatedAt: { type: string, format: date-time, example: "2026-06-01T08:00:00.000Z" }
-
-    CreateContactRequest:
-      type: object
-      required: [name]
-      properties:
-        name: { type: string, example: "John Doe" }
-        salutation: { allOf: [{ $ref: "#/components/schemas/Salutation" }], nullable: true }
-        email: { type: string, format: email, example: "john@example.com" }
-        phone: { type: string, example: "081234567890" }
-        type: { $ref: "#/components/schemas/ContactType" }
-        isActive: { type: boolean, default: true, example: true }
-
-    UpdateContactRequest:
-      type: object
-      properties:
-        name: { type: string, example: "John Doe" }
-        salutation: { allOf: [{ $ref: "#/components/schemas/Salutation" }], nullable: true }
-        email: { type: string, format: email, nullable: true, example: "john@example.com" }
-        phone: { type: string, nullable: true, example: "081234567890" }
-        type: { $ref: "#/components/schemas/ContactType" }
-        isActive: { type: boolean, example: true }
-
-    # --- User Schemas (response shape from UserSerializer, distinct from AuthUser) ---
     PaginationMeta:
       type: object
       properties:
@@ -182,34 +99,171 @@ components:
         from: { type: integer, example: 1 }
         to: { type: integer, example: 10 }
 
-    User:
+    # --- Auth Schemas ---
+    LoginRequest:
+      type: object
+      required: [email, password]
+      description: >-
+        The agent's Nusawork email/password. Relayed server-side to nusawa's own
+        POST /api/login, then validated via GET /api/me — never called from the browser.
+      properties:
+        email: { type: string, format: email, example: "agent@nusa.id" }
+        password: { type: string, example: "secret123" }
+
+    AuthUser:
+      type: object
+      properties:
+        username: { type: string, example: "agent@nusa.id" }
+        displayName: { type: string, nullable: true, example: "Budi Santoso" }
+        role: { type: string, nullable: true, example: "agent" }
+        canReceiveCalls: { type: boolean, example: true }
+
+    AuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: "NusaCall JWT, expires in 8 hours (28800s)"
+          example: "eyJhbGciOiJIUzI1NiIs..."
+        expiresIn: { type: integer, example: 28800 }
+        tokenType: { type: string, example: "Bearer" }
+        user: { $ref: "#/components/schemas/AuthUser" }
+
+    # --- Agent Schemas ---
+    Agent:
+      type: object
+      properties:
+        username: { type: string, example: "agent@nusa.id" }
+        displayName: { type: string, nullable: true, example: "Budi Santoso" }
+        role: { type: string, nullable: true, example: "agent" }
+        canReceiveCalls: { type: boolean, example: true }
+        availability:
+          type: string
+          enum: [available, busy, away, offline]
+          description: Live presence — "offline" if the agent has no active WebSocket connection.
+          example: available
+        currentCallId: { type: integer, nullable: true, example: null }
+        totalCallsHandled: { type: integer, example: 12 }
+        lastSeenAt: { type: string, format: date-time, nullable: true, example: "2026-08-23T08:00:00.000Z" }
+
+    UpdateAgentRequest:
+      type: object
+      required: [canReceiveCalls]
+      properties:
+        canReceiveCalls: { type: boolean, example: true }
+
+    SetAvailabilityRequest:
+      type: object
+      required: [availability]
+      properties:
+        availability: { type: string, enum: [available, busy, away, offline], example: away }
+
+    # --- Contact Schemas (mapped from nusawa's ContactDTO — see docs/INTEGRATION-NUSAWA.md §3.6) ---
+    Contact:
+      type: object
+      properties:
+        phoneNumber: { type: string, example: "628123456789" }
+        name: { type: string, nullable: true, example: "Budi Santoso" }
+        groups: { type: string, nullable: true, example: null }
+        timezone: { type: string, nullable: true, example: null }
+        branchCode: { type: string, nullable: true, example: null }
+        ownedByPhoneNumber: { type: string, example: "628990000000" }
+        isGroup: { type: boolean, example: false }
+        createdAt: { type: string, format: date-time, example: "2026-08-20T00:00:00.000Z" }
+        updatedAt: { type: string, format: date-time, example: "2026-08-20T00:00:00.000Z" }
+
+    # --- Call Schemas ---
+    CallStatus:
+      type: string
+      enum: [pending, ringing, connecting, active, completed, missed, rejected, failed, abandoned]
+
+    Call:
+      type: object
+      properties:
+        id: { type: integer, example: 4821 }
+        wacid: { type: string, example: "wacid.ABGGFjFVU2AfAgo6V" }
+        phoneNumberId: { type: string, example: "202063559668129" }
+        displayPhoneNumber: { type: string, nullable: true, example: "+62 819-8543-21" }
+        waId: { type: string, example: "628123456789" }
+        profileName: { type: string, nullable: true, example: "Budi" }
+        contactName: { type: string, nullable: true, example: "Budi Santoso" }
+        inboxId: { type: string, nullable: true, example: "12345" }
+        agentUsername: { type: string, nullable: true, example: "agent@nusa.id" }
+        direction: { type: string, enum: [inbound, outbound] }
+        status: { $ref: "#/components/schemas/CallStatus" }
+        endReason: { type: string, nullable: true, example: "customer_hangup" }
+        errorCode: { type: integer, nullable: true }
+        errorMessage: { type: string, nullable: true }
+        ringingAt: { type: string, format: date-time, nullable: true }
+        answeredAt: { type: string, format: date-time, nullable: true }
+        endedAt: { type: string, format: date-time, nullable: true }
+        durationSeconds: { type: integer, nullable: true, example: 135 }
+        setupDurationMs: { type: integer, nullable: true }
+        recordingEnabled: { type: boolean }
+        transcriptionEnabled: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    CallStats:
+      type: object
+      properties:
+        total: { type: integer, example: 42 }
+        answered: { type: integer, example: 35 }
+        missed: { type: integer, example: 5 }
+        rejected: { type: integer, example: 1 }
+        failed: { type: integer, example: 1 }
+        avgDurationSeconds: { type: number, nullable: true, example: 128.4 }
+        avgSetupMs: { type: number, nullable: true, example: 1100 }
+        answerRate: { type: number, nullable: true, example: 0.833, description: "answered / total, null when total is 0" }
+
+    # --- Phone Number Schemas ---
+    CallHoursDay:
+      type: object
+      properties:
+        day_of_week: { type: string, enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY] }
+        open_time: { type: string, example: "0800" }
+        close_time: { type: string, example: "1700" }
+
+    CallHours:
+      type: object
+      nullable: true
+      properties:
+        status: { type: string, enum: [ENABLED, DISABLED] }
+        timezone_id: { type: string, example: "Asia/Jakarta" }
+        weekly_operating_hours: { type: array, items: { $ref: "#/components/schemas/CallHoursDay" } }
+        holiday_schedule:
+          type: array
+          items:
+            type: object
+            properties:
+              date: { type: string, example: "2026-12-25" }
+              start_time: { type: string, example: "0000" }
+              end_time: { type: string, example: "2359" }
+
+    PhoneNumber:
       type: object
       properties:
         id: { type: integer, example: 1 }
-        name: { type: string, example: "John Doe" }
-        photo: { type: string, nullable: true, example: "https://cdn.example.com/photo.jpg" }
-        email: { type: string, format: email, example: "john@example.com" }
-        isActive: { type: boolean, example: true }
-        createdAt: { type: string, format: date-time, example: "2026-06-01T08:00:00.000Z" }
+        phoneNumberId: { type: string, example: "202063559668129" }
+        displayPhoneNumber: { type: string, example: "+62 819-8543-21" }
+        label: { type: string, example: "Helpdesk Medan" }
+        isTestNumber: { type: boolean }
+        callingEnabled: { type: boolean }
+        callIconVisibility: { type: string, enum: [DEFAULT, DISABLE_ALL] }
+        callHours: { $ref: "#/components/schemas/CallHours" }
+        callerWhitelist: { type: array, items: { type: string }, example: ["628123456789"] }
+        answerTimeoutSeconds: { type: integer, example: 20 }
+        routingStrategy: { type: string, example: "pic_then_queue" }
+        lastSyncedAt: { type: string, format: date-time, nullable: true }
 
-    CreateUserRequest:
-      type: object
-      required: [name, email, password]
-      properties:
-        name: { type: string, example: "John Doe" }
-        email: { type: string, format: email, example: "john@example.com" }
-        password: { type: string, minLength: 6, example: "secret123" }
-        photo: { type: string, nullable: true, example: "users/abc-123.png" }
-        isActive: { type: boolean, default: true, example: true }
-
-    UpdateUserRequest:
+    UpdatePhoneNumberRequest:
       type: object
       properties:
-        name: { type: string, example: "John Doe" }
-        email: { type: string, format: email, example: "john@example.com" }
-        password: { type: string, minLength: 6, example: "newSecret123" }
-        photo: { type: string, nullable: true, example: "users/abc-123.png" }
-        isActive: { type: boolean, example: true }
+        label: { type: string }
+        callingEnabled: { type: boolean }
+        callIconVisibility: { type: string, enum: [DEFAULT, DISABLE_ALL] }
+        answerTimeoutSeconds: { type: integer, minimum: 5, maximum: 25 }
+        callHours: { $ref: "#/components/schemas/CallHours" }
+        callerWhitelist: { type: array, items: { type: string } }
 
 paths:
   # ── Login ─────────────────────────────────────────────────────────────────
@@ -218,7 +272,7 @@ paths:
       - $ref: "#/components/parameters/AcceptLanguage"
     post:
       tags: [Auth]
-      summary: Login with email and password
+      summary: Login with the agent's Nusawork email and password
       requestBody:
         required: true
         content:
@@ -238,7 +292,7 @@ paths:
                     properties:
                       data: { $ref: "#/components/schemas/AuthResponse" }
         "401":
-          description: User not registered, account inactive, or invalid credentials
+          description: Invalid email/password, or the nusawa account is inactive
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -247,40 +301,11 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ValidationError" }
-
-  # ── Google Login ──────────────────────────────────────────────────────────
-  /auth/google:
-    parameters:
-      - $ref: "#/components/parameters/AcceptLanguage"
-    post:
-      tags: [Auth]
-      summary: Login with Google OAuth
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/GoogleLoginRequest" }
-      responses:
-        "200":
-          description: Logged in successfully
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/BaseResponse"
-                  - type: object
-                    properties:
-                      data: { $ref: "#/components/schemas/AuthResponse" }
-        "400":
-          description: User not registered or account inactive
+        "503":
+          description: nusawa (identity provider) is currently unreachable
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
-        "422":
-          description: Validation error
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ValidationError" }
 
   # ── Logout ───────────────────────────────────────────────────────────────
   /auth/logout:
@@ -288,7 +313,8 @@ paths:
       - $ref: "#/components/parameters/AcceptLanguage"
     post:
       tags: [Auth]
-      summary: Logout current user
+      summary: Logout the current agent
+      description: Clears live presence and the cached nusawa session used for the contact directory.
       security:
         - bearerAuth: []
       responses:
@@ -303,13 +329,39 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
 
-  # ── Contact List ─────────────────────────────────────────────────────────
-  /contact:
+  # ── Current Agent ────────────────────────────────────────────────────────
+  /auth/me:
     parameters:
       - $ref: "#/components/parameters/AcceptLanguage"
     get:
-      tags: [Contact]
-      summary: Get all contacts (paginated)
+      tags: [Auth]
+      summary: Get the currently authenticated agent's profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Agent profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Agent" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  # ── Agent Roster ─────────────────────────────────────────────────────────
+  /agent:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+    get:
+      tags: [Agent]
+      summary: Get all agents (paginated)
       security:
         - bearerAuth: []
       parameters:
@@ -321,15 +373,183 @@ paths:
           schema: { type: integer, default: 10 }
         - name: q
           in: query
-          description: Search by name, email, or phone
+          description: Search by username or display name
           schema: { type: string }
-        - name: sortBy
+      responses:
+        "200":
+          description: Agents retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Agent" }
+                      meta: { $ref: "#/components/schemas/PaginationMeta" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /agent/available:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+    get:
+      tags: [Agent]
+      summary: Get agents eligible for calls AND currently online
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Available agents retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Agent" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /agent/me:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+    get:
+      tags: [Agent]
+      summary: Get the currently authenticated agent's profile (alias of /auth/me)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Agent profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Agent" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /agent/me/availability:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+    put:
+      tags: [Agent]
+      summary: Set the current agent's own availability
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SetAvailabilityRequest" }
+      responses:
+        "200":
+          description: Availability updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          availability: { type: string, enum: [available, busy, away, offline] }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationError" }
+
+  /agent/{username}:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+      - name: username
+        in: path
+        required: true
+        schema: { type: string }
+    put:
+      tags: [Agent]
+      summary: Set another agent's call-receiving eligibility (admin/manager action)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateAgentRequest" }
+      responses:
+        "200":
+          description: Agent updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Agent" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationError" }
+
+  # ── Contact List (read-only proxy over nusawa) ──────────────────────────
+  /contact:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+    get:
+      tags: [Contact]
+      summary: Get the agent's contact list (paginated), proxied from nusawa
+      description: >-
+        Read-only. NusaCall owns no contact data of its own — this relays to nusawa's
+        GET /api/contacts using the agent's own nusawa session, captured at login time.
+        Results are cached in-memory per agent for a short TTL (NUSAWA_CONTACT_CACHE_TTL,
+        default 30s). If the cached nusawa session has expired, the agent must log in
+        again — there is no password on hand to silently re-authenticate with.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
           in: query
-          description: "Column to sort by. Falls back to id if omitted or not sortable."
-          schema: { type: string, enum: [name, email, phone, type, isActive, createdAt] }
-        - name: order
+          schema: { type: integer, default: 1 }
+        - name: limit
           in: query
-          schema: { type: string, enum: [ASC, DESC], default: DESC }
+          schema: { type: integer, default: 10 }
+        - name: search
+          in: query
+          description: Search by contact name or phone number
+          schema: { type: string }
       responses:
         "200":
           description: Contacts retrieved successfully
@@ -345,145 +565,23 @@ paths:
                         items: { $ref: "#/components/schemas/Contact" }
                       meta: { $ref: "#/components/schemas/PaginationMeta" }
         "401":
-          description: Unauthorized
+          description: Unauthorized, or the cached nusawa session has expired (re-login required)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "503":
+          description: nusawa (contact directory) is currently unreachable
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
 
-    # ── Contact Create ───────────────────────────────────────────────────────
-    post:
-      tags: [Contact]
-      summary: Create a new contact
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/CreateContactRequest" }
-      responses:
-        "201":
-          description: Contact created successfully
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/BaseResponse"
-                  - type: object
-                    properties:
-                      data: { $ref: "#/components/schemas/Contact" }
-        "401":
-          description: Unauthorized
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ErrorResponse" }
-        "422":
-          description: Validation error
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ValidationError" }
-
-  # ── Contact Detail / Update / Delete ─────────────────────────────────────
-  /contact/{id}:
-    parameters:
-      - $ref: "#/components/parameters/AcceptLanguage"
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer }
-    get:
-      tags: [Contact]
-      summary: Get contact by ID
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Contact retrieved successfully
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/BaseResponse"
-                  - type: object
-                    properties:
-                      data: { $ref: "#/components/schemas/Contact" }
-        "401":
-          description: Unauthorized
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ErrorResponse" }
-        "404":
-          description: Contact not found
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ErrorResponse" }
-
-    put:
-      tags: [Contact]
-      summary: Update a contact
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/UpdateContactRequest" }
-      responses:
-        "200":
-          description: Contact updated successfully
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/BaseResponse"
-                  - type: object
-                    properties:
-                      data: { $ref: "#/components/schemas/Contact" }
-        "401":
-          description: Unauthorized
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ErrorResponse" }
-        "404":
-          description: Contact not found
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ErrorResponse" }
-        "422":
-          description: Validation error
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ValidationError" }
-
-    delete:
-      tags: [Contact]
-      summary: Delete a contact
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Contact deleted successfully
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/BaseResponse" }
-        "401":
-          description: Unauthorized
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ErrorResponse" }
-        "404":
-          description: Contact not found
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ErrorResponse" }
-
-  # ── User List ────────────────────────────────────────────────────────────
-  /user:
+  # ── Call History ─────────────────────────────────────────────────────────
+  /call:
     parameters:
       - $ref: "#/components/parameters/AcceptLanguage"
     get:
-      tags: [User]
-      summary: Get all users (paginated)
+      tags: [Call]
+      summary: Get call history (paginated, filterable)
       security:
         - bearerAuth: []
       parameters:
@@ -495,22 +593,36 @@ paths:
           schema: { type: integer, default: 10 }
         - name: q
           in: query
-          description: Search by name or email
+          description: Search by wa_id, contact name, or wacid
           schema: { type: string }
-        - name: isActive
+        - name: status
           in: query
-          description: Filter by status ("1" = active, "0" = inactive)
-          schema: { type: string, enum: ["1", "0"] }
+          description: Comma-separated statuses, e.g. "missed,rejected"
+          schema: { type: string }
+        - name: direction
+          in: query
+          schema: { type: string, enum: [inbound, outbound] }
+        - name: agentUsername
+          in: query
+          schema: { type: string }
+        - name: phoneNumberId
+          in: query
+          schema: { type: string }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
         - name: sortBy
           in: query
-          description: "Column to sort by. Falls back to id if omitted or not sortable."
-          schema: { type: string, enum: [name, email, isActive, createdAt] }
+          schema: { type: string, enum: [createdAt, answeredAt, endedAt, durationSeconds] }
         - name: order
           in: query
           schema: { type: string, enum: [ASC, DESC], default: DESC }
       responses:
         "200":
-          description: Users retrieved successfully
+          description: Calls retrieved successfully
           content:
             application/json:
               schema:
@@ -520,7 +632,7 @@ paths:
                     properties:
                       data:
                         type: array
-                        items: { $ref: "#/components/schemas/User" }
+                        items: { $ref: "#/components/schemas/Call" }
                       meta: { $ref: "#/components/schemas/PaginationMeta" }
         "401":
           description: Unauthorized
@@ -528,19 +640,27 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
 
-    post:
-      tags: [User]
-      summary: Create a new user
+  /call/stats:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+    get:
+      tags: [Call]
+      summary: Aggregate call stats (total, answered, missed, answer rate, ...)
       security:
         - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/CreateUserRequest" }
+      parameters:
+        - name: phoneNumberId
+          in: query
+          schema: { type: string }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
       responses:
-        "201":
-          description: User created successfully
+        "200":
+          description: Stats retrieved successfully
           content:
             application/json:
               schema:
@@ -548,25 +668,14 @@ paths:
                   - $ref: "#/components/schemas/BaseResponse"
                   - type: object
                     properties:
-                      data: { $ref: "#/components/schemas/User" }
-        "400":
-          description: Email already in use
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ErrorResponse" }
+                      data: { $ref: "#/components/schemas/CallStats" }
         "401":
           description: Unauthorized
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
-        "422":
-          description: Validation error
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ValidationError" }
 
-  # ── User Detail / Update / Delete ────────────────────────────────────────
-  /user/{id}:
+  /call/{id}:
     parameters:
       - $ref: "#/components/parameters/AcceptLanguage"
       - name: id
@@ -574,13 +683,13 @@ paths:
         required: true
         schema: { type: integer }
     get:
-      tags: [User]
-      summary: Get user by ID
+      tags: [Call]
+      summary: Get a single call by id
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: User retrieved successfully
+          description: Call retrieved successfully
           content:
             application/json:
               schema:
@@ -588,31 +697,104 @@ paths:
                   - $ref: "#/components/schemas/BaseResponse"
                   - type: object
                     properties:
-                      data: { $ref: "#/components/schemas/User" }
+                      data: { $ref: "#/components/schemas/Call" }
         "401":
           description: Unauthorized
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
         "404":
-          description: User not found
+          description: Call not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  # ── Phone Number Admin ───────────────────────────────────────────────────
+  /phone-number:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+    get:
+      tags: [Phone Number]
+      summary: Get all configured phone numbers
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10 }
+      responses:
+        "200":
+          description: Phone numbers retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/PhoneNumber" }
+                      meta: { $ref: "#/components/schemas/PaginationMeta" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /phone-number/{id}:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [Phone Number]
+      summary: Get a single phone number's configuration
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Phone number retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/PhoneNumber" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: Phone number not found
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
 
     put:
-      tags: [User]
-      summary: Update a user
+      tags: [Phone Number]
+      summary: Update configuration and push the FULL config to Meta
+      description: >-
+        call_hours is a REPLACE on Meta's side, not a merge — this endpoint always sends
+        the complete config. Changes can take up to 7 days to propagate to WhatsApp clients.
       security:
         - bearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/UpdateUserRequest" }
+            schema: { $ref: "#/components/schemas/UpdatePhoneNumberRequest" }
       responses:
         "200":
-          description: User updated successfully
+          description: Updated and synced to Meta successfully
           content:
             application/json:
               schema:
@@ -620,19 +802,14 @@ paths:
                   - $ref: "#/components/schemas/BaseResponse"
                   - type: object
                     properties:
-                      data: { $ref: "#/components/schemas/User" }
-        "400":
-          description: Email already in use
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ErrorResponse" }
+                      data: { $ref: "#/components/schemas/PhoneNumber" }
         "401":
           description: Unauthorized
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
         "404":
-          description: User not found
+          description: Phone number not found
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -641,25 +818,78 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ValidationError" }
+        "502":
+          description: Meta rejected the settings push (local save is kept regardless)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
-    delete:
-      tags: [User]
-      summary: Delete a user
+  /phone-number/{id}/sync:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+    post:
+      tags: [Phone Number]
+      summary: Re-push the current local config to Meta without changing it
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: User deleted successfully
+          description: Synced successfully
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/BaseResponse" }
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/PhoneNumber" }
         "401":
           description: Unauthorized
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
-        "404":
-          description: User not found
+        "502":
+          description: Meta rejected the settings push
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /phone-number/{id}/health:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [Phone Number]
+      summary: Get the phone number's health status from Meta
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Health status retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        description: Meta's raw health_status payload — docs/INTEGRATION-META.md §5.5
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "502":
+          description: Meta Graph API error
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -696,7 +926,7 @@ paths:
                       data:
                         type: object
                         properties:
-                          path: { type: string, example: "users/abc-123.png" }
+                          path: { type: string, example: "uploads/abc-123.png" }
         "400":
           description: No file uploaded or invalid file
           content:

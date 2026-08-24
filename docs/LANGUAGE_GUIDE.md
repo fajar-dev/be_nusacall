@@ -101,7 +101,7 @@ Message di controller/service/exception/validator **selalu ditulis dalam Bahasa 
 3. Jalankan test — `test/language.test.ts` punya test consistency yang akan **gagal** kalau key di `en.json` dan `id.json` tidak sinkron:
 
    ```bash
-   DB_TYPE=mysql bun test test/language.test.ts
+   DB_TEST_NAME=nusacall_test bun test test/language.test.ts
    ```
 
 > Kalau lupa menambahkan terjemahan di `id.json`, tidak akan error saat runtime — hanya fallback ke teks Inggris. Tapi test consistency akan menandainya, jadi tetap harus dilengkapi.

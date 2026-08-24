@@ -8,39 +8,34 @@ Dokumen ini menjelaskan cara menjalankan test, menulis test baru, dan konvensi t
 
 ### Prerequisites
 
-- Database **harus sudah berjalan** (PostgreSQL atau MySQL)
-- Database test `hono_be_test` sudah dibuat
+- MySQL **harus sudah berjalan**
+- Database test `nusacall_test` sudah dibuat
 
 ### Membuat Database Test
 
 ```bash
-# PostgreSQL
-psql -U postgres -c "CREATE DATABASE hono_be_test;"
+mysql -h 127.0.0.1 -P 3306 -u root -p -e "CREATE DATABASE IF NOT EXISTS nusacall_test;"
 
-# MySQL (via Docker)
-docker exec mysql-latest mysql -u root -proot -e "CREATE DATABASE IF NOT EXISTS hono_be_test;"
+# atau via Docker
+docker exec nusacall-be-db mysql -u root -p"$DB_PASS" -e "CREATE DATABASE IF NOT EXISTS nusacall_test;"
 ```
 
 ### Menjalankan Test
 
 ```bash
 # Jalankan semua test
-DB_TYPE=mysql bun test
-
-# Atau jika DB_TYPE sudah di .env
-bun test
+DB_TEST_NAME=nusacall_test bun test
 
 # Jalankan file test tertentu
 bun test test/auth.test.ts
-bun test test/contact.test.ts
+bun test test/webhook.test.ts
 ```
 
 ### Environment Variables untuk Test
 
 | Variable | Default | Deskripsi |
 |----------|---------|-----------|
-| `DB_TYPE` | dari `config.database.type` | Tipe database (`postgres` \| `mysql`) |
-| `DB_TEST_NAME` | `hono_be_test` | Nama database untuk test |
+| `DB_TEST_NAME` | `nusacall_test` | Nama database untuk test |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS` | dari `.env` | Koneksi database (sama dengan development) |
 
 ---

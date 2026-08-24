@@ -361,7 +361,7 @@ Setiap perubahan **WAJIB** disertai test. Baca: [`TESTING_GUIDE.md`](./TESTING_G
 ### Menjalankan Test
 
 ```bash
-DB_TYPE=mysql bun test
+DB_TEST_NAME=nusacall_test bun test
 ```
 
 ### Aturan Testing

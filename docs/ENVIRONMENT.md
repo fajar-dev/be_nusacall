@@ -27,9 +27,8 @@ cp .env.dist .env
 
 | Variable | Tipe | Default | Deskripsi |
 |----------|------|---------|-----------|
-| `DB_TYPE` | string | `postgres` | Tipe database: `postgres` atau `mysql` |
 | `DB_HOST` | string | `localhost` | Host database |
-| `DB_PORT` | number | `5432` | Port database (PostgreSQL: 5432, MySQL: 3306) |
+| `DB_PORT` | number | `3306` | Port database MySQL |
 | `DB_USER` | string | `root` | Username database |
 | `DB_PASS` | string | _(kosong)_ | Password database |
 | `DB_NAME` | string | `hono_be` | Nama database |
@@ -103,7 +102,7 @@ export const config = {
 ### Prerequisites
 
 - [Bun](https://bun.sh) >= 1.0
-- PostgreSQL >= 14 (atau MySQL >= 8.0)
+- MySQL >= 8.0
 - SMTP server (untuk fitur email)
 
 ### Menjalankan Lokal
@@ -152,7 +151,7 @@ bun run start
 ### Docker Compose (Recommended)
 
 ```bash
-# Start semua services (app + PostgreSQL)
+# Start semua services (app + MySQL)
 docker compose up -d
 
 # Lihat logs
@@ -170,7 +169,7 @@ docker compose up -d --build
 | Service | Container Name | Port | Deskripsi |
 |---------|---------------|------|-----------|
 | `app` | `hono-be` | 4000 | Aplikasi backend |
-| `db` | `hono-be-db` | 5432 | PostgreSQL 16 Alpine |
+| `db` | `nusacall-be-db` | 3306 | MySQL 8.0 |
 
 ### Docker Build Manual
 
