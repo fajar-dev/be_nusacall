@@ -21,6 +21,12 @@ export function opusCodec(): RTCRtpCodecParameters {
 export function createPeerConnection(): RTCPeerConnection {
     return new RTCPeerConnection({
         codecs: { audio: [opusCodec()] },
+        // Without this, werift only gathers host candidates from the
+        // server's own network interfaces (private IPs behind NAT/Docker/a
+        // cloud VM) — unreachable from Meta or the agent's browser. There's
+        // no STUN server configured either, so this is the only way the
+        // server advertises a reachable address. See docs/ENVIRONMENT.md.
+        iceAdditionalHostAddresses: config.media.publicIp ? [config.media.publicIp] : undefined,
     })
 }
 
