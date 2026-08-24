@@ -213,6 +213,19 @@ export class CallSignalingService implements ICallSignalingNotifier {
         await this.nusawaLog.enqueue({ callId: call.id, wacid: call.wacid, phoneNumberId: call.phoneNumberId, waId: call.waId, body })
     }
 
+    /**
+     * Used by WebhookService for terminal states nusawa/Meta itself reports
+     * (customer hangup, FAILED, etc) — the agent-initiated hangup/reject
+     * paths already notify inline. Without this, an agent's UI just sits on
+     * an active call forever once the other side hangs up first, and their
+     * presence never frees up for the next call.
+     */
+    notifyCallEnded(call: Call, endReason: EndReason): void {
+        if (!call.agentUsername) return
+        presenceRegistry.setCurrentCall(call.agentUsername, null)
+        this.notifier.send(call.agentUsername, packet("call_ended", call.wacid, { endReason }))
+    }
+
     private durationSince(start: Date | null | undefined): number | null {
         if (!start) return null
         return Math.max(0, Math.round((Date.now() - start.getTime()) / 1000))

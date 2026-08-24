@@ -103,7 +103,7 @@ export function createTestApp(): Hono {
     }
     // No-op signaling: webhook tests exercise the state machine, not routing
     // or WebSocket delivery. See test/signaling.test.ts for that behavior.
-    const noopSignaling = { notifyIncoming: async () => {}, logCallOutcome: async () => {} }
+    const noopSignaling = { notifyIncoming: async () => {}, logCallOutcome: async () => {}, notifyCallEnded: () => {} }
     const webhookController = buildWebhookController(noopMediaCoordinator, noopSignaling)
 
     const app = new Hono()

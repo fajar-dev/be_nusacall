@@ -1,5 +1,6 @@
 import { Call } from "../entities/call.entity"
 import { CallLogOutcome } from "../call-log-message"
+import { EndReason } from "../enum/end-reason.enum"
 
 export interface WsOutboundPacket {
     type: string
@@ -21,4 +22,12 @@ export interface ICallSignalingNotifier {
 
     /** Queues a call-outcome message into the nusawa thread (docs/INTEGRATION-NUSAWA.md §3.5). */
     logCallOutcome(call: Call, outcome: CallLogOutcome, durationSeconds?: number | null): Promise<void>
+
+    /**
+     * Tells the answering agent's browser the call is over and frees their
+     * presence — for terminal states nusawa/Meta itself reports (customer
+     * hangup, FAILED, etc), which the agent-initiated hangup/reject paths
+     * never see. No-ops if no agent had answered yet.
+     */
+    notifyCallEnded(call: Call, endReason: EndReason): void
 }

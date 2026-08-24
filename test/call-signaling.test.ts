@@ -364,18 +364,21 @@ const noopMedia: ICallMediaCoordinator = {
 }
 
 describe("WebhookService + CallSignalingService — terminate logging", () => {
-    test("a customer-initiated terminate after ANSWERED logs a completed message", async () => {
+    test("a customer-initiated terminate after ANSWERED logs a completed message and tells the agent it's over", async () => {
         const wacid = "wacid.WHSIGLOG1"
-        await callStateService.findOrCreate(wacid, {
+        const call = await callStateService.findOrCreate(wacid, {
             phoneNumberId: "202063559668129", waId: "628123456789",
             direction: CallDirection.INBOUND, status: CallStatus.PENDING, statusRank: 10,
         })
         await callStateService.transition(wacid, CallStatus.CONNECTING, { agentUsername: "agent1@nusa.id" })
         await callStateService.transition(wacid, CallStatus.ACTIVE, { answeredAt: new Date() })
+        presenceRegistry.register("agent1@nusa.id", "conn-whsiglog1")
+        presenceRegistry.setCurrentCall("agent1@nusa.id", call.id)
 
         const nusawaLog = fakeNusawaLog()
+        const notifier = new FakeNotifier()
         const signaling = new CallSignalingService(
-            new FakeNotifier(), callRepository, callStateService, fakeMetaClient(),
+            notifier, callRepository, callStateService, fakeMetaClient(),
             new RoutingService(), fakeNusawaClient(), nusawaLog.service,
         )
         const webhook = new WebhookService(callStateService, noopMedia, signaling)
@@ -387,6 +390,12 @@ describe("WebhookService + CallSignalingService — terminate logging", () => {
         const body = (nusawaLog.enqueued[0] as { body: string }).body
         expect(body).toContain("dijawab agent1@nusa.id")
         expect(body).toContain("42d")
+
+        // The bug this test guards: without notifyCallEnded, a customer
+        // hanging up first left the agent's UI stuck on an active call
+        // forever, and their presence never freed up for the next one.
+        expect(notifier.packetsFor("agent1@nusa.id").some((p) => p.type === "call_ended")).toBe(true)
+        expect(presenceRegistry.get("agent1@nusa.id")?.currentCallId).toBeNull()
     })
 
     test("does not double-log when a terminate webhook arrives after the agent already hung up", async () => {

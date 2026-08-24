@@ -279,7 +279,9 @@ export class WebhookService {
             const outcome = terminalStatus === CallStatus.COMPLETED ? "completed"
                 : terminalStatus === CallStatus.REJECTED ? "rejected"
                 : "missed"
-            await this.signaling.logCallOutcome({ ...call, ...patch }, outcome, patch.durationSeconds ?? null)
+            const updatedCall = { ...call, ...patch }
+            await this.signaling.logCallOutcome(updatedCall, outcome, patch.durationSeconds ?? null)
+            this.signaling.notifyCallEnded(updatedCall, patch.endReason ?? EndReason.MEDIA_FAILURE)
         }
     }
 
