@@ -67,6 +67,7 @@ export class SignalingGateway implements IAgentNotifier {
 
             return {
                 onOpen: (_evt: Event, ws: WSContext) => {
+                    logger.info("WS connected", { username, connectionId })
                     this.connections.set(connectionId, { username, ws })
                     presenceRegistry.register(username, connectionId)
                     ws.send(JSON.stringify({ type: "connected", data: { username, availability: "available" }, ts: Date.now() }))
@@ -76,7 +77,8 @@ export class SignalingGateway implements IAgentNotifier {
                         logger.error("Failed handling WS packet", { username, err })
                     })
                 },
-                onClose: () => {
+                onClose: (evt: { code: number; reason: string }) => {
+                    logger.info("WS disconnected", { username, connectionId, code: evt.code, reason: evt.reason })
                     this.connections.delete(connectionId)
                     presenceRegistry.unregister(connectionId)
                 },
@@ -88,9 +90,12 @@ export class SignalingGateway implements IAgentNotifier {
         let packet: { type?: string; wacid?: string; data?: Record<string, unknown> }
         try {
             packet = JSON.parse(typeof raw === "string" ? raw : String(raw))
-        } catch {
+        } catch (err) {
+            logger.warn("Unparseable WS packet", { username, raw: String(raw).slice(0, 200), err })
             return
         }
+
+        logger.info("WS packet received", { username, type: packet.type, wacid: packet.wacid })
 
         const wacid = packet.wacid ?? ""
 
