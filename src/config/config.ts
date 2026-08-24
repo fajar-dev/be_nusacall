@@ -1,10 +1,6 @@
 /**
- * Global Application Configuration
- * All environment variables are centralized here
- * 
- * PRODUCTION SAFETY:
- * - JWT secrets WAJIB di-set via environment variable di production
- * - DB_SYNC otomatis false di production (mencegah data loss)
+ * All environment variables, centralized. JWT secrets are required in
+ * production; DB_SYNC is force-disabled there to prevent data loss.
  */
 
 const env = process.env.NODE_ENV || 'development'
@@ -24,35 +20,23 @@ function requireEnv(key: string, defaultValue?: string): string {
 
 export const config = {
     app: {
-        name: process.env.APP_NAME || 'hono-be',
-        port: Number(process.env.PORT) || 3000,
-        appUrl: process.env.APP_URL || 'http://localhost:4000',
+        name: process.env.APP_NAME || 'nusacall',
+        port: Number(process.env.PORT) || 4100,
+        appUrl: process.env.APP_URL || 'http://localhost:4100',
         env,
         isProduction,
         jwtSecret: requireEnv('JWT_SECRET', isProduction ? undefined : 'dev-jwt-secret-change-me'),
-        jwtRefreshSecret: requireEnv('JWT_REFRESH_SECRET', isProduction ? undefined : 'dev-jwt-refresh-secret-change-me'),
+        jwtExpiresInSeconds: Number(process.env.JWT_EXPIRES_IN) || 28800, // 8 jam
         apiKey: requireEnv('API_KEY', isProduction ? undefined : 'dev-api-key-change-me'),
     },
     database: {
-        type: (process.env.DB_TYPE || 'postgres') as 'postgres' | 'mysql',
         host: process.env.DB_HOST || '127.0.0.1',
-        port: Number(process.env.DB_PORT) || 5432,
+        port: Number(process.env.DB_PORT) || 3306,
         user: process.env.DB_USER || 'root',
         pass: process.env.DB_PASS || '',
-        name: process.env.DB_NAME || 'hono_be',
+        name: process.env.DB_NAME || 'nusacall',
         // SAFETY: synchronize SELALU false di production (gunakan migrations)
         sync: isProduction ? false : process.env.DB_SYNC === "true",
-    },
-    mail: {
-        host: process.env.SMTP_HOST || 'smtp.gmail.com',
-        port: Number(process.env.SMTP_PORT) || 587,
-        user: process.env.SMTP_USER || '',
-        pass: process.env.SMTP_PASS || '',
-        from: process.env.SMTP_FROM || '"Hono BE" <noreply@example.com>',
-    },
-    google: {
-        clientId: process.env.GOOGLE_CLIENT_ID || '',
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
     },
     minio: {
         endPoint: process.env.MINIO_ENDPOINT || '127.0.0.1',
@@ -60,6 +44,42 @@ export const config = {
         useSSL: process.env.MINIO_USE_SSL === 'true',
         accessKey: process.env.MINIO_ACCESS_KEY || '',
         secretKey: process.env.MINIO_SECRET_KEY || '',
-        bucket: process.env.MINIO_BUCKET || 'hono-be',
+        bucket: process.env.MINIO_BUCKET || 'nusacall-recordings',
+    },
+
+    // ── Meta WhatsApp Business Calling API ──────────────────────────────
+    meta: {
+        appId: requireEnv('META_APP_ID'),
+        appSecret: requireEnv('META_APP_SECRET'),
+        verifyToken: requireEnv('META_VERIFY_TOKEN'),
+        accessToken: requireEnv('META_ACCESS_TOKEN'),
+        graphVersion: process.env.META_GRAPH_VERSION || 'v18.0',
+        graphBaseUrl: process.env.META_GRAPH_BASE_URL || 'https://graph.facebook.com',
+    },
+
+    // ── NusaWA (nusawachannel-backend) ───────────────────────────────────
+    nusawa: {
+        baseUrl: requireEnv('NUSAWA_BASE_URL', 'http://localhost:9001'),
+        apiKey: requireEnv('NUSAWA_API_KEY'),
+        webUrl: process.env.NUSAWA_WEB_URL || '',
+        lookupTimeoutMs: Number(process.env.NUSAWA_LOOKUP_TIMEOUT_MS) || 2000,
+        meCacheTtlSeconds: Number(process.env.NUSAWA_ME_CACHE_TTL) || 60,
+        contactCacheTtlSeconds: Number(process.env.NUSAWA_CONTACT_CACHE_TTL) || 30,
+    },
+
+    // ── Siklus hidup panggilan ────────────────────────────────────────────
+    call: {
+        answerTimeoutSeconds: Number(process.env.CALL_ANSWER_TIMEOUT) || 20,
+        webhookStaleSeconds: Number(process.env.WEBHOOK_STALE_SECONDS) || 120,
+        reconcileAfterMinutes: Number(process.env.CALL_RECONCILE_AFTER_MINUTES) || 30,
+    },
+
+    // ── Media plane (WebRTC) ─────────────────────────────────────────────
+    media: {
+        iceGatheringTimeoutMs: Number(process.env.ICE_GATHERING_TIMEOUT_MS) || 3000,
+        sessionMaxDurationMinutes: Number(process.env.MEDIA_SESSION_MAX_MINUTES) || 240,
+        publicIp: process.env.MEDIA_PUBLIC_IP || '',
+        udpPortMin: Number(process.env.MEDIA_UDP_PORT_MIN) || 40000,
+        udpPortMax: Number(process.env.MEDIA_UDP_PORT_MAX) || 40100,
     },
 }

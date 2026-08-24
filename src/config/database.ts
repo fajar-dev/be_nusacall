@@ -1,8 +1,12 @@
 import "reflect-metadata"
 import { DataSource } from "typeorm"
-import { User } from "../modules/user/entities/user.entity"
-import { Contact } from "../modules/contact/entities/contact.entity"
 import { config } from "./config"
+
+import { Call } from "../modules/call/entities/call.entity"
+import { CallEvent } from "../modules/call/entities/call-event.entity"
+import { NusawaLogQueue } from "../modules/call/entities/nusawa-log-queue.entity"
+import { PhoneNumber } from "../modules/phone-number/entities/phone-number.entity"
+import { Agent } from "../modules/agent/entities/agent.entity"
 
 /**
  * TypeORM Database Configuration
@@ -12,14 +16,19 @@ import { config } from "./config"
  */
 
 const defaultDataSource = new DataSource({
-    type: config.database.type,
+    type: "mysql",
     host: config.database.host,
     port: config.database.port,
     username: config.database.user,
     password: config.database.pass,
     database: config.database.name,
     synchronize: config.database.sync,
-    entities: [User, Contact],
+    // mysql2 defaults to serializing/parsing dates in the process's LOCAL
+    // timezone, not the DB's. Since this runs wherever it's deployed (not
+    // necessarily UTC), that silently corrupts every datetime round-trip.
+    // "Z" forces UTC on both ends, independent of host timezone.
+    timezone: "Z",
+    entities: [Call, CallEvent, NusawaLogQueue, PhoneNumber, Agent],
     migrations: [],
     subscribers: [],
 })

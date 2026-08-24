@@ -25,14 +25,7 @@ class MinioHelper {
         }
     }
 
-    /**
-     * Upload a file buffer to MinIO
-     * @param objectName - The object key / path in the bucket (e.g. "avatars/user-1.png")
-     * @param buffer - The file buffer
-     * @param contentType - MIME type (e.g. "image/png")
-     * @param bucket - Optional bucket override
-     * @returns The object name that was uploaded
-     */
+    /** Uploads a file buffer to MinIO; returns the object name. */
     async upload(objectName: string, buffer: Buffer, contentType: string, bucket: string = BUCKET): Promise<string> {
         await this.ensureBucket(bucket)
 
@@ -144,35 +137,30 @@ class MinioHelper {
         
         let decoded = urlOrPath
         try {
-            // Recursively decode URL-encoded segments if nested
             while (decoded && decoded.includes('%')) {
                 const next = decodeURIComponent(decoded)
                 if (next === decoded) break
                 decoded = next
             }
         } catch {
-            // Ignore decoding errors
+            // malformed encoding — fall through with whatever we decoded so far
         }
 
-        // If the URL contains the bucket name, extract everything after the last occurrence of the bucket name
         const marker = `/${bucket}/`
         if (decoded.includes(marker)) {
             const parts = decoded.split(marker)
             decoded = parts[parts.length - 1]
         }
 
-        // Strip query parameters
         if (decoded.includes('?')) {
             decoded = decoded.split('?')[0]
         }
 
-        // Clean up leading/trailing slashes
         decoded = decoded.replace(/^\/+|\/+$/g, '')
 
         return decoded || null
     }
 }
 
-// Export a singleton instance
 export const minio = new MinioHelper()
 export default minio
