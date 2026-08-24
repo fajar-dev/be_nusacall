@@ -224,6 +224,25 @@ export function createTranscriptionAvailableWebhookPayload(overrides: RecordingA
     }
 }
 
+interface AccountUpdatePayloadOverrides {
+    businessAccountId?: string
+    event: string
+    violationType?: string
+    restrictionType?: string
+}
+
+export function createAccountUpdateWebhookPayload(overrides: AccountUpdatePayloadOverrides) {
+    const businessAccountId = overrides.businessAccountId || "252757097922101"
+    const value: Record<string, unknown> = { event: overrides.event }
+    if (overrides.violationType) value.violation_info = { violation_type: overrides.violationType }
+    if (overrides.restrictionType) value.restriction_info = [{ restriction_type: overrides.restrictionType, expiration: Math.floor(Date.now() / 1000) + 86400 }]
+
+    return {
+        object: "whatsapp_business_account",
+        entry: [{ id: businessAccountId, changes: [{ field: "account_update", value }] }],
+    }
+}
+
 // ── Response Assertions ─────────────────────────────────────────────────────
 
 export function expectSuccess(body: any, statusCode: number = 200) {

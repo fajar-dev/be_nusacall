@@ -12,6 +12,7 @@ import {
     createConnectWebhookPayload,
     createStatusWebhookPayload,
     createTerminateWebhookPayload,
+    createAccountUpdateWebhookPayload,
 } from "./helpers"
 import { config } from "../src/config/config"
 import { getDataSource } from "../src/config/database"
@@ -280,5 +281,46 @@ describe("Webhook - unrelated payloads", () => {
         expect(status).toBe(204)
         await flush()
         // no assertion target — just confirms no crash/side effect for the wrong field
+    })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// account_update — launch-stop criteria (docs/ROADMAP.md), WABA-scoped
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe("Webhook - account_update", () => {
+    test("ACCOUNT_VIOLATION (calling quality) is accepted without crashing the webhook pipeline", async () => {
+        const payload = createAccountUpdateWebhookPayload({ event: "ACCOUNT_VIOLATION", violationType: "LOW_USER_INITIATED_CALLING_QUALITY" })
+        const { status } = await postWebhook(app, payload)
+        expect(status).toBe(204)
+    })
+
+    test("ACCOUNT_RESTRICTION is accepted without crashing the webhook pipeline", async () => {
+        const payload = createAccountUpdateWebhookPayload({ event: "ACCOUNT_RESTRICTION", restrictionType: "RESTRICTED_USER_INITIATED_CALLING" })
+        const { status } = await postWebhook(app, payload)
+        expect(status).toBe(204)
+    })
+
+    test("an unrecognized account_update event (billing, partner, etc.) does not crash the pipeline", async () => {
+        const payload = createAccountUpdateWebhookPayload({ event: "VOLUME_BASED_PRICING_TIER_UPDATE" })
+        const { status } = await postWebhook(app, payload)
+        expect(status).toBe(204)
+    })
+
+    test("account_update alongside a real calls event in the same delivery — both are processed", async () => {
+        const wacid = "wacid.ACCTUPD1"
+        const payload = createConnectWebhookPayload({ wacid })
+        // Meta can batch multiple `changes` per entry — merge an account_update in.
+        payload.entry[0]!.changes.push({
+            field: "account_update",
+            value: { event: "ACCOUNT_VIOLATION", violation_info: { violation_type: "LOW_BUSINESS_INITIATED_CALLING_QUALITY" } },
+        } as never)
+
+        const { status } = await postWebhook(app, payload)
+        expect(status).toBe(204)
+        await flush()
+
+        const call = await getCall(wacid)
+        expect(call).not.toBeNull() // the calls-field change was still processed normally
     })
 })

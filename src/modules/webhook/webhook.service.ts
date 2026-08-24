@@ -49,6 +49,18 @@ interface MetaContact {
 }
 
 /**
+ * docs/webhooks/reference/account_update — a different webhook field
+ * entirely from `calls`, WABA-scoped (no phone_number in the payload).
+ * `event` has many values (billing, partner, etc.); only the two calling-
+ * relevant ones are typed here.
+ */
+interface MetaAccountUpdateValue {
+    event: string
+    violation_info?: { violation_type: string }
+    restriction_info?: Array<{ restriction_type: string; expiration?: number; remediation?: string }>
+}
+
+/**
  * Turns Meta's `calls` webhook payload into Call state transitions.
  * Every handler: recordEvent() (idempotency/staleness gate — stop if not
  * accepted) then transition() via the SQL rank guard, which is what
@@ -79,6 +91,10 @@ export class WebhookService {
         for (const entry of payload.entry ?? []) {
             const businessAccountId: string = entry.id
             for (const change of entry.changes ?? []) {
+                if (change.field === "account_update") {
+                    this.handleAccountUpdate(change.value, businessAccountId)
+                    continue
+                }
                 if (change.field !== "calls") continue
                 await this.processChangeValue(change.value, businessAccountId, payload)
             }
@@ -329,6 +345,37 @@ export class WebhookService {
             callId: call.id, wacid: callObj.id,
             mediaId: transcript.id, sha256: transcript.sha256, mimeType: transcript.mime_type, url: transcript.url,
         })
+    }
+
+    // ── account_update (Fase 2/launch-gate) ─────────────────────────────
+
+    /**
+     * ACCOUNT_VIOLATION and ACCOUNT_RESTRICTION are launch-stop criteria
+     * (docs/ROADMAP.md "Kriteria menghentikan peluncuran": "Menerima webhook
+     * ACCOUNT_VIOLATION dari Meta" → stop and evaluate immediately). No
+     * alerting channel exists in NusaCall yet, so this logs at `error`
+     * level with full structured detail — the promtail/Grafana pipeline
+     * already ingests these logs (docs/promtail-config.yaml), so this is
+     * alertable today even without a dedicated notification system.
+     * Sync (not async): nothing here does I/O, and WebhookService.process()
+     * already returns 204 to Meta before any handler runs regardless.
+     */
+    private handleAccountUpdate(value: MetaAccountUpdateValue, businessAccountId: string): void {
+        if (value.event === "ACCOUNT_VIOLATION") {
+            logger.error("Meta account_update: ACCOUNT_VIOLATION — launch-stop criterion, evaluate immediately", {
+                businessAccountId, violationType: value.violation_info?.violation_type,
+            })
+            return
+        }
+        if (value.event === "ACCOUNT_RESTRICTION") {
+            logger.error("Meta account_update: ACCOUNT_RESTRICTION", {
+                businessAccountId, restrictions: value.restriction_info,
+            })
+            return
+        }
+        // Everything else (billing, partner, disabled, etc.) — recorded for
+        // audit, not actionable by NusaCall today.
+        logger.info("Meta account_update received", { businessAccountId, event: value.event })
     }
 
     private resolveTerminalState(callObj: MetaCallObject, currentStatus: CallStatus): CallStatus {
