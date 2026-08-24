@@ -1,11 +1,12 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from "bun:test"
 import { RTCPeerConnection, RTCRtpCodecParameters } from "werift"
 import { initTestDatabase, destroyTestDatabase, cleanTestDatabase } from "./setup"
-import { createTerminateWebhookPayload } from "./helpers"
+import { createTerminateWebhookPayload, createStatusWebhookPayload } from "./helpers"
 import { TypeOrmCallRepository } from "../src/modules/call/repositories/call.repository"
 import { TypeOrmCallEventRepository } from "../src/modules/call/repositories/call-event.repository"
 import { CallStateService } from "../src/modules/call/call-state.service"
 import { CallSignalingService } from "../src/modules/call/call-signaling.service"
+import { CallMediaCoordinator } from "../src/modules/call/call-media.coordinator"
 import { WebhookService } from "../src/modules/webhook/webhook.service"
 import { CallRecordingService } from "../src/modules/call/call-recording.service"
 import { TypeOrmCallRecordingRepository } from "../src/modules/call/repositories/call-recording.repository"
@@ -369,6 +370,101 @@ describe("CallSignalingService.handleAnswer", () => {
     })
 })
 
+async function fakeMetaAnswerSdp(offerSdp: string): Promise<string> {
+    const metaPc = new RTCPeerConnection({ codecs: { audio: [opusCodec()] } })
+    metaPc.addTransceiver("audio", { direction: "sendrecv" })
+    await metaPc.setRemoteDescription({ type: "offer", sdp: offerSdp })
+    const answer = await metaPc.createAnswer()
+    await metaPc.setLocalDescription(answer)
+    await waitIceComplete(metaPc)
+    return metaPc.localDescription!.sdp
+}
+
+describe("CallSignalingService.initiateOutbound (Fase 3, BIC)", () => {
+    test("creates the Call row, claims presence, and returns the wacid Meta assigned", async () => {
+        presenceRegistry.register("agent1@nusa.id", "conn-out1")
+        const service = new CallSignalingService(
+            new FakeNotifier(), callRepository, callStateService,
+            fakeMetaClient({ connect: async () => ({ success: true, calls: [{ id: "wacid.OUT1" }] }) }),
+            new RoutingService(), fakeNusawaClient(), fakeNusawaLog().service,
+        )
+
+        const offerSdp = await fakeBrowserOfferSdp()
+        const result = await service.initiateOutbound("agent1@nusa.id", "202063559668129", "628999888777", offerSdp)
+
+        expect(result.wacid).toBe("wacid.OUT1")
+        expect(result.answerSdp).toContain("v=0")
+
+        const call = await callRepository.findByWacid("wacid.OUT1")
+        expect(call).not.toBeNull()
+        expect(call!.direction).toBe(CallDirection.OUTBOUND)
+        expect(call!.agentUsername).toBe("agent1@nusa.id")
+        expect(presenceRegistry.get("agent1@nusa.id")?.currentCallId).toBe(call!.id)
+    })
+
+    test("cleans up the media session and creates no Call row when Meta's connect call fails", async () => {
+        const service = new CallSignalingService(
+            new FakeNotifier(), callRepository, callStateService,
+            fakeMetaClient({ connect: async () => { throw new Error("138006: No approved call permission found") } }),
+            new RoutingService(), fakeNusawaClient(), fakeNusawaLog().service,
+        )
+
+        const offerSdp = await fakeBrowserOfferSdp()
+        await expect(service.initiateOutbound("agent1@nusa.id", "202063559668129", "628999888777", offerSdp)).rejects.toThrow()
+
+        const call = await callRepository.findByWacid("628999888777")
+        expect(call).toBeNull()
+    })
+
+    test("end to end through the webhook layer: BIC connect answer + status ACCEPTED activates the call and notifies the agent", async () => {
+        presenceRegistry.register("agent1@nusa.id", "conn-out2")
+        const notifier = new FakeNotifier()
+        const signaling = new CallSignalingService(
+            notifier, callRepository, callStateService, fakeMetaClient({ connect: async () => ({ success: true, calls: [{ id: "wacid.OUT2" }] }) }),
+            new RoutingService(), fakeNusawaClient(), fakeNusawaLog().service,
+        )
+        const media = new CallMediaCoordinator(fakeMetaClient())
+        const webhook = new WebhookService(
+            callStateService, media, signaling, callRepository,
+            new CallRecordingService(new TypeOrmCallRecordingRepository(), fakeMetaClient(), { upload: async () => "", getPresignedUrl: async () => "", download: async () => Buffer.from("") }),
+        )
+
+        const agentOfferSdp = await fakeBrowserOfferSdp()
+        const { wacid } = await signaling.initiateOutbound("agent1@nusa.id", "202063559668129", "628999888777", agentOfferSdp)
+
+        // "Meta" negotiates a real answer against the offer initiateOutbound()
+        // actually sent (exposed via MediaSession.metaOfferSdp for exactly
+        // this — production code never needs to read it back).
+        const ourOutboundOfferSdp = sessionRegistry.get(wacid)!.metaOfferSdp!
+        const metaAnswerSdp = await fakeMetaAnswerSdp(ourOutboundOfferSdp)
+
+        const connectPayload: Record<string, unknown> = {
+            object: "whatsapp_business_account",
+            entry: [{
+                id: "252757097922101",
+                changes: [{
+                    field: "calls",
+                    value: {
+                        messaging_product: "whatsapp",
+                        metadata: { display_phone_number: "62819854321", phone_number_id: "202063559668129" },
+                        calls: [{
+                            id: wacid, to: "628999888777", from: "62819854321", event: "connect",
+                            direction: "BUSINESS_INITIATED", timestamp: String(Math.floor(Date.now() / 1000)),
+                            session: { sdp_type: "answer", sdp: metaAnswerSdp },
+                        }],
+                    },
+                }],
+            }],
+        }
+        await webhook.process(JSON.stringify(connectPayload))
+        await webhook.process(JSON.stringify(createStatusWebhookPayload({ wacid, status: "ACCEPTED" })))
+
+        const call = await callRepository.findByWacid(wacid)
+        expect(call!.status).toBe(CallStatus.ACTIVE)
+        expect(notifier.packetsFor("agent1@nusa.id").some((p) => p.type === "call_state" && (p.data as { status: string })?.status === "active")).toBe(true)
+    })
+})
+
 describe("CallSignalingService.handleReject / handleHangup", () => {
     test("handleReject calls Meta reject and marks the call REJECTED", async () => {
         const wacid = "wacid.SIGREJECT1"
@@ -421,6 +517,8 @@ describe("CallSignalingService.handleReject / handleHangup", () => {
 const noopMedia: ICallMediaCoordinator = {
     establishEarly: async () => ({ ok: true }),
     teardown: async () => {},
+    applyOutboundAnswer: async () => ({ ok: true }),
+    startOutboundForwarding: async () => {},
 }
 
 describe("WebhookService + CallSignalingService — terminate logging", () => {

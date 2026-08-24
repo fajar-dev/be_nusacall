@@ -15,6 +15,9 @@ import { authController } from "../modules/auth/auth.module"
 import { contactController } from "../modules/contact/contact.module"
 import { callController } from "../modules/call/call.module"
 import { phoneNumberController } from "../modules/phone-number/phone-number.module"
+import { permissionController } from "../modules/permission/permission.module"
+import { RequestPermissionValidator } from "../modules/permission/validators/permission.validator"
+import { RequestOutboundCallValidator } from "../modules/call/validators/call.validator"
 
 const routes = new Hono()
 
@@ -46,6 +49,11 @@ routes.get("/phone-number/:id", authMiddleware, (c) => phoneNumberController.sho
 routes.put("/phone-number/:id", authMiddleware, zValidator("json", UpdatePhoneNumberValidator, validationHook), (c) => phoneNumberController.update(c))
 routes.post("/phone-number/:id/sync", authMiddleware, (c) => phoneNumberController.sync(c))
 routes.get("/phone-number/:id/health", authMiddleware, (c) => phoneNumberController.health(c))
+
+routes.get("/permission", authMiddleware, (c) => permissionController.check(c))
+routes.post("/permission/request", authMiddleware, zValidator("json", RequestPermissionValidator, validationHook), (c) => permissionController.request(c))
+
+routes.post("/call/outbound", authMiddleware, zValidator("json", RequestOutboundCallValidator, validationHook), (c) => callController.outbound(c))
 
 // Generic — reused by the recording module in Fase 2.
 routes.post("/upload", authMiddleware, async (c) => {

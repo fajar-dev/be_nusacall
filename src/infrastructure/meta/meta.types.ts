@@ -53,6 +53,24 @@ export interface MetaHealthStatusResponse {
     }
 }
 
+/** Fase 3 — POST /{phone-number-id}/messages, a call permission request template. */
+export interface MetaSendTemplateRequest {
+    messaging_product: "whatsapp"
+    recipient_type: "individual"
+    to: string
+    type: "template"
+    template: {
+        name: string
+        language: { code: string }
+    }
+}
+
+export interface MetaSendMessageResponse {
+    messaging_product: "whatsapp"
+    contacts: Array<{ input: string; wa_id: string }>
+    messages: Array<{ id: string }>
+}
+
 export interface MetaCallPermissionResponse {
     messaging_product: "whatsapp"
     permission: {

@@ -24,4 +24,29 @@ export class CallMediaCoordinator implements ICallMediaCoordinator {
     async teardown(wacid: string, reason: string): Promise<void> {
         await sessionRegistry.remove(wacid, reason)
     }
+
+    async applyOutboundAnswer(wacid: string, answerSdp: string): Promise<EstablishEarlyResult> {
+        const session = sessionRegistry.get(wacid)
+        if (!session) {
+            logger.error("applyOutboundAnswer: no media session found — was initiateOutbound() ever called for this wacid?", { wacid })
+            return { ok: false, error: "No media session for this call" }
+        }
+        try {
+            await session.applyMetaAnswer(answerSdp)
+            return { ok: true }
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            logger.error("Failed to apply outbound Meta answer", { wacid, err })
+            return { ok: false, error: message }
+        }
+    }
+
+    async startOutboundForwarding(wacid: string): Promise<void> {
+        const session = sessionRegistry.get(wacid)
+        if (!session) {
+            logger.warn("startOutboundForwarding: no media session found", { wacid })
+            return
+        }
+        session.startForwarding()
+    }
 }

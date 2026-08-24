@@ -6,6 +6,7 @@ import { Call } from "../src/modules/call/entities/call.entity"
 import { CallEvent } from "../src/modules/call/entities/call-event.entity"
 import { NusawaLogQueue } from "../src/modules/call/entities/nusawa-log-queue.entity"
 import { CallRecording } from "../src/modules/call/entities/call-recording.entity"
+import { CallPermission } from "../src/modules/permission/entities/call-permission.entity"
 import { PhoneNumber } from "../src/modules/phone-number/entities/phone-number.entity"
 import { Agent } from "../src/modules/agent/entities/agent.entity"
 import { ApiResponse } from "../src/core/helpers/response"
@@ -33,7 +34,7 @@ const TestDataSource = new DataSource({
     synchronize: true,
     dropSchema: true,
     timezone: "Z", // see src/config/database.ts — mysql2 defaults to local-time serialization
-    entities: [Call, CallEvent, NusawaLogQueue, CallRecording, PhoneNumber, Agent],
+    entities: [Call, CallEvent, NusawaLogQueue, CallRecording, CallPermission, PhoneNumber, Agent],
     logging: false,
 })
 

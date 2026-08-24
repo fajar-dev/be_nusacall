@@ -1,6 +1,8 @@
+import { randomUUID } from "node:crypto"
 import { ICallRepository } from "./interfaces/call.repository.interface"
 import { CallStateService } from "./call-state.service"
 import { CallStatus } from "./enum/call-status.enum"
+import { CallDirection } from "./enum/call-direction.enum"
 import { EndReason } from "./enum/end-reason.enum"
 import { MetaClient } from "../../infrastructure/meta/meta.client"
 import { NusawaClient } from "../../infrastructure/nusawa/nusawa.client"
@@ -249,9 +251,65 @@ export class CallSignalingService implements ICallSignalingNotifier {
         this.notifier.send(call.agentUsername, packet("call_ended", call.wacid, { endReason }))
     }
 
+    notifyOutboundActive(call: Call): void {
+        if (!call.agentUsername) return
+        this.notifier.send(call.agentUsername, packet("call_state", call.wacid, { status: "active" }))
+    }
+
     private durationSince(start: Date | null | undefined): number | null {
         if (!start) return null
         return Math.max(0, Math.round((Date.now() - start.getTime()) / 1000))
+    }
+
+    /**
+     * Fase 3 — POST /api/call/outbound. Caller (the controller) is
+     * responsible for the permission check; this only orchestrates media +
+     * Meta. Reverses the UIC offer/answer direction (we offer, Meta relays
+     * the user's answer back via a later `connect` webhook — see
+     * WebhookService.handleConnect's BUSINESS_INITIATED branch), but reuses
+     * MediaSession.attachAgent() for the agent leg unchanged — same
+     * mechanism as the agent clicking "Jawab" on an inbound call.
+     *
+     * `offerSdp` is the AGENT'S browser SDP offer, generated client-side up
+     * front (same useWebRTC().start() call UIC's answer() flow already
+     * uses) — returning the agent-leg answer synchronously here means the
+     * frontend needs no separate WS round-trip to complete its own leg.
+     */
+    async initiateOutbound(agentUsername: string, phoneNumberId: string, waId: string, offerSdp: string): Promise<{ wacid: string; answerSdp: string }> {
+        const tempKey = `pending.${randomUUID()}`
+        const session = sessionRegistry.create(tempKey)
+
+        let metaOfferSdp: string
+        let agentAnswerSdp: string
+        try {
+            metaOfferSdp = await session.createMetaOffer()
+            agentAnswerSdp = await session.attachAgent(offerSdp)
+        } catch (err) {
+            await sessionRegistry.remove(tempKey, "outbound_media_setup_failed")
+            throw err
+        }
+
+        let wacid: string
+        try {
+            const response = await this.metaClient.connect(phoneNumberId, waId, metaOfferSdp)
+            wacid = response.calls?.[0]?.id ?? tempKey
+        } catch (err) {
+            await sessionRegistry.remove(tempKey, "outbound_connect_failed")
+            throw err // caller maps Meta's error code (138006/138009/138012/...) to a clear message
+        }
+
+        sessionRegistry.rekey(tempKey, wacid)
+
+        const call = await this.callRepository.save({
+            wacid, phoneNumberId, waId,
+            direction: CallDirection.OUTBOUND,
+            status: CallStatus.PENDING,
+            statusRank: 10,
+            agentUsername,
+        })
+        presenceRegistry.setCurrentCall(agentUsername, call.id)
+
+        return { wacid, answerSdp: agentAnswerSdp }
     }
 
     /** Tells agents who were rung but didn't win (or the call ended before anyone answered) to stop ringing. */

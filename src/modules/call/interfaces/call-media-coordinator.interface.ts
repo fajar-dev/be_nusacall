@@ -20,4 +20,15 @@ export interface ICallMediaCoordinator {
 
     /** Tears down any media session for this call. Safe to call even if none exists. */
     teardown(wacid: string, reason: string): Promise<void>
+
+    /**
+     * Fase 3 (BIC) — applies the WhatsApp user's SDP answer, relayed back
+     * via a `connect` webhook with direction BUSINESS_INITIATED, to the
+     * Meta leg WE offered in CallSignalingService.initiateOutbound(). Never
+     * throws — same never-block-a-call contract as establishEarly().
+     */
+    applyOutboundAnswer(wacid: string, answerSdp: string): Promise<EstablishEarlyResult>
+
+    /** Fase 3 (BIC) — enables RTP forwarding once the status webhook confirms the user actually answered (ACCEPTED). No-op if no session exists. */
+    startOutboundForwarding(wacid: string): Promise<void>
 }

@@ -19,7 +19,8 @@ export interface MediaStats {
  * startForwarding() (only after Meta's `accept` returns 200) → close().
  */
 export class MediaSession {
-    readonly wacid: string
+    /** Mutable only for the outbound-call rekey path (SessionRegistry.rekey) — a real wacid doesn't exist yet when the session is first created. */
+    wacid: string
     readonly createdAt: Date = new Date()
 
     private legA: RTCPeerConnection | null = null // Meta
@@ -33,6 +34,9 @@ export class MediaSession {
 
     /** The SDP answer sent to Meta via pre_accept. MUST be resent byte-identical to `accept`. */
     metaAnswerSdp: string | null = null
+
+    /** Fase 3 (BIC) — the offer WE sent Meta via createMetaOffer(). Not needed by production code (initiateOutbound() uses the return value directly), exposed for tests to negotiate a real, matching answer instead of a fabricated one. */
+    metaOfferSdp: string | null = null
 
     readonly stats: MediaStats = {
         packetsToMeta: 0,
@@ -78,6 +82,40 @@ export class MediaSession {
 
         this.metaAnswerSdp = finalSdp
         return finalSdp
+    }
+
+    /**
+     * Business-initiated calls (Fase 3): WE create the offer this time —
+     * Meta relays the WhatsApp user's SDP answer back via a `connect`
+     * webhook with direction BUSINESS_INITIATED, applied via
+     * applyMetaAnswer() below. Same leg (legA), same track wiring; only the
+     * offer/answer direction is reversed from acceptMetaOffer().
+     */
+    async createMetaOffer(): Promise<string> {
+        if (this.closed) throw new Error(`MediaSession ${this.wacid} is already closed`)
+
+        this.legA = createPeerConnection()
+        this.transceiverA = this.legA.addTransceiver("audio", { direction: "sendrecv" })
+
+        this.transceiverA.onTrack.subscribe((track) => {
+            track.onReceiveRtp.subscribe((rtp) => this.forwardToAgent(rtp))
+        })
+
+        const offer = await this.legA.createOffer()
+        await this.legA.setLocalDescription(offer)
+        await waitForIceGatheringComplete(this.legA)
+
+        const finalSdp = ensurePtime20(this.legA.localDescription!.sdp)
+        assertValidOutboundSdp(finalSdp)
+        this.metaOfferSdp = finalSdp
+        return finalSdp
+    }
+
+    /** Completes the BIC negotiation once Meta relays the user's SDP answer. */
+    async applyMetaAnswer(answerSdp: string): Promise<void> {
+        if (this.closed) throw new Error(`MediaSession ${this.wacid} is already closed`)
+        if (!this.legA) throw new Error(`MediaSession ${this.wacid} has no Meta leg to apply an answer to`)
+        await this.legA.setRemoteDescription({ type: "answer", sdp: answerSdp })
     }
 
     /**

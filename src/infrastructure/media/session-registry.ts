@@ -23,6 +23,21 @@ class SessionRegistry {
         return this.sessions.get(wacid)
     }
 
+    /**
+     * Fase 3 (outbound calls): the session is created and negotiated with
+     * both legs BEFORE Meta assigns a real wacid (that only comes back in
+     * the `connect` response) — re-key from the temporary placeholder once
+     * it's known. No-op if the temp key was never registered (e.g. it was
+     * already removed after a failure).
+     */
+    rekey(tempKey: string, wacid: string): void {
+        const session = this.sessions.get(tempKey)
+        if (!session) return
+        this.sessions.delete(tempKey)
+        session.wacid = wacid
+        this.sessions.set(wacid, session)
+    }
+
     async remove(wacid: string, reason: string): Promise<void> {
         const session = this.sessions.get(wacid)
         if (!session) return

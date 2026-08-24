@@ -201,6 +201,22 @@ export class WebhookService {
 
             await this.signaling.notifyIncoming(call)
         }
+
+        // Fase 3 (BIC): Meta relays the WhatsApp user's SDP answer back on
+        // this same `connect` event, direction BUSINESS_INITIATED — the
+        // Call row and MediaSession already exist from
+        // CallSignalingService.initiateOutbound(), we're just completing
+        // the negotiation, not creating anything.
+        if (direction === CallDirection.OUTBOUND && callObj.session?.sdp) {
+            const result = await this.media.applyOutboundAnswer(callObj.id, callObj.session.sdp)
+            if (!result.ok) {
+                await this.callState.transition(callObj.id, CallStatus.FAILED, {
+                    endReason: EndReason.MEDIA_FAILURE,
+                    endedAt: new Date(),
+                    errorMessage: result.error ?? null,
+                })
+            }
+        }
     }
 
     // ── status (RINGING / ACCEPTED / REJECTED) ──────────────────────────
@@ -235,12 +251,20 @@ export class WebhookService {
             case "RINGING":
                 await this.callState.transition(statusObj.id, CallStatus.RINGING, { ringingAt: new Date() })
                 break
-            case "ACCEPTED":
-                await this.callState.transition(statusObj.id, CallStatus.ACTIVE, { answeredAt: new Date() })
+            case "ACCEPTED": {
+                const transitioned = await this.callState.transition(statusObj.id, CallStatus.ACTIVE, { answeredAt: new Date() })
+                if (transitioned) {
+                    // The user's phone actually picked up — safe to flow
+                    // media now (docs/MEDIA-PLANE.md §5: never before this).
+                    await this.media.startOutboundForwarding(statusObj.id)
+                    const call = await this.calls.findByWacid(statusObj.id)
+                    if (call) this.signaling.notifyOutboundActive(call)
+                }
                 break
+            }
             case "REJECTED":
                 await this.callState.transition(statusObj.id, CallStatus.REJECTED, {
-                    endReason: EndReason.AGENT_REJECTED,
+                    endReason: EndReason.CUSTOMER_REJECTED,
                     endedAt: new Date(),
                 })
                 break

@@ -100,4 +100,17 @@ export const config = {
         metaRetentionDays: 7,
         downloadJobIntervalMinutes: Number(process.env.RECORDING_DOWNLOAD_INTERVAL_MINUTES) || 5,
     },
+
+    // ── Panggilan keluar (Fase 3) ──────────────────────────────────────────
+    outbound: {
+        // A VOICE_CALL_REQUEST-category template — this specific category
+        // needs no Meta approval, but MUST be created in Business Manager
+        // first (a UI action, not something this app can do). See
+        // docs/ROADMAP.md Fase 3.
+        permissionTemplateName: process.env.CALL_PERMISSION_TEMPLATE_NAME || '',
+        permissionTemplateLanguage: process.env.CALL_PERMISSION_TEMPLATE_LANGUAGE || 'en_US',
+        // Our own cache TTL ahead of Meta's own rate limit on the check
+        // endpoint itself (error 613).
+        permissionCacheTtlSeconds: Number(process.env.CALL_PERMISSION_CACHE_TTL) || 60,
+    },
 }

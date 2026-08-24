@@ -1,5 +1,6 @@
 export enum EndReason {
     CUSTOMER_HANGUP = "customer_hangup",
+    CUSTOMER_REJECTED = "customer_rejected",
     AGENT_HANGUP = "agent_hangup",
     AGENT_REJECTED = "agent_rejected",
     NO_AGENT_AVAILABLE = "no_agent_available",

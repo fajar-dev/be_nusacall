@@ -20,8 +20,13 @@ import type { MetaClient } from "../src/infrastructure/meta/meta.client"
  * split as everywhere else in this suite (real state, faked 3rd parties).
  */
 
-const noopMedia: ICallMediaCoordinator = { establishEarly: async () => ({ ok: true }), teardown: async () => {} }
-const noopSignaling: ICallSignalingNotifier = { notifyIncoming: async () => {}, logCallOutcome: async () => {}, notifyCallEnded: () => {} }
+const noopMedia: ICallMediaCoordinator = {
+    establishEarly: async () => ({ ok: true }), teardown: async () => {},
+    applyOutboundAnswer: async () => ({ ok: true }), startOutboundForwarding: async () => {},
+}
+const noopSignaling: ICallSignalingNotifier = {
+    notifyIncoming: async () => {}, logCallOutcome: async () => {}, notifyCallEnded: () => {}, notifyOutboundActive: () => {},
+}
 
 function fakeMetaClient(overrides: Partial<MetaClient> = {}): MetaClient {
     return {

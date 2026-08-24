@@ -8,6 +8,8 @@ import type {
     MetaCallPermissionResponse,
     MetaCallSettings,
     MetaHealthStatusResponse,
+    MetaSendTemplateRequest,
+    MetaSendMessageResponse,
 } from "./meta.types"
 
 /**
@@ -166,6 +168,29 @@ export class MetaClient {
             ...(bizOpaqueCallbackData ? { biz_opaque_callback_data: bizOpaqueCallbackData } : {}),
         }
         return this.post(`/${phoneNumberId}/calls`, body)
+    }
+
+    /**
+     * Fase 3 — sends a VOICE_CALL_REQUEST-category template message asking
+     * the WhatsApp user for call permission. This is the Messages API
+     * (`/messages`), not the Calling API (`/calls`) — the one place
+     * NusaCall sends a real outbound WhatsApp message rather than relaying
+     * or logging one. Requires the template to already exist in Meta
+     * Business Manager under `config.outbound.permissionTemplateName` — a
+     * UI action, not something this call can do.
+     */
+    async sendCallPermissionRequest(phoneNumberId: string, waId: string): Promise<MetaSendMessageResponse> {
+        const body: MetaSendTemplateRequest = {
+            messaging_product: "whatsapp",
+            recipient_type: "individual",
+            to: waId,
+            type: "template",
+            template: {
+                name: config.outbound.permissionTemplateName,
+                language: { code: config.outbound.permissionTemplateLanguage },
+            },
+        }
+        return this.post(`/${phoneNumberId}/messages`, body)
     }
 
     /** Fase 3 — check permission status + remaining quota before every outbound call. */

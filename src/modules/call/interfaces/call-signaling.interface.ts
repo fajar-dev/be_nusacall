@@ -30,4 +30,7 @@ export interface ICallSignalingNotifier {
      * never see. No-ops if no agent had answered yet.
      */
     notifyCallEnded(call: Call, endReason: EndReason): void
+
+    /** Fase 3 (BIC) — tells the initiating agent's browser the call is now active, mirroring the `call_state: active` packet UIC's handleAnswer already sends. */
+    notifyOutboundActive(call: Call): void
 }
