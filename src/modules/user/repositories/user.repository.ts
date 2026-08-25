@@ -28,11 +28,17 @@ export class UserRepository implements IUserRepository {
             query.andWhere("user.isActive = :isActive", { isActive: filters.isActive === "true" || filters.isActive === "1" })
         }
 
+        if (filters.organizationId !== undefined && filters.organizationId !== "") {
+            query.andWhere("user.organizationId = :organizationId", { organizationId: Number(filters.organizationId) })
+        }
+
         const total = await query.getCount()
 
         const sortColumnMap: Record<string, string> = {
             name: "user.name",
             email: "user.email",
+            role: "user.role",
+            organization: "organization.name",
             isActive: "user.isActive",
             createdAt: "user.createdAt",
         }

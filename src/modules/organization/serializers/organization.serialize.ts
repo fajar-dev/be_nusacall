@@ -20,7 +20,7 @@ export class OrganizationSerializer {
     }
 
     static listItem(org: Organization) {
-        return { id: org.id, parentId: org.parentId, name: org.name, type: org.type, isActive: org.isActive }
+        return { id: org.id, name: org.name }
     }
 
     static listCollection(orgs: Organization[]) {

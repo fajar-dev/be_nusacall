@@ -22,6 +22,8 @@ tags:
     description: Login/logout — validates the Nusawork password (or a Google ID token) against a local User, issues a NusaCall JWT
   - name: User
     description: User roster and live presence. Every user can receive calls — there is no eligibility flag; availability is purely live WebSocket presence with no manual toggle (available on connect, offline on disconnect)
+  - name: Organization
+    description: Organization tree, used to group and filter users
   - name: Call
     description: Call history and stats
   - name: Phone Number
@@ -188,6 +190,13 @@ components:
         role: { type: string, enum: [admin, agent, manager] }
         employeeId: { type: integer }
         organizationId: { type: integer }
+
+    # --- Organization Schemas ---
+    OrganizationListItem:
+      type: object
+      properties:
+        id: { type: integer, example: 3 }
+        name: { type: string, example: "Helpdesk Medan" }
 
     # --- Call Schemas ---
     CallStatus:
@@ -478,9 +487,13 @@ paths:
         - name: isActive
           in: query
           schema: { type: string, enum: ["true", "false"] }
+        - name: organizationId
+          in: query
+          description: Filter by organization id
+          schema: { type: integer }
         - name: sortBy
           in: query
-          schema: { type: string, enum: [name, email, isActive, createdAt] }
+          schema: { type: string, enum: [name, email, role, organization, isActive, createdAt] }
         - name: order
           in: query
           schema: { type: string, enum: [ASC, DESC], default: DESC }
@@ -722,6 +735,34 @@ paths:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
         "404":
           description: User not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  # ── Organization ──────────────────────────────────────────────────────────
+  /organization/list:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+    get:
+      tags: [Organization]
+      summary: Get a flat, unpaginated list of all organizations (for filters/pickers)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Organizations retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/OrganizationListItem" }
+        "401":
+          description: Unauthorized
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }

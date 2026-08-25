@@ -13,6 +13,7 @@ export class UserSerializer {
             photo: await resolveFileUrl(user.photo),
             email: user.email,
             isActive: Boolean(user.isActive),
+            organization: user.organization ? { id: user.organization.id, name: user.organization.name } : null,
             role: user.role,
             availability: presence?.availability ?? "offline",
             currentCallId: presence?.currentCallId ?? null,

@@ -17,6 +17,7 @@ import { RequestPermissionValidator } from "../modules/permission/validators/per
 import { RequestOutboundCallValidator } from "../modules/call/validators/call.validator"
 import { userController } from "../modules/user/user.module"
 import { CreateUserValidator, UpdateUserValidator } from "../modules/user/validators/user.validator"
+import { organizationController } from "../modules/organization/organization.module"
 
 const routes = new Hono()
 
@@ -41,6 +42,8 @@ routes.get("/user/:id", authMiddleware, (c) => userController.show(c))
 routes.post("/user", authMiddleware, zValidator("json", CreateUserValidator, validationHook), (c) => userController.store(c))
 routes.put("/user/:id", authMiddleware, zValidator("json", UpdateUserValidator, validationHook), (c) => userController.update(c))
 routes.delete("/user/:id", authMiddleware, (c) => userController.destroy(c))
+
+routes.get("/organization/list", authMiddleware, (c) => organizationController.list(c))
 
 routes.get("/call", authMiddleware, (c) => callController.index(c))
 routes.get("/call/stats", authMiddleware, (c) => callController.stats(c))

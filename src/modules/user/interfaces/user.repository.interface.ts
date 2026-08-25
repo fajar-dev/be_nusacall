@@ -3,6 +3,7 @@ import { IBaseRepository } from "../../../core/interfaces/base.repository.interf
 
 export interface UserListFilters {
     isActive?: string
+    organizationId?: string
 }
 
 export interface IUserRepository extends IBaseRepository<User> {
