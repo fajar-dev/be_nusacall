@@ -3,10 +3,8 @@ import { PermissionStatus } from "../enum/permission-status.enum"
 
 
 /**
- * Local cache of Meta's call_permissions status per (phoneNumberId, waId)
- * pair (docs/ROADMAP.md Fase 3: "cek status ke Meta, cache 60 detik").
- * Meta rate-limits this check itself (error 613), so PermissionService
- * checks here first and only calls Meta again once `checkedAt` is stale.
+ * Local cache of Meta's call_permissions status per (phoneNumberId, waId) pair. Meta rate-limits
+ * this check itself (error 613), so PermissionService checks here first and only calls Meta again once `checkedAt` is stale.
  */
 @Entity("call_permissions")
 @Index(["phoneNumberId", "waId"], { unique: true })

@@ -7,12 +7,8 @@ import { getDataSource } from "../src/config/database"
 import { PhoneNumber } from "../src/modules/phone-number/entities/phone-number.entity"
 import type { MetaClient } from "../src/infrastructure/meta/meta.client"
 
-/**
- * GET /api/phone-number(/:id) exercised through the real HTTP app (read-only,
- * no Meta call). update/sync/health call Meta, so those exercise
- * PhoneNumberService directly with a mocked MetaClient — same pattern as
- * test/call-signaling.test.ts — to avoid a real network call in tests.
- */
+// GET routes go through the real HTTP app (read-only, no Meta call). update/sync/health
+// call Meta, so those exercise PhoneNumberService directly with a mocked MetaClient instead.
 
 let app: Hono
 let repository: TypeOrmPhoneNumberRepository
@@ -118,7 +114,7 @@ describe("PhoneNumberService.update", () => {
         await expect(service.update(phoneNumber.id, { label: "New Label" })).rejects.toThrow()
 
         const stored = await repository.findById(phoneNumber.id)
-        expect(stored!.label).toBe("New Label") // saved locally even though the Meta push failed
+        expect(stored!.label).toBe("New Label")
     })
 })
 

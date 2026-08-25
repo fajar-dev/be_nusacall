@@ -13,9 +13,6 @@ interface PanelQrCodeResponse {
 export class NusaworkAuthService {
     constructor(private readonly userService: UserService) {}
 
-    /**
-     * Generate QR Code from Panel server.
-     */
     async generateQrCode() {
         const response = await AuthHelper.panelFetch("/api/companies/login/qrcode", {
             headers: { "Accept": "application/json" },
@@ -53,9 +50,6 @@ export class NusaworkAuthService {
         return { user, accessToken, refreshToken }
     }
 
-    /**
-     * Check QR Code scan status from Panel.
-     */
     async checkStatus(token: string): Promise<Record<string, any>> {
         const response = await AuthHelper.panelFetch(`/api/companies/login/qrcode/${token}`, {
             headers: {
@@ -66,9 +60,6 @@ export class NusaworkAuthService {
         return (await response.json()) as Record<string, any>
     }
 
-    /**
-     * Exchange Panel JWT token for a SIMAS session.
-     */
     async exchangeToken(panelToken: string) {
         const email = AuthHelper.decodeEmailFromJwt(panelToken)
 

@@ -31,7 +31,7 @@ export interface MetaErrorResponse {
     }
 }
 
-/** docs/INTEGRATION-META.md §5.2 — bersifat REPLACE, bukan merge, saat ditulis kembali. */
+/** Bersifat REPLACE, bukan merge, saat ditulis kembali. */
 export interface MetaCallSettings {
     calling: {
         status: "ENABLED" | "DISABLED"
@@ -53,7 +53,7 @@ export interface MetaHealthStatusResponse {
     }
 }
 
-/** Fase 3 — POST /{phone-number-id}/messages, a call permission request template. */
+/** POST /{phone-number-id}/messages — a call permission request template. */
 export interface MetaSendTemplateRequest {
     messaging_product: "whatsapp"
     recipient_type: "individual"

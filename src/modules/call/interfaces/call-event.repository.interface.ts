@@ -13,9 +13,8 @@ export interface RecordEventInput {
 
 export interface ICallEventRepository {
     /**
-     * Inserts the event iff `dedupKey` doesn't already exist. Returns false
-     * (no throw) when it's a duplicate — this IS the idempotency mechanism,
-     * not a side detail of it. See: docs/CALL-LIFECYCLE.md §3.1
+     * Inserts the event iff `dedupKey` doesn't already exist. Returns false (no throw) when
+     * it's a duplicate — this is the idempotency mechanism itself, not a side detail of it.
      */
     tryInsert(input: RecordEventInput): Promise<boolean>
 

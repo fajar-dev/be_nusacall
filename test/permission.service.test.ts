@@ -6,11 +6,8 @@ import { PermissionStatus } from "../src/modules/permission/enum/permission-stat
 import { config } from "../src/config/config"
 import type { MetaClient } from "../src/infrastructure/meta/meta.client"
 
-/**
- * PermissionService — docs/ROADMAP.md Fase 3: "cek status ke Meta, cache 60
- * detik". Real DB, fake Meta (a live call_permissions check is a Graph API
- * call with its own rate limit — never hit it from tests).
- */
+// Real DB, fake Meta — a live call_permissions check hits the Graph API with its
+// own rate limit, so we never call it from tests.
 
 function fakeMetaClient(overrides: Partial<MetaClient> = {}): MetaClient {
     return {
@@ -64,7 +61,7 @@ describe("PermissionService.checkPermission", () => {
         await service.checkPermission("202063559668129", "628123456789")
         const second = await service.checkPermission("202063559668129", "628123456789")
 
-        expect(calls).toBe(1) // second call served from cache
+        expect(calls).toBe(1)
         expect(second.permission.status).toBe(PermissionStatus.TEMPORARY)
         expect(second.quota).toBeNull() // cache hits don't carry fresh quota numbers
     })

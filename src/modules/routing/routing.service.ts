@@ -8,7 +8,7 @@ export interface RoutingDecision {
     reason?: EndReason
 }
 
-/** Ticket context looked up from nusawa right before routing — docs/INTEGRATION-NUSAWA.md §3.3-3.4. */
+/** Ticket context looked up from nusawa right before routing. */
 export interface ContactContext {
     inboxId: number | null
     contactName: string | null
@@ -19,19 +19,14 @@ export interface ContactContext {
 }
 
 /**
- * Chooses which agent(s) to ring for an inbound call — `pic_then_queue`
- * (docs/BACKEND-MODULES.md §7): a PIC who's online gets it directly,
- * otherwise broadcast to every available agent, first answer wins.
- * Whitelist/call-hours gating (steps 1-2) needs the phone-number module,
- * not built yet (Milestone 1.6) — Meta itself already enforces the
- * whitelist for test numbers in the meantime (docs/SETUP.md §3).
+ * Chooses which agent(s) to ring for an inbound call: a PIC who's online gets it directly,
+ * otherwise broadcast to every available agent, first answer wins. Whitelist/call-hours gating
+ * isn't implemented yet — Meta itself already enforces the whitelist for test numbers in the meantime.
  */
 export class RoutingService {
     decide(_call: Call, context: ContactContext | null = null): RoutingDecision {
-        // picUsername is nusawa's own field name for the ticket's assigned
-        // PIC — a separate system's identity concept. It's compared directly
-        // against our (now email-keyed) presence registry because nusawa's
-        // "username" values are themselves email-shaped in practice.
+        // picUsername is nusawa's field name for the ticket's assigned PIC. It's compared directly
+        // against our email-keyed presence registry because nusawa's "username" values are email-shaped.
         if (context?.picUsername && presenceRegistry.isAvailable(context.picUsername)) {
             return { kind: "direct", targets: [context.picUsername] }
         }

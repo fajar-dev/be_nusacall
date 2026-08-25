@@ -21,7 +21,6 @@ import { CreateUserValidator, UpdateUserValidator } from "../modules/user/valida
 
 const routes = new Hono()
 
-// permission/recording routes land incrementally per docs/ROADMAP.md.
 // /wh and /ws are mounted outside /api — see src/index.ts.
 
 routes.post("/auth/login", zValidator("json", LoginValidator, validationHook), (c) => authController.nusaworkLogin(c))
@@ -64,7 +63,6 @@ routes.post("/permission/request", authMiddleware, zValidator("json", RequestPer
 
 routes.post("/call/outbound", authMiddleware, zValidator("json", RequestOutboundCallValidator, validationHook), (c) => callController.outbound(c))
 
-// Generic — reused by the recording module in Fase 2.
 routes.post("/upload", authMiddleware, async (c) => {
     const body = await c.req.parseBody()
     const file = body["file"]

@@ -1,4 +1,3 @@
-/** Message formats straight from docs/INTEGRATION-NUSAWA.md §3.5's outcome table. */
 export type CallLogOutcome = "completed" | "rejected" | "missed"
 
 export function formatCallLogMessage(outcome: CallLogOutcome, opts: { durationSeconds?: number | null; agentEmail?: string | null }): string {

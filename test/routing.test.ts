@@ -6,11 +6,8 @@ import { CallDirection } from "../src/modules/call/enum/call-direction.enum"
 import { CallStatus } from "../src/modules/call/enum/call-status.enum"
 import type { Call } from "../src/modules/call/entities/call.entity"
 
-/**
- * RoutingService.decide() — `pic_then_queue` (docs/BACKEND-MODULES.md §7):
- * an online PIC gets the call directly, otherwise broadcast to every
- * available agent, first answer wins.
- */
+// `pic_then_queue` policy: an online PIC gets the call directly, otherwise
+// broadcast to every available agent, first answer wins (docs/BACKEND-MODULES.md §7).
 
 function fakeContext(overrides: Partial<ContactContext> = {}): ContactContext {
     return {

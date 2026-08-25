@@ -10,21 +10,11 @@ import {
 } from "./nusawa.types"
 
 /**
- * HTTP client for the nusawa API — a small, deliberate surface
- * (docs/INTEGRATION-NUSAWA.md §1, §3.1). Only called server-side; the
- * browser never talks to nusawa directly.
- *
- * `login`/`getMe` sit on the login path and MAY throw (503 if nusawa is
- * down — there's no fallback for "who is this person"). Call-path methods
- * added later must never throw; return null or queue instead.
+ * `login`/`getMe` MAY throw (there's no fallback for "who is this person").
+ * Call-path methods added later must never throw — return null or queue instead.
  */
 export class NusawaClient {
-    /**
-     * POST /api/login — exchanges the agent's Nusawork email/password for a
-     * nusawa JWT. Called server-side only; the plaintext password never
-     * leaves this process. Throws on any failure; the caller (AuthService)
-     * is responsible for turning that into the right HTTP response.
-     */
+    /** POST /api/login — exchanges email/password for a nusawa JWT. Throws on failure; caller (AuthService) maps errors to HTTP responses. */
     async login(email: string, password: string): Promise<NusawaLoginResponse> {
         const url = `${config.nusawa.baseUrl}/api/login`
         const res = await fetch(url, {
@@ -48,11 +38,8 @@ export class NusawaClient {
     }
 
     /**
-     * POST /api/login/google — exchanges a Google Identity Services ID
-     * token (verified by nusawa itself, not us) for a nusawa JWT. Same
-     * response shape as `login`. Throws on any failure; the caller
-     * (AuthService) is responsible for turning that into the right HTTP
-     * response.
+     * POST /api/login/google — exchanges a Google ID token (verified by nusawa
+     * itself, not us) for a nusawa JWT. Same response shape as `login`.
      */
     async loginWithGoogle(idToken: string): Promise<NusawaLoginResponse> {
         const url = `${config.nusawa.baseUrl}/api/login/google`
@@ -76,11 +63,7 @@ export class NusawaClient {
         return (await res.json()) as NusawaLoginResponse
     }
 
-    /**
-     * GET /api/me — relays the agent's own nusawa JWT (NOT NusaCall's API
-     * key). Throws on any failure; the caller (AuthService) is responsible
-     * for turning that into the right HTTP response.
-     */
+    /** GET /api/me — relays the agent's own nusawa JWT, NOT NusaCall's API key. */
     async getMe(nusawaToken: string): Promise<NusawaMeResponse> {
         const url = `${config.nusawa.baseUrl}/api/me`
         const res = await fetch(url, {
@@ -102,11 +85,8 @@ export class NusawaClient {
     }
 
     /**
-     * GET /api/contacts — relays the agent's own nusawa JWT (cached at login
-     * time by `NusawaSessionRegistry`, since this endpoint is gated behind
-     * agent identity on nusawa's side, not NusaCall's API key). Throws on
-     * any failure; the caller (ContactService) is responsible for turning
-     * that into the right HTTP response.
+     * GET /api/contacts — relays the agent's own nusawa JWT (cached at login by
+     * `NusawaSessionRegistry`), since this endpoint is gated behind agent identity, not NusaCall's API key.
      */
     async listContacts(
         nusawaToken: string,
@@ -138,10 +118,8 @@ export class NusawaClient {
     }
 
     /**
-     * GET /api/inbox/{phone_number_id}/{phone_number} — identifies the
-     * caller right after a `connect` webhook (docs/INTEGRATION-NUSAWA.md
-     * §3.3). Call-path method: never throws, degrades to null on any
-     * failure so a missing/slow nusawa never holds up the call.
+     * GET /api/inbox/{phone_number_id}/{phone_number} — identifies the caller
+     * after a `connect` webhook. Never throws; degrades to null so a missing/slow nusawa never holds up the call.
      */
     async findInboxByContact(phoneNumberId: string, phoneNumber: string): Promise<NusawaInboxDTO | null> {
         const url = `${config.nusawa.baseUrl}/api/inbox/${encodeURIComponent(phoneNumberId)}/${encodeURIComponent(phoneNumber)}?limit=1`
@@ -160,9 +138,8 @@ export class NusawaClient {
     }
 
     /**
-     * GET /api/inbox/{id} — the freshest PIC assignment, fetched right
-     * before a routing decision (docs/INTEGRATION-NUSAWA.md §3.4: "paling
-     * cepat basi", never cache). Call-path method: never throws.
+     * GET /api/inbox/{id} — freshest PIC assignment; fetched right before a
+     * routing decision and never cached ("paling cepat basi").
      */
     async getInboxDetail(inboxId: number): Promise<NusawaInboxDTO | null> {
         const url = `${config.nusawa.baseUrl}/api/inbox/${inboxId}`
@@ -181,11 +158,8 @@ export class NusawaClient {
     }
 
     /**
-     * POST /api/messages?no_send=1 — logs a call outcome into the nusawa
-     * thread without sending a real WhatsApp message (docs/INTEGRATION-
-     * NUSAWA.md §3.5). `ref` just varies the RequestURI to dodge nusawa's
-     * per-URI rate limit; nusawa itself ignores it. Call-path method: never
-     * throws — the caller (NusawaLogService) owns retry/backoff.
+     * POST /api/messages?no_send=1 — logs a call outcome without sending a real
+     * WhatsApp message. `ref` just varies the RequestURI to dodge nusawa's per-URI rate limit; nusawa itself ignores it.
      */
     async logCallMessage(params: { phoneNumberId: string; wacid: string; to: string; body: string }): Promise<boolean> {
         const query = new URLSearchParams({ no_send: "1", phone_number_id: params.phoneNumberId, ref: params.wacid })

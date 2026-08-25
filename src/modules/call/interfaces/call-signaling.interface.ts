@@ -20,17 +20,16 @@ export interface IAgentNotifier {
 export interface ICallSignalingNotifier {
     notifyIncoming(call: Call): Promise<void>
 
-    /** Queues a call-outcome message into the nusawa thread (docs/INTEGRATION-NUSAWA.md §3.5). */
+    /** Queues a call-outcome message into the nusawa thread. */
     logCallOutcome(call: Call, outcome: CallLogOutcome, durationSeconds?: number | null): Promise<void>
 
     /**
-     * Tells the answering agent's browser the call is over and frees their
-     * presence — for terminal states nusawa/Meta itself reports (customer
-     * hangup, FAILED, etc), which the agent-initiated hangup/reject paths
-     * never see. No-ops if no agent had answered yet.
+     * Tells the answering agent's browser the call is over and frees their presence, for
+     * terminal states Meta/nusawa report themselves (customer hangup, FAILED) that the
+     * agent-initiated paths never see. No-op if no agent had answered.
      */
     notifyCallEnded(call: Call, endReason: EndReason): void
 
-    /** Fase 3 (BIC) — tells the initiating agent's browser the call is now active, mirroring the `call_state: active` packet UIC's handleAnswer already sends. */
+    /** Tells the initiating agent's browser the call is now active, mirroring the `call_state: active` packet handleAnswer already sends. */
     notifyOutboundActive(call: Call): void
 }

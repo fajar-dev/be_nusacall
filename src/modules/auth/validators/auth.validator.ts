@@ -7,7 +7,7 @@ export const LoginValidator = z.object({
 export type LoginValidator = z.infer<typeof LoginValidator>
 
 export const GoogleLoginValidator = z.object({
-    idToken: z.string().min(1, "idToken is required"),
+    code: z.string().min(1, "code is required"),
 })
 export type GoogleLoginValidator = z.infer<typeof GoogleLoginValidator>
 

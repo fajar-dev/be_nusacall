@@ -2,14 +2,13 @@ import { INusawaLogQueueRepository } from "./interfaces/nusawa-log-queue.reposit
 import { NusawaClient } from "../../infrastructure/nusawa/nusawa.client"
 import { logger } from "../../core/helpers/logger"
 
-/** Exponential backoff schedule (docs/INTEGRATION-NUSAWA.md §3.5): 5s, 30s, 2m, 10m, 1h. */
+/** Exponential backoff schedule: 5s, 30s, 2m, 10m, 1h. */
 const BACKOFF_SECONDS = [5, 30, 120, 600, 3600]
 
 /**
- * Fire-and-forget call logging into nusawa's thread (docs/INTEGRATION-
- * NUSAWA.md §3.5). Never on the call's critical path — `enqueue` just
- * writes a row; `flushDue` (run by a background job) does the actual
- * network call and retries. A permanently-down nusawa never affects calls.
+ * Fire-and-forget call logging into nusawa's thread — never on the call's critical path.
+ * `enqueue` just writes a row; `flushDue` (background job) sends and retries, so a
+ * permanently-down nusawa never affects calls.
  */
 export class NusawaLogService {
     constructor(

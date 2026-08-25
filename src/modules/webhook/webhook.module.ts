@@ -10,10 +10,8 @@ import type { ICallSignalingNotifier } from "../call/interfaces/call-signaling.i
 const callMediaCoordinator = new CallMediaCoordinator(metaClient)
 
 /**
- * Builds a WebhookController with overridable media/signaling deps — used by
- * test/setup.ts to inject no-op stubs so state-machine tests never trigger
- * real WebRTC negotiation, Meta Graph API calls, or WebSocket pushes.
- * Production (src/index.ts) uses the `webhookController` singleton below.
+ * Builds a WebhookController with overridable media/signaling deps — used by tests to inject
+ * no-op stubs so state-machine tests never trigger real WebRTC/Meta/WebSocket calls.
  */
 export function buildWebhookController(
     media: ICallMediaCoordinator = callMediaCoordinator,

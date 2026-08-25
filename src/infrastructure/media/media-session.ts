@@ -12,11 +12,8 @@ export interface MediaStats {
 }
 
 /**
- * One MediaSession = one call = two WebRTC legs bridged together
- * (Meta <-> NusaCall <-> Agent). See docs/MEDIA-PLANE.md §5-6.
- *
- * Lifecycle: acceptMetaOffer() (Meta leg) → attachAgent() (browser leg) →
- * startForwarding() (only after Meta's `accept` returns 200) → close().
+ * One MediaSession = one call = two WebRTC legs bridged together (Meta <-> NusaCall <-> Agent).
+ * Lifecycle: acceptMetaOffer() → attachAgent() → startForwarding() (only after Meta's `accept` returns 200) → close().
  */
 export class MediaSession {
     /** Mutable only for the outbound-call rekey path (SessionRegistry.rekey) — a real wacid doesn't exist yet when the session is first created. */
@@ -35,7 +32,7 @@ export class MediaSession {
     /** The SDP answer sent to Meta via pre_accept. MUST be resent byte-identical to `accept`. */
     metaAnswerSdp: string | null = null
 
-    /** Fase 3 (BIC) — the offer WE sent Meta via createMetaOffer(). Not needed by production code (initiateOutbound() uses the return value directly), exposed for tests to negotiate a real, matching answer instead of a fabricated one. */
+    /** The offer WE sent Meta via createMetaOffer() (business-initiated calls). Exposed for tests to negotiate a real answer; production code doesn't need it. */
     metaOfferSdp: string | null = null
 
     readonly stats: MediaStats = {
@@ -54,19 +51,15 @@ export class MediaSession {
         )
     }
 
-    /**
-     * Applies Meta's SDP offer (from the `connect` webhook) and produces the
-     * SDP answer to send via pre_accept. ICE gathering completes before
-     * returning — Graph API has no channel for trickled candidates.
-     */
+    /** ICE gathering completes before returning — Graph API has no channel for trickled candidates. */
     async acceptMetaOffer(offerSdp: string): Promise<string> {
         if (this.closed) throw new Error(`MediaSession ${this.wacid} is already closed`)
 
         this.legA = createPeerConnection()
         this.transceiverA = this.legA.addTransceiver("audio", { direction: "sendrecv" })
 
-        // MUST subscribe before negotiation — werift fires onTrack during
-        // SDP negotiation, not lazily on first packet (see SPIKE-RESULTS.md §3.4).
+        // MUST subscribe before negotiation — werift fires onTrack during SDP
+        // negotiation, not lazily on first packet.
         this.transceiverA.onTrack.subscribe((track) => {
             track.onReceiveRtp.subscribe((rtp) => this.forwardToAgent(rtp))
         })
@@ -85,11 +78,8 @@ export class MediaSession {
     }
 
     /**
-     * Business-initiated calls (Fase 3): WE create the offer this time —
-     * Meta relays the WhatsApp user's SDP answer back via a `connect`
-     * webhook with direction BUSINESS_INITIATED, applied via
-     * applyMetaAnswer() below. Same leg (legA), same track wiring; only the
-     * offer/answer direction is reversed from acceptMetaOffer().
+     * Business-initiated calls: WE create the offer here; Meta relays the WhatsApp
+     * user's answer back via a `connect` webhook, applied via applyMetaAnswer().
      */
     async createMetaOffer(): Promise<string> {
         if (this.closed) throw new Error(`MediaSession ${this.wacid} is already closed`)
@@ -118,11 +108,7 @@ export class MediaSession {
         await this.legA.setRemoteDescription({ type: "answer", sdp: answerSdp })
     }
 
-    /**
-     * Applies the agent browser's SDP offer and returns our answer. Can be
-     * called concurrently with / after acceptMetaOffer — the two legs are
-     * independent until startForwarding() wires them together.
-     */
+    /** Can be called concurrently with / after acceptMetaOffer — the two legs are independent until startForwarding() wires them together. */
     async attachAgent(offerSdp: string): Promise<string> {
         if (this.closed) throw new Error(`MediaSession ${this.wacid} is already closed`)
 
@@ -141,10 +127,7 @@ export class MediaSession {
         return ensurePtime20(this.legB.localDescription!.sdp)
     }
 
-    /**
-     * Enables RTP forwarding. Must only be called AFTER Meta's `accept`
-     * succeeds — earlier risks audio clipping. See docs/MEDIA-PLANE.md §5.
-     */
+    /** Must only be called AFTER Meta's `accept` succeeds — earlier risks audio clipping. */
     startForwarding(): void {
         if (this.closed) return
         this.forwardingStarted = true

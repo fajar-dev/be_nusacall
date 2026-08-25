@@ -17,10 +17,8 @@ interface CacheEntry {
 }
 
 /**
- * Read-only proxy over nusawa's contact list — NusaCall owns no contact
- * data of its own. Uses the agent's own nusawa token, cached at login by
- * `NusawaSessionRegistry` (that endpoint is gated behind agent JWT, not an
- * API key). Missing/expired token → ask the agent to log in again.
+ * Read-only proxy over nusawa's contact list — NusaCall owns no contact data of its own.
+ * Uses the agent's own nusawa token, cached at login; a missing/expired token means asking them to log in again.
  */
 export class ContactService {
     private readonly cache = new Map<string, CacheEntry>()

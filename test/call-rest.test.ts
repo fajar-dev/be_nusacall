@@ -9,8 +9,6 @@ import { CallDirection } from "../src/modules/call/enum/call-direction.enum"
 import { EndReason } from "../src/modules/call/enum/end-reason.enum"
 import { RecordingArtifactStatus } from "../src/modules/call/enum/recording-artifact-status.enum"
 
-/** GET /api/call, /api/call/:id, /api/call/stats — docs/API-SPEC.md, Milestone 1.6. */
-
 let app: Hono
 
 beforeAll(async () => {

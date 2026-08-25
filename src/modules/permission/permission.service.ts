@@ -13,9 +13,8 @@ export interface PermissionCheckResult {
 }
 
 /**
- * Fase 3 — docs/ROADMAP.md: "cek status ke Meta, cache 60 detik". Meta
- * itself rate-limits the check endpoint (error 613), so this is not just an
- * optimization — hammering it without a cache will get us throttled.
+ * Cached per `permissionCacheTtlSeconds` — Meta rate-limits the check endpoint (error 613),
+ * so this isn't just an optimization; hammering it without a cache will get us throttled.
  */
 export class PermissionService {
     constructor(

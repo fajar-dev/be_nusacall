@@ -13,9 +13,8 @@ import type {
 } from "./meta.types"
 
 /**
- * Thin wrapper around the WhatsApp Business Calling Graph API — knows
- * nothing about Call/CallEvent entities. Orchestration lives in the
- * call/media modules. See docs/INTEGRATION-META.md §5.
+ * Thin wrapper around the WhatsApp Business Calling Graph API — knows nothing
+ * about Call/CallEvent entities; orchestration lives in the call/media modules.
  */
 export class MetaClient {
     private baseUrl(): string {
@@ -83,10 +82,7 @@ export class MetaClient {
         return json as T
     }
 
-    /**
-     * Pre-accepts an inbound call (UIC), establishing the media connection
-     * ahead of the agent actually answering. See: docs/MEDIA-PLANE.md §5.
-     */
+    /** Pre-accepts an inbound call (UIC), establishing the media connection ahead of the agent actually answering. */
     async preAccept(phoneNumberId: string, callId: string, answerSdp: string): Promise<MetaCallActionResponse> {
         const body: MetaCallActionRequest = {
             messaging_product: "whatsapp",
@@ -98,9 +94,8 @@ export class MetaClient {
     }
 
     /**
-     * Accepts the call. `answerSdp` MUST be byte-identical to what was sent
-     * in preAccept — Meta rejects a mismatch. Do NOT flow media until this
-     * resolves with success.
+     * `answerSdp` MUST be byte-identical to what was sent in preAccept — Meta
+     * rejects a mismatch. Do NOT flow media until this resolves with success.
      */
     async accept(phoneNumberId: string, callId: string, answerSdp: string, bizOpaqueCallbackData?: string): Promise<MetaCallActionResponse> {
         const body: MetaCallActionRequest = {
@@ -115,10 +110,8 @@ export class MetaClient {
     }
 
     /**
-     * `recording`/`transcription` on `accept` (Fase 2, docs/ROADMAP.md) —
-     * both must be requested per-call, Meta has no account-wide toggle.
-     * Omitted entirely when disabled rather than sent as `{status:
-     * "DISABLED"}`, since Meta defaults to disabled anyway.
+     * Both must be requested per-call — Meta has no account-wide toggle. Omitted
+     * entirely when disabled rather than sent as `{status: "DISABLED"}`, since Meta defaults to disabled anyway.
      */
     private recordingFields(): Pick<MetaCallActionRequest, "recording" | "transcription"> {
         const fields: Pick<MetaCallActionRequest, "recording" | "transcription"> = {}
@@ -158,7 +151,6 @@ export class MetaClient {
         return this.post(`/${phoneNumberId}/calls`, body)
     }
 
-    /** Business-initiated call (Fase 3). */
     async connect(phoneNumberId: string, to: string, offerSdp: string, bizOpaqueCallbackData?: string): Promise<MetaCallActionResponse> {
         const body: MetaCallActionRequest = {
             messaging_product: "whatsapp",
@@ -171,13 +163,8 @@ export class MetaClient {
     }
 
     /**
-     * Fase 3 — sends a VOICE_CALL_REQUEST-category template message asking
-     * the WhatsApp user for call permission. This is the Messages API
-     * (`/messages`), not the Calling API (`/calls`) — the one place
-     * NusaCall sends a real outbound WhatsApp message rather than relaying
-     * or logging one. Requires the template to already exist in Meta
-     * Business Manager under `config.outbound.permissionTemplateName` — a
-     * UI action, not something this call can do.
+     * Messages API (`/messages`), not the Calling API — the one place NusaCall
+     * sends a real outbound WhatsApp message. Requires the template to already exist in Meta Business Manager.
      */
     async sendCallPermissionRequest(phoneNumberId: string, waId: string): Promise<MetaSendMessageResponse> {
         const body: MetaSendTemplateRequest = {
@@ -193,7 +180,7 @@ export class MetaClient {
         return this.post(`/${phoneNumberId}/messages`, body)
     }
 
-    /** Fase 3 — check permission status + remaining quota before every outbound call. */
+    /** Checks permission status and remaining quota before every outbound call. */
     async getCallPermission(phoneNumberId: string, waId: string): Promise<MetaCallPermissionResponse> {
         const url = `${this.baseUrl()}/${phoneNumberId}/call_permissions?user_wa_id=${encodeURIComponent(waId)}`
         const res = await fetch(url, {
@@ -207,33 +194,29 @@ export class MetaClient {
         return json as MetaCallPermissionResponse
     }
 
-    /** Configure/update calling settings (call hours, icon visibility, etc). Bersifat REPLACE, bukan merge. */
+    /** Bersifat REPLACE, bukan merge — Meta replaces the full settings object, not a partial merge. */
     async updateCallSettings(phoneNumberId: string, calling: Record<string, unknown>): Promise<{ success: boolean }> {
         return this.post(`/${phoneNumberId}/settings`, { calling })
     }
 
-    /** Reads the phone number's current calling settings — docs/INTEGRATION-META.md §5.2. */
     async getCallSettings(phoneNumberId: string): Promise<MetaCallSettings> {
         return this.get(`/${phoneNumberId}/settings`)
     }
 
-    /** docs/INTEGRATION-META.md §5.5. */
     async getHealthStatus(phoneNumberId: string): Promise<MetaHealthStatusResponse> {
         return this.get(`/${phoneNumberId}?fields=health_status`)
     }
 
     /**
-     * Media API — refetches a fresh download URL by media id when the
-     * webhook's own `url` has already expired (recording: 5 min; transcript:
-     * short-lived too). Same `url`/`mime_type`/`sha256` shape either way.
+     * Refetches a fresh download URL by media id when the webhook's own `url`
+     * has expired (recording: 5 min; transcript: short-lived too).
      */
     async getMediaUrl(mediaId: string): Promise<{ url: string; mime_type: string; sha256: string; file_size?: number }> {
         return this.get(`/${mediaId}`)
     }
 
     /**
-     * Downloads recording/transcript bytes from a Meta-hosted URL. NOT
-     * routed through `baseUrl()`/`post`/`get` — this is a `lookaside.fbsbx.com`
+     * NOT routed through `baseUrl()`/`post`/`get` — this is a `lookaside.fbsbx.com`
      * asset URL, not a Graph API path, but still needs the same bearer token.
      */
     async downloadMedia(url: string): Promise<Buffer> {

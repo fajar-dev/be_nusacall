@@ -11,9 +11,8 @@ export enum CallStatus {
 }
 
 /**
- * Monotonic rank per state. A transition to a LOWER rank must be rejected —
- * this is the guard against Meta's out-of-order webhook delivery.
- * See: docs/CALL-LIFECYCLE.md §2
+ * Monotonic rank per state. A transition to a lower rank must be rejected — this guards
+ * against Meta's out-of-order webhook delivery.
  */
 export const CALL_STATUS_RANK: Record<CallStatus, number> = {
     [CallStatus.PENDING]: 10,

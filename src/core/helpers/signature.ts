@@ -1,13 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto"
 import { config } from "../../config/config"
 
-/**
- * Verifies Meta's `x-hub-signature` header (HMAC-SHA1 over the raw request body,
- * signed with the App Secret). Must be called with the RAW body string, before
- * JSON parsing — Meta signs the exact bytes it sent.
- *
- * See: INTEGRATION-META.md §3.2
- */
+/** Must be called with the RAW body string before JSON parsing — Meta signs the exact bytes it sent. */
 export function verifyMetaSignature(rawBody: string, header: string | undefined): boolean {
     if (!header) return false
 

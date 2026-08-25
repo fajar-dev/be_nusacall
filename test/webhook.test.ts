@@ -20,8 +20,6 @@ import { Call } from "../src/modules/call/entities/call.entity"
 import { CallEvent } from "../src/modules/call/entities/call-event.entity"
 import { CallStatus } from "../src/modules/call/enum/call-status.enum"
 
-// ── Setup ───────────────────────────────────────────────────────────────────
-
 let app: Hono
 
 beforeAll(async () => {
@@ -62,18 +60,11 @@ async function countCallEvents(wacid: string): Promise<number> {
     return await repo.countBy({ wacid })
 }
 
-// Webhook processing is fire-and-forget (queueMicrotask) — give it a tick.
-// 150ms is generous headroom so nothing is left in-flight when this test
-// file's afterAll tears down the shared TestDataSource (see test/setup.ts) —
-// a leftover query racing against connection teardown manifests as flaky
-// cross-file failures in other test files, not in this one.
+// Webhook processing is fire-and-forget (queueMicrotask) — 150ms headroom avoids a
+// leftover query racing the shared TestDataSource teardown in another test file.
 async function flush() {
     await new Promise((r) => setTimeout(r, 150))
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Handshake & Signature
-// ═══════════════════════════════════════════════════════════════════════════
 
 describe("Webhook - GET /wh handshake", () => {
     test("returns the challenge when verify_token matches", async () => {
@@ -112,9 +103,7 @@ describe("Webhook - POST /wh signature verification", () => {
     })
 })
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Call Lifecycle — the 6 mandatory scenarios from docs/CALL-LIFECYCLE.md §2.4
-// ═══════════════════════════════════════════════════════════════════════════
+// The describe blocks below cover the 6 mandatory scenarios from docs/CALL-LIFECYCLE.md §2.4.
 
 describe("Call Lifecycle - normal flow (connect -> terminate)", () => {
     test("connect creates a PENDING call; terminate marks it COMPLETED after ACCEPTED", async () => {
@@ -128,8 +117,7 @@ describe("Call Lifecycle - normal flow (connect -> terminate)", () => {
         expect(call!.status).toBe(CallStatus.PENDING)
         expect(call!.statusRank).toBe(10)
 
-        // Simulate the call being answered via status webhooks (BIC-style,
-        // exercised here purely to reach ACTIVE before terminating).
+        // Status webhook exercised purely to reach ACTIVE before terminating.
         await postWebhook(app, createStatusWebhookPayload({ wacid, status: "ACCEPTED" }))
         await flush()
 
@@ -162,12 +150,11 @@ describe("Call Lifecycle - reversed order (terminate before connect)", () => {
         expect(call!.status).toBe(CallStatus.ABANDONED) // never reached ACTIVE, so ABANDONED not COMPLETED
         expect(call!.statusRank).toBe(90)
 
-        // connect arrives late.
         await postWebhook(app, createConnectWebhookPayload({ wacid }))
         await flush()
 
         call = await getCall(wacid)
-        expect(call!.status).toBe(CallStatus.ABANDONED) // MUST NOT have reverted to "pending"
+        expect(call!.status).toBe(CallStatus.ABANDONED)
         expect(call!.statusRank).toBe(90)
     })
 })
@@ -179,8 +166,8 @@ describe("Call Lifecycle - duplicate connect webhooks", () => {
         const payload = createConnectWebhookPayload({ wacid, timestamp })
 
         await postWebhook(app, payload)
-        await postWebhook(app, payload) // Meta retry — identical payload
-        await postWebhook(app, payload) // Meta retry again
+        await postWebhook(app, payload)
+        await postWebhook(app, payload)
         await flush()
 
         const call = await getCall(wacid)
@@ -188,7 +175,7 @@ describe("Call Lifecycle - duplicate connect webhooks", () => {
         expect(call!.status).toBe(CallStatus.PENDING)
 
         const eventCount = await countCallEvents(wacid)
-        expect(eventCount).toBe(1) // deduped — NOT 3
+        expect(eventCount).toBe(1)
     })
 })
 
@@ -196,20 +183,18 @@ describe("Call Lifecycle - stale webhook", () => {
     test("a terminate webhook older than the stale threshold is recorded but does NOT change state", async () => {
         const wacid = "wacid.STALE1"
 
-        // Establish the call first via a fresh connect.
         await postWebhook(app, createConnectWebhookPayload({ wacid }))
         await flush()
 
         let call = await getCall(wacid)
         expect(call!.status).toBe(CallStatus.PENDING)
 
-        // Terminate webhook timestamped far in the past (> WEBHOOK_STALE_SECONDS).
         const staleTimestamp = Math.floor(Date.now() / 1000) - (config.call.webhookStaleSeconds + 300)
         await postWebhook(app, createTerminateWebhookPayload({ wacid, status: "COMPLETED", timestamp: staleTimestamp }))
         await flush()
 
         call = await getCall(wacid)
-        expect(call!.status).toBe(CallStatus.PENDING) // untouched — stale event must not drive a transition
+        expect(call!.status).toBe(CallStatus.PENDING)
 
         const eventCount = await countCallEvents(wacid)
         expect(eventCount).toBe(2) // connect + the stale terminate (recorded for audit, not acted on)
@@ -233,16 +218,16 @@ describe("Call Lifecycle - duplicate terminate after completion", () => {
         expect(call!.status).toBe(CallStatus.COMPLETED)
         expect(call!.durationSeconds).toBe(60)
 
-        // A second, distinct terminate webhook (different timestamp so it's
-        // not deduped as an identical retry) tries to overwrite duration.
+        // Different timestamp so this isn't deduped as an identical retry — it's a genuine
+        // second terminate trying to overwrite duration.
         await postWebhook(app, createTerminateWebhookPayload({
             wacid, status: "COMPLETED", duration: 9999, timestamp: Math.floor(Date.now() / 1000) + 5,
         }))
         await flush()
 
         call = await getCall(wacid)
-        expect(call!.status).toBe(CallStatus.COMPLETED) // unchanged
-        expect(call!.durationSeconds).toBe(60)  // NOT overwritten with 9999 — rank guard rejected it
+        expect(call!.status).toBe(CallStatus.COMPLETED)
+        expect(call!.durationSeconds).toBe(60) // rank guard rejects the overwrite
     })
 })
 
@@ -261,10 +246,6 @@ describe("Call Lifecycle - status webhook arrives before connect", () => {
     })
 })
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Non-calls payloads
-// ═══════════════════════════════════════════════════════════════════════════
-
 describe("Webhook - unrelated payloads", () => {
     test("a non-whatsapp_business_account object is accepted (204) but ignored", async () => {
         const payload = { object: "page", entry: [] }
@@ -280,14 +261,11 @@ describe("Webhook - unrelated payloads", () => {
         const { status } = await postWebhook(app, payload)
         expect(status).toBe(204)
         await flush()
-        // no assertion target — just confirms no crash/side effect for the wrong field
+        // No assertion target — just confirms no crash/side effect for the wrong field.
     })
 })
 
-// ═══════════════════════════════════════════════════════════════════════════
-// account_update — launch-stop criteria (docs/ROADMAP.md), WABA-scoped
-// ═══════════════════════════════════════════════════════════════════════════
-
+// account_update is a launch-stop criteria signal (docs/ROADMAP.md), scoped per WABA.
 describe("Webhook - account_update", () => {
     test("ACCOUNT_VIOLATION (calling quality) is accepted without crashing the webhook pipeline", async () => {
         const payload = createAccountUpdateWebhookPayload({ event: "ACCOUNT_VIOLATION", violationType: "LOW_USER_INITIATED_CALLING_QUALITY" })
@@ -321,6 +299,6 @@ describe("Webhook - account_update", () => {
         await flush()
 
         const call = await getCall(wacid)
-        expect(call).not.toBeNull() // the calls-field change was still processed normally
+        expect(call).not.toBeNull()
     })
 })

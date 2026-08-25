@@ -1,8 +1,6 @@
 /**
- * Validates/normalizes SDP against Meta's mandatory requirements before
- * sending. werift is already compliant by default — this is a safety net,
- * catching a malformed SDP locally instead of a cryptic Meta rejection.
- * See docs/MEDIA-PLANE.md §7.
+ * Validates/normalizes SDP against Meta's mandatory requirements before sending —
+ * a safety net catching malformed SDP locally instead of a cryptic Meta rejection.
  */
 
 export class SdpValidationError extends Error {}
@@ -35,11 +33,7 @@ export interface SdpValidationResult {
     errors: string[]
 }
 
-/**
- * Validates outbound SDP against Meta's mandatory requirements before it is
- * sent via pre_accept/accept/connect. Does NOT throw — callers decide
- * whether to reject or log-and-proceed (see `assertValidOutboundSdp`).
- */
+/** Does NOT throw — callers decide whether to reject or log-and-proceed (see `assertValidOutboundSdp`). */
 export function validateOutboundSdp(sdp: string): SdpValidationResult {
     const errors: string[] = []
     const lines = sdp.split("\r\n")

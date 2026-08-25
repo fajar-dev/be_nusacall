@@ -9,7 +9,7 @@ import { BadGatewayException, ForbiddenException } from "../../core/exceptions/b
 import { PermissionStatus } from "../permission/enum/permission-status.enum"
 import type { User } from "../user/entities/user.entity"
 
-/** docs/ROADMAP.md Fase 3 — full table sourced from Meta's Calling API troubleshooting docs. */
+/** Error codes and messages from Meta's Calling API troubleshooting docs. */
 const OUTBOUND_ERROR_MESSAGES: Record<number, string> = {
     138006: "This customer hasn't granted call permission yet — request it first.",
     138009: "Too many permission requests sent to this customer recently — try again later.",
@@ -74,11 +74,8 @@ export class CallController {
     }
 
     /**
-     * POST /api/call/outbound (Fase 3). Dynamic imports avoid a circular
-     * import — call.module.ts (this controller's home) is imported BY
-     * gateway/signaling.module.ts, so importing callSignalingService back
-     * at module-load time would cycle; resolving it at call-time doesn't.
-     * Same pattern already used for /proxy and /upload in routes/api.ts.
+     * Dynamic imports avoid a circular import: call.module.ts is imported by
+     * gateway/signaling.module.ts, so importing callSignalingService at module-load time would cycle.
      */
     async outbound(c: Context) {
         const user = c.get("user") as User

@@ -18,11 +18,8 @@ interface Connection {
 }
 
 /**
- * WebSocket transport for the softphone (docs/API-SPEC.md §8). Pure
- * transport — parses/dispatches packets and calls CallSignalingService for
- * everything else, never touching the database directly (docs/ARCHITECTURE.md).
- * Token arrives via `?token=` query string since the browser WebSocket API
- * has no custom-header support.
+ * Pure transport for the softphone — dispatches to CallSignalingService, never touches the DB directly.
+ * Token arrives via `?token=` query string since browser WebSocket has no custom-header support.
  */
 export class SignalingGateway implements IAgentNotifier {
     private service!: CallSignalingService

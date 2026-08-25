@@ -5,26 +5,15 @@ import { nusaworkHelper } from "../src/core/helpers/nusawork"
 import { AuthHelper } from "../src/core/helpers/auth"
 import { Role } from "../src/modules/user/enums/role.enum"
 
-/**
- * `userService` is deliberately NOT imported at the top level — Bun evaluates
- * every test file's static imports before any `beforeAll` runs, which would
- * construct UserRepository's singleton (and bind it to the DataSource) before
- * `initTestDatabase()` has swapped in the test database. Lazy `require()`
- * here (same pattern as `createUserAndToken` in ./setup) defers that
- * construction until it's actually called, mid-test.
- */
+// Lazy require(), not a top-level import: Bun evaluates static imports before any
+// beforeAll runs, which would construct UserRepository's singleton before
+// initTestDatabase() swaps in the test database.
 function getUserService(): { save: (data: unknown) => Promise<any> } {
     return require("../src/modules/user/user.module").userService
 }
 
-/**
- * Exercises the real login flow end-to-end EXCEPT the network hop to
- * Nusawork (password validation) and Google (ID token verification), both
- * stubbed via spyOn — neither is reachable in this test environment.
- * Everything downstream of that (User lookup, JWT signing, response shape)
- * is real. Identity itself is no longer sourced from nusawa — see
- * auth.service.ts / nusawork-auth.service.ts.
- */
+// Exercises the real login flow end-to-end except the network hop to Nusawork/Google,
+// both stubbed via spyOn since neither is reachable in this test environment.
 
 let app: Hono
 
@@ -212,9 +201,8 @@ describe("GET /api/auth/me", () => {
     })
 
     test("rejects a token for a user who has since been deactivated (401)", async () => {
-        // A real gate: a JWT stays valid for its 15-minute lifetime even
-        // after an admin deactivates the account it belongs to. authMiddleware
-        // must re-check `isActive` on every request, not just trust the token.
+        // Guards against trusting a still-valid JWT after the account is deactivated —
+        // authMiddleware must re-check isActive on every request.
         const { user, headers } = await createUserAndToken({ email: "deactivated@nusa.id" })
         await getUserService().save({ id: user.id, isActive: false })
 

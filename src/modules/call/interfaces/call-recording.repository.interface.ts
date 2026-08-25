@@ -7,7 +7,7 @@ export interface ICallRecordingRepository {
 
     findByCallId(callId: number): Promise<CallRecording | null>
 
-    /** Rows with at least one PENDING artifact, soonest-expiring first (docs/ROADMAP.md Fase 2: "prioritas expires_at"). */
+    /** Rows with at least one PENDING artifact, soonest-expiring first. */
     findDuePendingDownloads(limit: number): Promise<CallRecording[]>
 
     /** Rows with a PENDING artifact whose expiry has already passed. */

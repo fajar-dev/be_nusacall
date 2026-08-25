@@ -18,8 +18,6 @@ function captureConsole(method: "log" | "error") {
     }
 }
 
-// ── Setup ───────────────────────────────────────────────────────────────────
-
 let app: Hono
 
 beforeAll(async () => {
@@ -31,10 +29,6 @@ afterAll(async () => {
     await destroyTestDatabase()
     rmSync(join(process.cwd(), "logs"), { recursive: true, force: true })
 })
-
-// ═══════════════════════════════════════════════════════════════════════════
-// logger — structured JSON output
-// ═══════════════════════════════════════════════════════════════════════════
 
 describe("logger", () => {
     test("logger.info writes one JSON line to stdout with base fields", () => {
@@ -101,10 +95,6 @@ describe("logger", () => {
         expect(entry.message).toBe("Persisted info")
     })
 })
-
-// ═══════════════════════════════════════════════════════════════════════════
-// requestLogger middleware — X-Request-Id + access log
-// ═══════════════════════════════════════════════════════════════════════════
 
 describe("requestLogger middleware", () => {
     let console_: ReturnType<typeof captureConsole>

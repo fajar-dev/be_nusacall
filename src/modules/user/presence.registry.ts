@@ -9,15 +9,8 @@ export interface UserPresence {
 }
 
 /**
- * In-memory registry of which users are online and what they're doing.
- * Not persisted — WebSocket connections die with the process anyway, so
- * stale presence would be worse than none.
- *
- * Availability has exactly two states: a user is "available" for the
- * entire lifetime of their WebSocket connection (set once in `register()`)
- * and disappears from the registry entirely once their last connection
- * closes — there is no manual toggle. "Busy" isn't a distinct availability
- * value; it's expressed by `currentCallId !== null` (see `isAvailable`).
+ * In-memory registry of online users — not persisted (WebSocket connections die with the process).
+ * "Available" lasts the whole connection lifetime; "busy" is expressed by `currentCallId !== null`, not a separate state.
  */
 class PresenceRegistry {
     private readonly byEmail = new Map<string, UserPresence>()

@@ -22,10 +22,8 @@ export class WebhookController {
     }
 
     /**
-     * POST /wh — receives `calls` webhook events. Must reply fast (Meta
-     * retries on timeout, creating duplicates); signature is checked on the
-     * raw body before parsing, and processing happens after the reply is
-     * queued. See docs/CALL-LIFECYCLE.md §5.
+     * POST /wh — receives `calls` webhook events. Must reply fast (Meta retries on timeout,
+     * creating duplicates); signature is checked on the raw body before parsing.
      */
     async receive(c: Context) {
         const raw = await c.req.text()

@@ -21,11 +21,10 @@ export interface ProcessResult {
 }
 
 /**
- * The single place that decides how a Meta webhook affects a Call's state.
- * Two rules (docs/CALL-LIFECYCLE.md §2.3): transitions to a lower rank are
- * ignored, and terminal states never change status again. Both enforced by
- * ICallRepository.updateIfRankLower's SQL guard — safe under concurrent
- * webhook delivery, which Meta does not otherwise protect against.
+ * The single place that decides how a Meta webhook affects a Call's state. Two rules:
+ * transitions to a lower rank are ignored, and terminal states never change again. Enforced by
+ * ICallRepository.updateIfRankLower's SQL guard, safe under concurrent webhook delivery — Meta
+ * itself does not protect against that.
  */
 export class CallStateService {
     constructor(
@@ -33,10 +32,7 @@ export class CallStateService {
         private readonly events: ICallEventRepository,
     ) {}
 
-    /**
-     * Redacts session/sdp before persisting — SDP contains DTLS fingerprints
-     * and, under SDES, raw SRTP keys. See: docs/DATABASE.md §3.
-     */
+    /** Redacts session/sdp before persisting — SDP contains DTLS fingerprints and, under SDES, raw SRTP keys. */
     static redactPayload(payload: Record<string, unknown>): Record<string, unknown> {
         const clone = JSON.parse(JSON.stringify(payload))
         const entries = (clone as any)?.entry
@@ -69,9 +65,8 @@ export class CallStateService {
     }
 
     /**
-     * Idempotency gate. Call this FIRST for every webhook event, before any
-     * state mutation. Returns accepted=false for duplicates — the caller
-     * must stop processing in that case.
+     * Idempotency gate — call this first for every webhook event, before any state mutation.
+     * Returns accepted=false for duplicates; the caller must stop processing then.
      */
     async recordEvent(input: WebhookEventInput): Promise<ProcessResult> {
         const dedupKey = this.computeDedupKey(input)
@@ -113,10 +108,9 @@ export class CallStateService {
     }
 
     /**
-     * Applies a transition. Returns true iff it was actually applied (i.e.
-     * `nextStatus`'s rank was higher than the row's current rank). A false
-     * return is NOT an error — it means an out-of-order/duplicate webhook
-     * tried to move the call backwards and was correctly rejected.
+     * Returns true iff the transition was actually applied (nextStatus's rank was higher than
+     * current). A false return is not an error — it means an out-of-order/duplicate webhook was
+     * correctly rejected.
      */
     async transition(wacid: string, nextStatus: CallStatus, patch: Partial<Call> = {}): Promise<boolean> {
         const nextRank = CALL_STATUS_RANK[nextStatus]

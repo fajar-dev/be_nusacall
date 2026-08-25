@@ -43,8 +43,7 @@ export interface NusawaContactsResponse {
 }
 
 /**
- * GET /api/inbox/{phone_number_id}/{phone_number} and GET /api/inbox/{id} — both return
- * this shape (docs/INTEGRATION-NUSAWA.md §3.3-3.4). Note `contact` is a hand-built map on
+ * Returned by both inbox endpoints. Note `contact` is a hand-built map on
  * nusawa's side (plain nullable strings), NOT the same SqlNullString encoding as `username`.
  */
 export interface NusawaInboxDTO {

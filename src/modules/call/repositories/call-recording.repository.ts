@@ -18,9 +18,8 @@ export class TypeOrmCallRecordingRepository implements ICallRecordingRepository 
         try {
             return await this.repository.save(this.repository.create({ callId, wacid }))
         } catch (err) {
-            // Race: both *_available webhooks landed concurrently and both
-            // tried to create the row — the unique index on callId rejects
-            // the loser; re-read instead of failing the webhook.
+            // Race: both *_available webhooks landed concurrently and tried to create the row —
+            // the unique index rejects the loser, so re-read instead of failing.
             if (this.isUniqueViolation(err)) {
                 const winner = await this.repository.findOne({ where: { callId } })
                 if (winner) return winner

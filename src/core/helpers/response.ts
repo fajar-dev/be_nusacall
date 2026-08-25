@@ -13,10 +13,6 @@ function translateErrors(c: Context, errors: any) {
     )
 }
 
-/**
- * Standard API Response Formatter (Best Practice)
- * Ensures consistency across all API responses.
- */
 export class ApiResponse {
     static success<T>(
         c: Context,

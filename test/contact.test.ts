@@ -4,20 +4,9 @@ import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createTestApp
 import { config } from "../src/config/config"
 import { nusawaSessionRegistry } from "../src/infrastructure/nusawa/nusawa-session.registry"
 
-/**
- * GET /api/contact is a read-only proxy over nusawa's GET /api/contacts.
- * The frontend never calls nusawa directly — only this backend does, using
- * the agent's own nusawa token captured at login (NusawaSessionRegistry).
- * See: docs/INTEGRATION-NUSAWA.md §3.6, docs/API-SPEC.md
- *
- * NOTE: login no longer populates NusawaSessionRegistry — the old
- * nusawa-relay login flow was replaced by Nusawork password auth against a
- * local User (see auth.module.ts / nusawork-auth.service.ts), and nothing
- * currently re-establishes a nusawa session on login. That's a real,
- * separate gap (out of scope for the agent→user refactor these tests were
- * updated for) — tests here seed the registry directly to keep exercising
- * ContactService's own mapping/caching/error-handling logic in isolation.
- */
+// Login no longer populates NusawaSessionRegistry (replaced by Nusawork password auth,
+// nothing re-establishes a nusawa session on login) — tests seed the registry directly
+// to exercise ContactService's own logic in isolation.
 
 let app: Hono
 let originalFetch: typeof fetch

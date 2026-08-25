@@ -25,9 +25,8 @@ export interface RecordingAvailablePayload {
 
 /**
  * Downloads, verifies, and stores call recordings/transcripts Meta makes
- * available via webhook (docs/ROADMAP.md Fase 2). Meta deletes the media 7
- * days after the *_available webhook fires — everything here exists to win
- * that race before it's gone for good.
+ * available via webhook. Meta deletes the media 7 days after the
+ * *_available webhook fires — this exists to win that race before it's gone.
  */
 export class CallRecordingService {
     constructor(
@@ -36,7 +35,6 @@ export class CallRecordingService {
         private readonly storage: IObjectStorage,
     ) {}
 
-    /** Called from WebhookService on `call_recording_available`. */
     async recordingAvailable(payload: RecordingAvailablePayload): Promise<void> {
         const row = await this.repository.findOrCreate(payload.callId, payload.wacid)
         if (row.recordingStatus !== RecordingArtifactStatus.PENDING || row.recordingMediaId) {
@@ -54,7 +52,6 @@ export class CallRecordingService {
         })
     }
 
-    /** Called from WebhookService on `call_transcription_available`. */
     async transcriptAvailable(payload: RecordingAvailablePayload): Promise<void> {
         const row = await this.repository.findOrCreate(payload.callId, payload.wacid)
         if (row.transcriptStatus !== RecordingArtifactStatus.PENDING || row.transcriptMediaId) {
@@ -72,7 +69,6 @@ export class CallRecordingService {
         })
     }
 
-    /** GET /api/call/:id/recording — a presigned URL, streamed straight into an <audio> element. */
     async getRecordingUrl(callId: number): Promise<string> {
         const row = await this.repository.findByCallId(callId)
         const s3Key = this.readyS3Key(row, "recording", row?.recordingStatus, row?.recordingS3Key)
@@ -80,11 +76,8 @@ export class CallRecordingService {
     }
 
     /**
-     * GET /api/call/:id/transcript — parsed JSON content, not a URL. Unlike
-     * the recording, the browser needs to actually read this (speaker
-     * segments), and MinIO presigned URLs may not have CORS enabled for
-     * direct browser fetch — going through this authenticated endpoint
-     * sidesteps that entirely instead of depending on bucket CORS config.
+     * Returns parsed JSON, not a URL: MinIO presigned URLs may not have CORS
+     * enabled for direct browser fetch, so this goes through an authenticated endpoint instead.
      */
     async getTranscriptContent(callId: number): Promise<unknown> {
         const row = await this.repository.findByCallId(callId)
@@ -108,12 +101,7 @@ export class CallRecordingService {
         return s3Key
     }
 
-    /**
-     * The download job (src/jobs/index.ts, every
-     * config.recording.downloadJobIntervalMinutes). Fetches whatever's
-     * PENDING, soonest-expiring first — a failure here just waits for the
-     * next tick, since Meta gives us 7 days, not one shot.
-     */
+    /** Fetches whatever's PENDING, soonest-expiring first; a failure here just waits for the next tick, since Meta gives 7 days, not one shot. */
     async processDueDownloads(limit = 20): Promise<void> {
         const rows = await this.repository.findDuePendingDownloads(limit)
         for (const row of rows) {
@@ -126,12 +114,7 @@ export class CallRecordingService {
         }
     }
 
-    /**
-     * Safety-net alarm (docs/ROADMAP.md Fase 2: "alarm bila ada rekaman
-     * berstatus EXPIRED") — processDueDownloads should always win this race
-     * given a 5-minute job interval against a 7-day window, so a row landing
-     * here means something was actually stuck (Meta down, MinIO down, a bug).
-     */
+    /** Safety net: processDueDownloads should always win this race, so a row landing here means something got stuck (Meta down, MinIO down, a bug). */
     async markExpired(): Promise<void> {
         const rows = await this.repository.findExpiredPending(new Date())
         for (const row of rows) {
@@ -152,16 +135,11 @@ export class CallRecordingService {
         const mimeType = kind === "recording" ? row.recordingMimeType : row.transcriptMimeType
 
         try {
-            // The webhook's own `url` is long gone by the time this job
-            // runs (5-minute validity vs a 5-minute job interval, plus
-            // queueing) — always refetch fresh from the Media API.
+            // The webhook's own `url` has a ~5-minute validity, which the job interval plus queueing can outlast — always refetch fresh from the Media API.
             const media = await this.metaClient.getMediaUrl(mediaId)
             const bytes = await this.metaClient.downloadMedia(media.url)
 
-            // Confirmed against a real webhook delivery: Meta sends this as
-            // lowercase hex, not base64 (docs said base64 — docs were wrong,
-            // or this changed). A base64 digest here made every download
-            // fail this check even when the bytes were byte-for-byte correct.
+            // Meta sends this as lowercase hex, not base64, despite what the docs say.
             const actualSha256 = createHash("sha256").update(bytes).digest("hex")
             if (expectedSha256 && actualSha256 !== expectedSha256) {
                 throw new Error(`SHA-256 mismatch: expected ${expectedSha256}, got ${actualSha256}`)
@@ -184,7 +162,7 @@ export class CallRecordingService {
         }
     }
 
-    /** `nusacall/recordings/2026/08/24/{wacid}-{kind}.{ext}` — date-structured per docs/ROADMAP.md Fase 2. */
+    /** `recordings/{y}/{m}/{d}/{wacid}-{kind}.{ext}` */
     private objectKey(row: CallRecording, kind: "recording" | "transcript", mimeType: string): string {
         const date = row.createdAt ?? new Date()
         const y = date.getUTCFullYear()

@@ -15,7 +15,7 @@ export const config = {
         isProduction,
         jwtSecret: process.env.JWT_SECRET || 'dev-jwt-secret-change-me',
         jwtRefreshSecret: process.env.JWT_REFRESH_SECRET || 'dev-jwt-refresh-secret-change-me',
-        jwtExpiresInSeconds: Number(process.env.JWT_EXPIRES_IN) || 28800, // 8 jam
+        jwtExpiresInSeconds: Number(process.env.JWT_EXPIRES_IN) || 28800,
         apiKey: process.env.API_KEY || 'dev-api-key-change-me',
     },
     database: {

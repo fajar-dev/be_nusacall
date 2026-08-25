@@ -1,8 +1,6 @@
 /**
- * In-memory cache of each agent's nusawa access token, captured at login.
- * Needed because nusawa's GET /api/contacts is gated behind the agent's own
- * JWT, not NusaCall's API key (docs/INTEGRATION-NUSAWA.md §3.6). Not
- * persisted — same restart tradeoff as PresenceRegistry.
+ * Caches each agent's nusawa access token from login — GET /api/contacts is
+ * gated behind the agent's own JWT, not NusaCall's API key. Not persisted.
  */
 interface NusawaSession {
     token: string

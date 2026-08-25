@@ -22,13 +22,8 @@ import type { NusawaClient } from "../src/infrastructure/nusawa/nusawa.client"
 import type { NusawaLogService } from "../src/modules/call/nusawa-log.service"
 import type { IAgentNotifier, WsOutboundPacket } from "../src/modules/call/interfaces/call-signaling.interface"
 
-/**
- * Exercises CallSignalingService against a real DB (state transitions) and a
- * real werift MediaSession (WebRTC negotiation, same pattern as
- * test/media-session.test.ts), with MetaClient and the WS transport
- * (IAgentNotifier) mocked — this is the orchestration layer, not the Graph
- * API client or the WebSocket transport itself.
- */
+// Exercises CallSignalingService against a real DB and a real werift MediaSession
+// (same pattern as test/media-session.test.ts), with MetaClient and the WS transport mocked.
 
 function opusCodec() {
     return new RTCRtpCodecParameters({ mimeType: "audio/opus", clockRate: 48000, channels: 2, payloadType: 111 })
@@ -177,12 +172,9 @@ describe("CallSignalingService.notifyIncoming", () => {
             direction: CallDirection.INBOUND, status: CallStatus.PENDING, statusRank: 10,
         })
 
-        // Regression: pre_accept already went out by the time notifyIncoming
-        // runs (WebhookService.handleConnect calls establishEarly() first) —
-        // Meta is left waiting for accept/reject next. Only tearing down our
-        // own session and never calling Meta's reject left the caller
-        // hanging until Meta's own timeout, surfacing as a confusing "no
-        // media received from the business" error instead of a clean decline.
+        // Regression guard: pre_accept already went out by the time notifyIncoming runs, so
+        // Meta is waiting for accept/reject — tearing down locally without calling Meta's
+        // reject left callers hanging until Meta's own timeout instead of a clean decline.
         const rejectedIds: string[] = []
         const notifier = new FakeNotifier()
         const service = new CallSignalingService(
@@ -285,10 +277,9 @@ describe("CallSignalingService.handleAnswer", () => {
     })
 
     test("stamps the Call row with recordingEnabled/transcriptionEnabled as actually requested on accept", async () => {
-        // Regression: these columns existed on the entity but nothing ever
-        // wrote to them — DetailModal's v-if="call.recordingEnabled" never
-        // showed the recording/transcript sections even when Meta genuinely
-        // recorded the call and it was sitting downloaded in MinIO.
+        // Regression guard: these columns existed on the entity but nothing ever wrote to
+        // them, so the frontend's recording/transcript sections never showed even when Meta
+        // genuinely recorded the call.
         const original = { recording: config.recording.recordingEnabled, transcription: config.recording.transcriptionEnabled }
         config.recording.recordingEnabled = true
         config.recording.transcriptionEnabled = false
@@ -432,9 +423,8 @@ describe("CallSignalingService.initiateOutbound (Fase 3, BIC)", () => {
         const agentOfferSdp = await fakeBrowserOfferSdp()
         const { wacid } = await signaling.initiateOutbound("agent1@nusa.id", "202063559668129", "628999888777", agentOfferSdp)
 
-        // "Meta" negotiates a real answer against the offer initiateOutbound()
-        // actually sent (exposed via MediaSession.metaOfferSdp for exactly
-        // this — production code never needs to read it back).
+        // metaOfferSdp is exposed on MediaSession only for tests like this one —
+        // production code never needs to read the offer back.
         const ourOutboundOfferSdp = sessionRegistry.get(wacid)!.metaOfferSdp!
         const metaAnswerSdp = await fakeMetaAnswerSdp(ourOutboundOfferSdp)
 
@@ -552,9 +542,8 @@ describe("WebhookService + CallSignalingService — terminate logging", () => {
         expect(body).toContain("dijawab agent1@nusa.id")
         expect(body).toContain("42d")
 
-        // The bug this test guards: without notifyCallEnded, a customer
-        // hanging up first left the agent's UI stuck on an active call
-        // forever, and their presence never freed up for the next one.
+        // Regression guard: without notifyCallEnded, a customer hanging up first left the
+        // agent's UI stuck on an active call forever, with presence never freed up.
         expect(notifier.packetsFor("agent1@nusa.id").some((p) => p.type === "call_ended")).toBe(true)
         expect(presenceRegistry.get("agent1@nusa.id")?.currentCallId).toBeNull()
     })
@@ -578,11 +567,9 @@ describe("WebhookService + CallSignalingService — terminate logging", () => {
             new CallRecordingService(new TypeOrmCallRecordingRepository(), fakeMetaClient(), { upload: async () => "", getPresignedUrl: async () => "", download: async () => Buffer.from("") }),
         )
 
-        // Agent hangs up first (already logs once)...
         await signaling.handleHangup("agent1@nusa.id", wacid)
         expect(nusawaLog.enqueued).toHaveLength(1)
 
-        // ...then Meta's own terminate webhook for the same call arrives.
         const payload = createTerminateWebhookPayload({ wacid, status: "COMPLETED", duration: 42 })
         await webhook.process(JSON.stringify(payload))
 

@@ -2,10 +2,6 @@ import { EntityManager } from "typeorm"
 
 export type SortOrder = "ASC" | "DESC"
 
-/**
- * Base Repository Interface
- * All module-specific repository interfaces should extend this.
- */
 export interface IBaseRepository<T> {
     findById(id: number): Promise<T | null>
     save(data: Partial<T>, manager?: EntityManager): Promise<T>

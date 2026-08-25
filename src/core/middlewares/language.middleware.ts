@@ -1,7 +1,6 @@
 import { Context, Next } from 'hono'
 import { languageDetector } from 'hono/language'
 
-// Detects language from Accept-Language header only (en default, id supported).
 const detectLanguage = languageDetector({
     supportedLanguages: ['en', 'id'],
     fallbackLanguage: 'en',

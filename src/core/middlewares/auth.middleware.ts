@@ -5,10 +5,7 @@ import { userRepository } from '../../modules/user/user.module'
 import { UnauthorizedException } from '../exceptions/base'
 import type { NusaCallJwtPayload } from '../helpers/auth'
 
-/**
- * Verifies a NusaCall-issued JWT (Bearer header) and loads the corresponding
- * User by id (JWT `sub`). Used for all authenticated REST endpoints.
- */
+// Applied to all authenticated REST endpoints.
 export const authMiddleware = async (c: Context, next: Next) => {
     const authHeader = c.req.header('Authorization')
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

@@ -18,10 +18,7 @@ import { setDataSource } from "../src/config/database"
 import { languageMiddleware } from "../src/core/middlewares/language.middleware"
 import { requestLogger } from "../src/core/middlewares/logger.middleware"
 
-// ── Test Database ───────────────────────────────────────────────────────────
-// Uses real database with a separate test database name
-// Ensure DB_TEST_NAME database exists before running tests
-
+// Uses a real database with a separate test database name; ensure DB_TEST_NAME exists before running tests.
 const testDbName = process.env.DB_TEST_NAME || "nusacall_test"
 
 const TestDataSource = new DataSource({
@@ -38,15 +35,8 @@ const TestDataSource = new DataSource({
     logging: false,
 })
 
-// ── Database Lifecycle ──────────────────────────────────────────────────────
-
-// Every test file imports this same module-level TestDataSource and calls
-// initTestDatabase() in its own beforeAll. Without a shared in-flight
-// promise, two files could both observe isInitialized === false and both
-// call initialize() (synchronize+dropSchema) concurrently — this guards
-// against that even though it wasn't the cause of the flakiness this
-// module previously had (that was DATETIME rounding — see the `precision:
-// 3` comment on NusawaLogQueue.nextAttemptAt).
+// Shared in-flight promise guards against two test files both observing isInitialized
+// === false and calling initialize() (synchronize+dropSchema) concurrently.
 let initPromise: Promise<void> | null = null
 
 export async function initTestDatabase() {
@@ -58,12 +48,8 @@ export async function initTestDatabase() {
     setDataSource(TestDataSource)
 }
 
-/**
- * Deliberately a no-op. `TestDataSource` is shared by every test file, so
- * one file's `afterAll` destroying it could pull the connection out from
- * under another file still mid-run. The process exiting after `bun test`
- * finishes cleans it up regardless.
- */
+// Deliberately a no-op: TestDataSource is shared by every test file, so one file's
+// afterAll destroying it could pull the connection out from under another still mid-run.
 export async function destroyTestDatabase() {
     void TestDataSource
 }
@@ -86,25 +72,20 @@ export async function cleanTestDatabase() {
     }
 }
 
-// ── Test App Factory ────────────────────────────────────────────────────────
-
-/**
- * Creates a fresh Hono app with all routes, using TestDataSource.
- * Must be called AFTER initTestDatabase().
- */
+// Must be called AFTER initTestDatabase().
 export function createTestApp(): Hono {
     const api = require("../src/routes/api").default
     const { buildWebhookController } = require("../src/modules/webhook/webhook.module")
 
-    // No-op media coordinator: state-machine tests must never trigger real
-    // WebRTC negotiation or Meta Graph API calls. See test/media-session.test.ts
-    // for the real MediaSession behavior, tested in isolation with werift.
+    // No-op media coordinator: state-machine tests must never trigger real WebRTC
+    // negotiation or Meta Graph API calls. See test/media-session.test.ts for the real
+    // MediaSession behavior, tested in isolation with werift.
     const noopMediaCoordinator = {
         establishEarly: async () => ({ ok: true }),
         teardown: async () => {},
     }
-    // No-op signaling: webhook tests exercise the state machine, not routing
-    // or WebSocket delivery. See test/signaling.test.ts for that behavior.
+    // No-op signaling: webhook tests exercise the state machine, not routing or
+    // WebSocket delivery. See test/call-signaling.test.ts for that behavior.
     const noopSignaling = { notifyIncoming: async () => {}, logCallOutcome: async () => {}, notifyCallEnded: () => {} }
     const webhookController = buildWebhookController(noopMediaCoordinator, noopSignaling)
 
@@ -139,8 +120,6 @@ export function createTestApp(): Hono {
     return app
 }
 
-// ── Request Helper ──────────────────────────────────────────────────────────
-
 interface RequestOptions {
     method?: string
     headers?: Record<string, string>
@@ -170,16 +149,8 @@ export async function request(app: Hono, path: string, options: RequestOptions =
     return { status: res.status, body: json, headers: res.headers }
 }
 
-// ── Auth Helper ─────────────────────────────────────────────────────────────
-
-/**
- * Creates (or reuses) a User row and returns a real NusaCall JWT for it,
- * signed the same way `AuthHelper.generateTokens` does in production —
- * so tests exercise the actual auth contract (`sub: user.id`) rather than a
- * hand-rolled shape. Bypasses Nusawork/Google entirely — suitable for
- * module-level tests that don't exercise the login flow itself (see
- * test/auth.test.ts for that).
- */
+// Signs the token the same way AuthHelper.generateTokens does in production, bypassing
+// Nusawork/Google entirely — for tests that don't exercise the login flow itself (see test/auth.test.ts).
 export async function createUserAndToken(overrides: Partial<{ email: string; role: string; isActive: boolean; employeeId: number }> = {}) {
     const { UserService } = require("../src/modules/user/user.service")
     const { UserRepository } = require("../src/modules/user/repositories/user.repository")

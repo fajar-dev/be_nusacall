@@ -5,7 +5,6 @@ import { BadRequestException } from "../exceptions/base"
 
 const PANEL_BASE_URL = "https://panel.nusawork.com"
 
-/** Shape of a NusaCall-issued access token payload (see `generateTokens` below). */
 export interface NusaCallJwtPayload {
     sub: number
     email: string
@@ -67,9 +66,6 @@ export class AuthHelper {
 
     // ── Panel QR Code Helpers ────────────────────────────────────────────
 
-    /**
-     * Fetch from Panel API with error handling.
-     */
     static async panelFetch(path: string, options?: RequestInit): Promise<Response> {
         let response: Response
         try {
@@ -88,9 +84,6 @@ export class AuthHelper {
         return response
     }
 
-    /**
-     * Extract QR token from qrcode_image URL.
-     */
     static extractQrToken(qrCodeImageUrl: string): string {
         const parts = qrCodeImageUrl.split("/api/companies/login/qrcode/")
         const token = parts.length > 1 ? parts[1] : null
@@ -102,9 +95,6 @@ export class AuthHelper {
         return token
     }
 
-    /**
-     * Fetch QR Code SVG from Panel and convert to base64 data URL.
-     */
     static async fetchQrCodeSvg(imageUrl: string): Promise<string> {
         try {
             const response = await fetch(imageUrl)
@@ -119,9 +109,6 @@ export class AuthHelper {
         throw new BadRequestException("Failed to load QR Code image from panel")
     }
 
-    /**
-     * Decode email from a Panel JWT token.
-     */
     static decodeEmailFromJwt(token: string): string {
         try {
             const parts = token.split(".")

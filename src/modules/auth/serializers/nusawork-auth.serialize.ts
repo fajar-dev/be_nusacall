@@ -18,7 +18,6 @@ export class NusaworkAuthSerializer {
             company: body.data.profile.company || null,
         } : null
 
-        // Success: token is present
         if (body.data?.token) {
             return {
                 status: "success" as const,
@@ -27,7 +26,6 @@ export class NusaworkAuthSerializer {
             }
         }
 
-        // Confirmation: scanned but not approved
         if (body.data?.profile) {
             return {
                 status: "confirmation" as const,
@@ -36,7 +34,6 @@ export class NusaworkAuthSerializer {
             }
         }
 
-        // Waiting
         return {
             status: "waiting" as const,
             panelToken: null,

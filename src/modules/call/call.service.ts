@@ -40,19 +40,16 @@ export class CallService {
         return { ...stats, answerRate }
     }
 
-    /** Agent rejects a call still RINGING or CONNECTING. */
     async rejectByAgent(id: number, reason?: string): Promise<Call> {
         const call = await this.getById(id)
         if (![CallStatus.RINGING, CallStatus.CONNECTING].includes(call.status)) {
             throw new ConflictException(`Cannot reject a call in status "${call.status}"`)
         }
-        // Actual state transition (with rank guard) happens via CallStateService
-        // once the Graph API reject call succeeds — this method only validates
-        // preconditions before the caller (controller) invokes Meta's API.
+        // State transition happens later via CallStateService once the Meta reject call succeeds;
+        // this only validates preconditions.
         return call
     }
 
-    /** Agent hangs up a call that is ACTIVE. */
     async hangupByAgent(id: number): Promise<Call> {
         const call = await this.getById(id)
         if (call.status !== CallStatus.ACTIVE) {

@@ -4,8 +4,6 @@ import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createTestApp
 import en from "../src/core/i18n/en.json"
 import id from "../src/core/i18n/id.json"
 
-// ── Setup ───────────────────────────────────────────────────────────────────
-
 let app: Hono
 
 beforeAll(async () => {
@@ -21,16 +19,8 @@ beforeEach(async () => {
     await cleanTestDatabase()
 })
 
-// NOTE: These tests hit /api/user (any authenticated route works, since
-// languageMiddleware and the global error handler run regardless of the
-// route's own logic). Success-message translation tests will return once
-// a NusaCall module with a plain ApiResponse.success() path exists — the
-// auth relay to nusawa (Milestone 1.3) is the natural candidate. See
-// docs/ROADMAP.md.
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Language Detection (Accept-Language header)
-// ═══════════════════════════════════════════════════════════════════════════
+// These tests hit /api/user because any authenticated route works — languageMiddleware
+// and the global error handler run regardless of the route's own logic.
 
 describe("Language detection", () => {
     test("defaults to English when Accept-Language header is not sent", async () => {
@@ -72,10 +62,6 @@ describe("Language detection", () => {
     })
 })
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Localized Response Messages
-// ═══════════════════════════════════════════════════════════════════════════
-
 describe("Localized response messages", () => {
     test("exception message is translated to Indonesian", async () => {
         const { status, body } = await request(app, "/api/user", {
@@ -93,10 +79,6 @@ describe("Localized response messages", () => {
         expect(body.message).toBe("Missing or invalid authorization header")
     })
 })
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Locale Files Consistency (en.json <-> id.json)
-// ═══════════════════════════════════════════════════════════════════════════
 
 describe("Locale files consistency", () => {
     test("en.json and id.json have the same groups", () => {

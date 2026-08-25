@@ -14,11 +14,7 @@ import type { ICallMediaCoordinator } from "../src/modules/call/interfaces/call-
 import type { ICallSignalingNotifier } from "../src/modules/call/interfaces/call-signaling.interface"
 import type { MetaClient } from "../src/infrastructure/meta/meta.client"
 
-/**
- * CallRecordingService + the webhook handlers that feed it (Fase 2,
- * docs/ROADMAP.md). Real DB, fake Meta Media API + object storage — same
- * split as everywhere else in this suite (real state, faked 3rd parties).
- */
+// Real DB, fake Meta Media API + object storage.
 
 const noopMedia: ICallMediaCoordinator = {
     establishEarly: async () => ({ ok: true }), teardown: async () => {},
@@ -134,7 +130,7 @@ describe("Webhook -> CallRecordingService — recording/transcript availability"
         await webhook.process(JSON.stringify(createRecordingAvailableWebhookPayload({ wacid, mediaId: "media.first" })))
 
         const after = (await callRecordingRepository.findByCallId(call.id))!
-        expect(after.recordingStatus).toBe(RecordingArtifactStatus.STORED) // not reset back to PENDING
+        expect(after.recordingStatus).toBe(RecordingArtifactStatus.STORED)
         expect(after.recordingS3Key).toBe("some/key")
     })
 })
@@ -180,7 +176,7 @@ describe("CallRecordingService.processDueDownloads", () => {
         await service.processDueDownloads()
 
         const after = (await callRecordingRepository.findByCallId(call.id))!
-        expect(after.recordingStatus).toBe(RecordingArtifactStatus.PENDING) // retried next tick, not silently accepted
+        expect(after.recordingStatus).toBe(RecordingArtifactStatus.PENDING)
         expect(after.recordingError).toContain("SHA-256 mismatch")
         expect(uploads).toHaveLength(0)
     })
@@ -247,7 +243,7 @@ describe("CallRecordingService.markExpired", () => {
         await callRecordingRepository.updateRecording(row.id, {
             status: RecordingArtifactStatus.PENDING, mediaId: "media.toolate",
             availableAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
-            expiresAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // expired yesterday
+            expiresAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
         })
 
         const service = new CallRecordingService(callRecordingRepository, fakeMetaClient(), fakeStorage().storage)

@@ -9,8 +9,7 @@ export enum QueueStatus {
 
 /**
  * Antrean penulisan log panggilan ke nusawa (POST /api/messages?no_send=1).
- * Fire-and-forget dengan retry — kegagalan TIDAK PERNAH mempengaruhi panggilan.
- * See: docs/INTEGRATION-NUSAWA.md §3.5
+ * Fire-and-forget dengan retry — kegagalan tidak pernah mempengaruhi panggilan.
  */
 @Entity("nusawa_log_queue")
 export class NusawaLogQueue {
@@ -21,7 +20,7 @@ export class NusawaLogQueue {
     @Column({ name: "call_id" })
     callId!: number
 
-    /** Correlates with nusawa's message `id`/`ref` — docs/INTEGRATION-NUSAWA.md §3.5. */
+    /** Correlates with nusawa's message `id`/`ref`. */
     @Column({ length: 128 })
     wacid!: string
 
@@ -41,9 +40,8 @@ export class NusawaLogQueue {
     @Column({ type: "int", default: 0 })
     attempts!: number
 
-    // precision: 3 (ms) — plain DATETIME rounds to the nearest second, which
-    // can round a freshly-inserted "now" UP past the moment findDue() reads
-    // it, making a just-enqueued row look not-due-yet nondeterministically.
+    // precision: 3 (ms) — plain DATETIME rounds to the nearest second, which can round a
+    // freshly-inserted "now" up past when findDue() reads it, making a new row look not-due-yet nondeterministically.
     @Index()
     @Column({ name: "next_attempt_at", type: "datetime", precision: 3 })
     nextAttemptAt!: Date

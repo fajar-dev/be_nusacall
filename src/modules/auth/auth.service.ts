@@ -16,7 +16,7 @@ export class AuthService {
     ) {}
 
     async googleLogin(data: GoogleLoginValidator) {
-        const payload = await AuthHelper.verifyGoogleIdToken(data.idToken)
+        const payload = await AuthHelper.verifyGoogleCode(data.code)
         let user = await this.userService.getByEmail(payload.email!)
 
         if (!user) {

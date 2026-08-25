@@ -21,14 +21,7 @@ function packet(type: string, wacid: string, data?: unknown): WsOutboundPacket {
     return { type, wacid, data, ts: Date.now() }
 }
 
-/**
- * Orchestrates the live-call signaling flow (docs/API-SPEC.md §8.5): looks
- * up caller context, rings targeted agents, wires an answering agent's SDP
- * into the MediaSession, drives Meta's `accept`/`reject`/`terminate`, logs
- * the outcome to nusawa, and keeps Call state in sync. The gateway
- * (transport) and this service (business logic) are split per
- * docs/ARCHITECTURE.md — the gateway never touches the database directly.
- */
+/** Business logic for live-call signaling, kept separate from the gateway (transport) — the gateway never touches the database directly. */
 export class CallSignalingService implements ICallSignalingNotifier {
     constructor(
         private readonly notifier: IAgentNotifier,
@@ -45,14 +38,9 @@ export class CallSignalingService implements ICallSignalingNotifier {
         const decision = this.routing.decide(call, context)
 
         if (decision.kind === "reject") {
-            // pre_accept already went out (establishEarly() runs before this
-            // is ever called — see WebhookService.handleConnect) — Meta is
-            // waiting for either `accept` or `reject` next. Tearing down only
-            // our own session and never telling Meta left the caller hanging
-            // until MET's own timeout fired, surfacing as a confusing "no
-            // media received from the business" error instead of a clean
-            // decline. Best-effort: a failure here shouldn't block our own
-            // cleanup, Meta will eventually time the call out on its own.
+            // pre_accept already went out, so Meta is waiting for accept/reject next — skipping this
+            // leaves the caller hanging until Meta's own timeout. Best-effort: a failure here
+            // shouldn't block our own cleanup.
             try {
                 await this.metaClient.reject(call.phoneNumberId, call.wacid)
             } catch (err) {
@@ -94,10 +82,8 @@ export class CallSignalingService implements ICallSignalingNotifier {
     }
 
     /**
-     * Identifies the caller and, if a ticket exists, the freshest PIC
-     * assignment (docs/INTEGRATION-NUSAWA.md §3.3-3.4 — the second lookup is
-     * deliberately NOT cached, PIC can change between the two calls). Never
-     * throws: NusawaClient's call-path methods already degrade to null.
+     * The second lookup is deliberately not cached — PIC can change between the two calls.
+     * Never throws: NusawaClient's call-path methods already degrade to null.
      */
     private async lookupContext(call: Call): Promise<ContactContext | null> {
         try {
@@ -116,15 +102,13 @@ export class CallSignalingService implements ICallSignalingNotifier {
                 nusawaThreadUrl: config.nusawa.webUrl ? `${config.nusawa.webUrl}/inbox/${found.id}` : null,
             }
         } catch (err) {
-            // Belt-and-suspenders: NusawaClient's call-path methods are
-            // documented to never throw, but a call must never be blocked
-            // by nusawa regardless of whether that contract holds.
+            // Belt-and-suspenders: NusawaClient's call-path methods are documented to never throw,
+            // but a call must not be blocked by nusawa if that contract ever breaks.
             logger.warn("nusawa contact lookup failed unexpectedly — proceeding without context", { wacid: call.wacid, err })
             return null
         }
     }
 
-    /** Nobody answered in time — release ringing agents and mark the call MISSED. */
     private async expireIfStillRinging(wacid: string): Promise<void> {
         const call = await this.callRepository.findByWacid(wacid)
         if (!call || call.status !== CallStatus.RINGING) return
@@ -179,12 +163,9 @@ export class CallSignalingService implements ICallSignalingNotifier {
         session.startForwarding()
         await this.callState.transition(wacid, CallStatus.ACTIVE, {
             answeredAt: new Date(),
-            // Reflects what was actually requested on THIS accept() call
-            // (config.recording.*) — not just "recording is on globally
-            // right now", since that can change between calls. Without
-            // this, DetailModal's `v-if="call.recordingEnabled"` never
-            // shows the recording/transcript sections even when Meta
-            // genuinely recorded the call.
+            // Reflects what was actually requested on this accept() call, not global config
+            // state right now (that can change between calls) — the FE uses this to decide
+            // whether to show the recording/transcript sections.
             recordingEnabled: config.recording.recordingEnabled,
             transcriptionEnabled: config.recording.transcriptionEnabled,
         })
@@ -232,18 +213,15 @@ export class CallSignalingService implements ICallSignalingNotifier {
         this.notifier.send(agentEmail, packet("call_ended", wacid, { endReason: EndReason.AGENT_HANGUP }))
     }
 
-    /** Used by WebhookService for terminal states nusawa itself reports (customer hangup, FAILED, etc). */
     async logCallOutcome(call: Call, outcome: CallLogOutcome, durationSeconds?: number | null): Promise<void> {
         const body = formatCallLogMessage(outcome, { durationSeconds, agentEmail: call.agentEmail })
         await this.nusawaLog.enqueue({ callId: call.id, wacid: call.wacid, phoneNumberId: call.phoneNumberId, waId: call.waId, body })
     }
 
     /**
-     * Used by WebhookService for terminal states nusawa/Meta itself reports
-     * (customer hangup, FAILED, etc) — the agent-initiated hangup/reject
-     * paths already notify inline. Without this, an agent's UI just sits on
-     * an active call forever once the other side hangs up first, and their
-     * presence never frees up for the next call.
+     * Handles terminal states Meta/nusawa report themselves (customer hangup, FAILED) — the
+     * agent-initiated hangup/reject paths already notify inline. Without this, the agent's UI
+     * would sit on an active call forever and presence would never free up.
      */
     notifyCallEnded(call: Call, endReason: EndReason): void {
         if (!call.agentEmail) return
@@ -262,17 +240,8 @@ export class CallSignalingService implements ICallSignalingNotifier {
     }
 
     /**
-     * Fase 3 — POST /api/call/outbound. Caller (the controller) is
-     * responsible for the permission check; this only orchestrates media +
-     * Meta. Reverses the UIC offer/answer direction (we offer, Meta relays
-     * the user's answer back via a later `connect` webhook — see
-     * WebhookService.handleConnect's BUSINESS_INITIATED branch), but reuses
-     * MediaSession.attachAgent() for the agent leg unchanged — same
-     * mechanism as the agent clicking "Jawab" on an inbound call.
-     *
-     * `offerSdp` is the AGENT'S browser SDP offer, generated client-side up
-     * front (same useWebRTC().start() call UIC's answer() flow already
-     * uses) — returning the agent-leg answer synchronously here means the
+     * Reverses the usual offer/answer direction: we offer, and Meta relays the user's answer
+     * back via a later `connect` webhook. Returns the agent-leg answer synchronously so the
      * frontend needs no separate WS round-trip to complete its own leg.
      */
     async initiateOutbound(agentEmail: string, phoneNumberId: string, waId: string, offerSdp: string): Promise<{ wacid: string; answerSdp: string }> {
@@ -312,7 +281,6 @@ export class CallSignalingService implements ICallSignalingNotifier {
         return { wacid, answerSdp: agentAnswerSdp }
     }
 
-    /** Tells agents who were rung but didn't win (or the call ended before anyone answered) to stop ringing. */
     private releaseOtherRingingAgents(call: Call, exceptEmail: string): void {
         const stillRinging = presenceRegistry.listAll().filter((p) => p.currentCallId === call.id && p.email !== exceptEmail)
         for (const presence of stillRinging) {

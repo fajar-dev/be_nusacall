@@ -32,7 +32,6 @@ AppDataSource.initialize()
     })
     .catch((err) => logger.error('Database connection failed', { err }))
 
-// nusawa being unreachable is "degraded", not "unhealthy" — see docs/API-SPEC.md §9.
 app.get('/health', async (c) => {
     const dbConnected = AppDataSource.isInitialized
     const status = dbConnected ? 'healthy' : 'unhealthy'
@@ -52,8 +51,8 @@ app.get('/health', async (c) => {
     }, statusCode)
 })
 
-// Closes active media sessions before a rolling restart — the media plane
-// is stateful, a bare restart drops every active call (docs/SETUP.md §8).
+// Closes active media sessions before a rolling restart — the media plane is
+// stateful, so a bare restart would drop every active call.
 app.post('/internal/drain', async (c) => {
     await sessionRegistry.closeAll('drain_requested')
     return c.json({ drained: true, remainingSessions: sessionRegistry.activeCount })
@@ -61,11 +60,11 @@ app.post('/internal/drain', async (c) => {
 
 // ── Meta Webhook (Calling API) ────────────────────────────────────────────
 // Mounted OUTSIDE /api and OUTSIDE authMiddleware — auth here is the Meta
-// signature check inside the controller itself. See docs/API-SPEC.md §7.
+// signature check inside the controller itself.
 app.get('/wh', (c) => webhookController.verify(c))
 app.post('/wh', (c) => webhookController.receive(c))
 
-// Softphone signaling — auth via `?token=` query string (docs/API-SPEC.md §8.1).
+// Softphone signaling — auth via `?token=` query string.
 app.get('/ws', signalingGateway.handler())
 
 app.route('/api', api)

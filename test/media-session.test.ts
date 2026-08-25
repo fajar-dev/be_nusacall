@@ -3,15 +3,9 @@ import { RTCPeerConnection, RTCRtpCodecParameters } from "werift"
 import { MediaSession } from "../src/infrastructure/media/media-session"
 import { validateOutboundSdp, ensurePtime20 } from "../src/infrastructure/media/sdp-transformer"
 
-/**
- * These tests exercise MediaSession against a REAL werift RTCPeerConnection
- * standing in for "Meta" and another for "the agent's browser" — the same
- * pattern validated in the Fase 0 spike (docs/SPIKE-RESULTS.md §3.4), now
- * formalized as a repeatable test rather than a one-off script.
- *
- * Deliberately separate from webhook.test.ts: those tests use a no-op media
- * coordinator so state-machine assertions aren't coupled to WebRTC timing.
- */
+// Exercises MediaSession against a REAL werift RTCPeerConnection standing in for "Meta"
+// and another for "the agent's browser" — deliberately separate from webhook.test.ts,
+// which uses a no-op media coordinator so state-machine assertions aren't coupled to WebRTC timing.
 
 function opusCodec() {
     return new RTCRtpCodecParameters({ mimeType: "audio/opus", clockRate: 48000, channels: 2, payloadType: 111 })
@@ -26,15 +20,9 @@ async function waitIceComplete(pc: RTCPeerConnection) {
     })
 }
 
-/**
- * Creates a fake peer (standing in for "Meta" or "the agent's browser") and
- * subscribes onReceiveRtp IMMEDIATELY after creating the transceiver — this
- * MUST happen before any SDP negotiation. werift fires `onTrack` during
- * negotiation, not lazily on first packet; subscribing afterward misses the
- * event entirely and silently receives zero packets (this is the exact bug
- * documented in docs/SPIKE-RESULTS.md §3.4, reproduced once here to make
- * sure it never regresses unnoticed).
- */
+// Subscribes onReceiveRtp BEFORE SDP negotiation, on purpose: werift fires `onTrack`
+// during negotiation, not lazily on first packet, so subscribing after negotiation
+// silently misses all packets (regression guard for that exact bug).
 async function createFakePeer(onRtp: () => void) {
     const pc = new RTCPeerConnection({ codecs: { audio: [opusCodec()] } })
     const transceiver = pc.addTransceiver("audio", { direction: "sendrecv" })
@@ -58,8 +46,7 @@ describe("MediaSession - acceptMetaOffer", () => {
         expect(result.errors).toEqual([])
         expect(result.valid).toBe(true)
 
-        // The same answer must be retrievable later for the `accept` call —
-        // Meta rejects a mismatch between pre_accept and accept.
+        // Must be retrievable later for the `accept` call — Meta rejects a pre_accept/accept mismatch.
         expect(session.metaAnswerSdp).toBe(answerSdp)
 
         fakeMeta.close()
@@ -81,19 +68,16 @@ describe("MediaSession - full bridge (Meta leg <-> Agent leg)", () => {
         let agentReceived = 0
         let metaReceived = 0
 
-        // Leg A: "Meta" sends an offer, session answers it.
         const { pc: fakeMeta, transceiver: metaTransceiver, offerSdp: metaOfferSdp } =
             await createFakePeer(() => { metaReceived++ })
         const sessionAnswerToMeta = await session.acceptMetaOffer(metaOfferSdp)
         await fakeMeta.setRemoteDescription({ type: "answer", sdp: sessionAnswerToMeta })
 
-        // Leg B: "agent browser" sends an offer, session answers it.
         const { pc: fakeAgent, transceiver: agentTransceiver, offerSdp: agentOfferSdp } =
             await createFakePeer(() => { agentReceived++ })
         const sessionAnswerToAgent = await session.attachAgent(agentOfferSdp)
         await fakeAgent.setRemoteDescription({ type: "answer", sdp: sessionAnswerToAgent })
 
-        // Wait for both DTLS handshakes to complete.
         const deadline = Date.now() + 15000
         while (Date.now() < deadline && (fakeMeta.connectionState !== "connected" || fakeAgent.connectionState !== "connected")) {
             await new Promise((r) => setTimeout(r, 100))
@@ -101,11 +85,9 @@ describe("MediaSession - full bridge (Meta leg <-> Agent leg)", () => {
         expect(fakeMeta.connectionState).toBe("connected")
         expect(fakeAgent.connectionState).toBe("connected")
 
-        // Media must NOT flow before startForwarding() — mirrors the real
-        // constraint that RTP must not flow before Meta's `accept` succeeds.
+        // Mirrors the real constraint: RTP must not flow before Meta's `accept` succeeds.
         session.startForwarding()
 
-        // "Meta" sends audio -> should arrive at "agent", and vice versa.
         const { RtpPacket, RtpHeader } = await import("werift")
         const payload = Buffer.alloc(160, 0xaa)
         for (let i = 0; i < 10; i++) {
@@ -115,8 +97,8 @@ describe("MediaSession - full bridge (Meta leg <-> Agent leg)", () => {
         }
         await new Promise((r) => setTimeout(r, 500))
 
-        expect(agentReceived).toBeGreaterThanOrEqual(8) // forwarded from "Meta" via the bridge
-        expect(metaReceived).toBeGreaterThanOrEqual(8)  // forwarded from "agent" via the bridge
+        expect(agentReceived).toBeGreaterThanOrEqual(8)
+        expect(metaReceived).toBeGreaterThanOrEqual(8)
         expect(session.stats.packetsToAgent).toBeGreaterThanOrEqual(8)
         expect(session.stats.packetsToMeta).toBeGreaterThanOrEqual(8)
 

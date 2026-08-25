@@ -25,9 +25,8 @@ export interface ICallRepository extends IBaseRepository<Call> {
     findByWacid(wacid: string): Promise<Call | null>
 
     /**
-     * Applies a transition only if `nextRank` > current status_rank (SQL
-     * guard, race-safe under concurrent webhooks). Returns rows affected —
-     * 0 means rejected as stale/out-of-order. See docs/CALL-LIFECYCLE.md §2.3.
+     * Applies a transition only if `nextRank` > current status_rank (SQL guard, race-safe
+     * under concurrent webhooks). Returns rows affected — 0 means rejected as stale/out-of-order.
      */
     updateIfRankLower(
         wacid: string,

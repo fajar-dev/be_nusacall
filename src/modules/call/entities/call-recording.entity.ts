@@ -2,10 +2,9 @@ import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, Update
 import { RecordingArtifactStatus } from "../enum/recording-artifact-status.enum"
 
 /**
- * One row per Call — recording and transcript are independent artifacts
- * (separate Meta webhooks, separate lifecycles) but always 1:1 with a call,
- * so they share a table rather than a type-discriminated one. No FK to
- * `calls` — this codebase never uses cross-table FKs, plain id columns only.
+ * Recording and transcript are independent artifacts (separate webhooks/lifecycles) but always
+ * 1:1 with a call, so they share one table. No FK to `calls` — this codebase never uses
+ * cross-table FKs, plain id columns only.
  */
 @Entity("call_recordings")
 export class CallRecording {

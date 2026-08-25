@@ -15,9 +15,8 @@ export interface UpdatePhoneNumberInput {
 }
 
 /**
- * Owns phone number config and its sync to Meta. `call_hours` is a REPLACE,
- * not a merge, on Meta's side (docs/INTEGRATION-META.md §5.2) — so every
- * sync always sends the full local config, never a partial update.
+ * Owns phone number config and its sync to Meta. `call_hours` is a REPLACE, not a merge, on
+ * Meta's side — so every sync always sends the full local config, never a partial update.
  */
 export class PhoneNumberService {
     constructor(

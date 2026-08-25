@@ -28,10 +28,8 @@ export class UserRepository implements IUserRepository {
             query.andWhere("user.isActive = :isActive", { isActive: filters.isActive === "true" || filters.isActive === "1" })
         }
 
-        // Get total count before pagination
         const total = await query.getCount()
 
-        // Whitelist of allowed sort columns
         const sortColumnMap: Record<string, string> = {
             name: "user.name",
             email: "user.email",
@@ -42,7 +40,6 @@ export class UserRepository implements IUserRepository {
         const sortColumn = sortColumnMap[sortBy || ''] || "user.id"
         const sortOrder = order === 'ASC' ? 'ASC' : 'DESC'
 
-        // Get paginated data
         const data = await query
             .orderBy(sortColumn, sortOrder)
             .skip(offset)

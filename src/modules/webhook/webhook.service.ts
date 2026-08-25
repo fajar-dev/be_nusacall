@@ -49,10 +49,8 @@ interface MetaContact {
 }
 
 /**
- * docs/webhooks/reference/account_update — a different webhook field
- * entirely from `calls`, WABA-scoped (no phone_number in the payload).
- * `event` has many values (billing, partner, etc.); only the two calling-
- * relevant ones are typed here.
+ * A different webhook field entirely from `calls`, WABA-scoped (no phone_number
+ * in the payload). `event` has many values; only the two calling-relevant ones are typed here.
  */
 interface MetaAccountUpdateValue {
     event: string
@@ -61,10 +59,8 @@ interface MetaAccountUpdateValue {
 }
 
 /**
- * Turns Meta's `calls` webhook payload into Call state transitions.
- * Every handler: recordEvent() (idempotency/staleness gate — stop if not
- * accepted) then transition() via the SQL rank guard, which is what
- * actually resolves out-of-order delivery. See docs/CALL-LIFECYCLE.md §6.
+ * Turns Meta's `calls` webhook payload into Call state transitions. Each handler calls
+ * recordEvent() (idempotency gate) then transition() via the SQL rank guard, which resolves out-of-order delivery.
  */
 export class WebhookService {
     constructor(
@@ -85,7 +81,7 @@ export class WebhookService {
         }
 
         if (payload?.object !== "whatsapp_business_account") {
-            return // not ours to handle
+            return
         }
 
         for (const entry of payload.entry ?? []) {
@@ -171,11 +167,8 @@ export class WebhookService {
             bizOpaqueCallbackData: callObj.biz_opaque_callback_data ?? null,
         }
 
-        // If the row already exists (e.g. a `terminate` webhook for this wacid
-        // arrived first — Meta does not guarantee ordering), findOrCreate
-        // returns it UNCHANGED. We deliberately do NOT then try to force it
-        // back to PENDING: the rank guard would reject it anyway, and even
-        // attempting it would be misleading in the logs.
+        // findOrCreate returns the row UNCHANGED if it already exists (e.g. terminate arrived
+        // before connect). Don't force it back to PENDING — the rank guard would reject it anyway.
         const call = await this.callState.findOrCreate(callObj.id, defaults)
 
         if (isTerminalCallStatus(call.status)) {
@@ -185,9 +178,8 @@ export class WebhookService {
             return
         }
 
-        // Establish the Meta-facing media leg and send pre_accept as early as
-        // possible (docs/MEDIA-PLANE.md §5) — a side action, not a state
-        // transition. Only once that succeeds do we ring agents (RINGING).
+        // Establish the Meta-facing media leg and send pre_accept as early as possible — a side
+        // action, not a state transition. Only ring agents once that succeeds.
         if (direction === CallDirection.INBOUND && callObj.session?.sdp) {
             const result = await this.media.establishEarly(callObj.id, metadata?.phone_number_id ?? "", callObj.session.sdp)
             if (!result.ok) {
@@ -202,11 +194,8 @@ export class WebhookService {
             await this.signaling.notifyIncoming(call)
         }
 
-        // Fase 3 (BIC): Meta relays the WhatsApp user's SDP answer back on
-        // this same `connect` event, direction BUSINESS_INITIATED — the
-        // Call row and MediaSession already exist from
-        // CallSignalingService.initiateOutbound(), we're just completing
-        // the negotiation, not creating anything.
+        // Meta relays the WhatsApp user's SDP answer on this same `connect` event (BUSINESS_INITIATED).
+        // The Call row and MediaSession already exist from initiateOutbound() — just completing the negotiation.
         if (direction === CallDirection.OUTBOUND && callObj.session?.sdp) {
             const result = await this.media.applyOutboundAnswer(callObj.id, callObj.session.sdp)
             if (!result.ok) {
@@ -254,8 +243,7 @@ export class WebhookService {
             case "ACCEPTED": {
                 const transitioned = await this.callState.transition(statusObj.id, CallStatus.ACTIVE, { answeredAt: new Date() })
                 if (transitioned) {
-                    // The user's phone actually picked up — safe to flow
-                    // media now (docs/MEDIA-PLANE.md §5: never before this).
+                    // The user's phone actually picked up — safe to flow media now (never before this).
                     await this.media.startOutboundForwarding(statusObj.id)
                     const call = await this.calls.findByWacid(statusObj.id)
                     if (call) this.signaling.notifyOutboundActive(call)
@@ -293,9 +281,8 @@ export class WebhookService {
         const direction = fromMetaDirection(callObj.direction ?? "USER_INITIATED")
         const waId = direction === CallDirection.INBOUND ? callObj.from : callObj.to
 
-        // Same defaults shape as connect — this is what makes the "terminate
-        // arrives before connect" scenario work: if the row doesn't exist
-        // yet, it's created here, fully populated from the terminate payload.
+        // Same defaults shape as connect — this is what makes "terminate before connect"
+        // work: the row gets created here, fully populated from the terminate payload.
         const call = await this.callState.findOrCreate(callObj.id, {
             phoneNumberId: metadata?.phone_number_id ?? "",
             businessAccountId,
@@ -322,9 +309,8 @@ export class WebhookService {
         const transitioned = await this.callState.transition(callObj.id, terminalStatus, patch)
         await this.media.teardown(callObj.id, `terminate_webhook_${terminalStatus}`)
 
-        // Only the transition that actually "wins" logs — e.g. an agent's
-        // own hangup already logs itself; this covers customer-initiated
-        // ends the agent-action paths never see.
+        // Only the transition that actually "wins" logs — an agent's own hangup already logs
+        // itself; this covers customer-initiated ends the agent-action paths never see.
         if (transitioned) {
             const outcome = terminalStatus === CallStatus.COMPLETED ? "completed"
                 : terminalStatus === CallStatus.REJECTED ? "rejected"
@@ -374,15 +360,8 @@ export class WebhookService {
     // ── account_update (Fase 2/launch-gate) ─────────────────────────────
 
     /**
-     * ACCOUNT_VIOLATION and ACCOUNT_RESTRICTION are launch-stop criteria
-     * (docs/ROADMAP.md "Kriteria menghentikan peluncuran": "Menerima webhook
-     * ACCOUNT_VIOLATION dari Meta" → stop and evaluate immediately). No
-     * alerting channel exists in NusaCall yet, so this logs at `error`
-     * level with full structured detail — the promtail/Grafana pipeline
-     * already ingests these logs (docs/promtail-config.yaml), so this is
-     * alertable today even without a dedicated notification system.
-     * Sync (not async): nothing here does I/O, and WebhookService.process()
-     * already returns 204 to Meta before any handler runs regardless.
+     * ACCOUNT_VIOLATION/ACCOUNT_RESTRICTION are launch-stop criteria — logged at `error` level
+     * so the promtail/Grafana pipeline can alert on them. Sync: no I/O here, and the request already returned 204.
      */
     private handleAccountUpdate(value: MetaAccountUpdateValue, businessAccountId: string): void {
         if (value.event === "ACCOUNT_VIOLATION") {
@@ -397,8 +376,7 @@ export class WebhookService {
             })
             return
         }
-        // Everything else (billing, partner, disabled, etc.) — recorded for
-        // audit, not actionable by NusaCall today.
+        // Everything else (billing, partner, disabled, etc.) is recorded for audit only — not actionable today.
         logger.info("Meta account_update received", { businessAccountId, event: value.event })
     }
 
@@ -407,8 +385,7 @@ export class WebhookService {
         if (callObj.status === "FAILED") return CallStatus.FAILED
         if (currentStatus === CallStatus.ACTIVE) return CallStatus.COMPLETED
         if (currentStatus === CallStatus.REJECTED) return CallStatus.REJECTED
-        // Never reached ACTIVE — the customer (or business) hung up before
-        // the call was answered.
+        // Never reached ACTIVE — hung up before being answered.
         return CallStatus.ABANDONED
     }
 

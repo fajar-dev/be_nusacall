@@ -2,8 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn } from 
 
 /**
  * Append-only log of every webhook from Meta. `dedupKey` (unique) guards
- * idempotency against Meta's duplicate deliveries; full payload is kept for
- * audit/replay. See docs/CALL-LIFECYCLE.md §3.
+ * idempotency against Meta's duplicate deliveries; full payload is kept for audit/replay.
  */
 @Entity("call_events")
 @Index(["callId", "receivedAt"])
@@ -31,7 +30,7 @@ export class CallEvent {
     @Column({ name: "meta_timestamp", type: "bigint", nullable: true })
     metaTimestamp?: string | null
 
-    /** Payload mentah TANPA field session/sdp — lihat CallEventPayloadRedactor. */
+    /** Payload mentah TANPA field session/sdp. */
     @Column({ type: "json" })
     payload!: Record<string, unknown>
 
