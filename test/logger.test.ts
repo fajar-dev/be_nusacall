@@ -118,13 +118,13 @@ describe("requestLogger middleware", () => {
     })
 
     test("generates and returns an X-Request-Id header when none is sent", async () => {
-        const { headers } = await request(app, "/api/agent")
+        const { headers } = await request(app, "/api/user")
 
         expect(headers.get("X-Request-Id")).toBeTruthy()
     })
 
     test("echoes back a client-supplied X-Request-Id", async () => {
-        const { headers } = await request(app, "/api/agent", {
+        const { headers } = await request(app, "/api/user", {
             headers: { "X-Request-Id": "custom-trace-id" },
         })
 
@@ -132,7 +132,7 @@ describe("requestLogger middleware", () => {
     })
 
     test("logs an HTTP request entry with method, path, statusCode, durationMs", async () => {
-        await request(app, "/api/agent")
+        await request(app, "/api/user")
 
         const entries = console_.calls
             .map((line) => JSON.parse(line))
@@ -140,7 +140,7 @@ describe("requestLogger middleware", () => {
         const entry = entries[entries.length - 1]
 
         expect(entry.method).toBe("GET")
-        expect(entry.path).toBe("/api/agent")
+        expect(entry.path).toBe("/api/user")
         expect(entry.statusCode).toBe(401)
         expect(typeof entry.durationMs).toBe("number")
         expect(entry.requestId).toBeTruthy()

@@ -1,13 +1,22 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from "bun:test"
 import { Hono } from "hono"
-import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createTestApp, request, createAgentAndToken } from "./setup"
+import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createTestApp, request, createUserAndToken } from "./setup"
 import { config } from "../src/config/config"
+import { nusawaSessionRegistry } from "../src/infrastructure/nusawa/nusawa-session.registry"
 
 /**
  * GET /api/contact is a read-only proxy over nusawa's GET /api/contacts.
  * The frontend never calls nusawa directly — only this backend does, using
  * the agent's own nusawa token captured at login (NusawaSessionRegistry).
  * See: docs/INTEGRATION-NUSAWA.md §3.6, docs/API-SPEC.md
+ *
+ * NOTE: login no longer populates NusawaSessionRegistry — the old
+ * nusawa-relay login flow was replaced by Nusawork password auth against a
+ * local User (see auth.module.ts / nusawork-auth.service.ts), and nothing
+ * currently re-establishes a nusawa session on login. That's a real,
+ * separate gap (out of scope for the agent→user refactor these tests were
+ * updated for) — tests here seed the registry directly to keep exercising
+ * ContactService's own mapping/caching/error-handling logic in isolation.
  */
 
 let app: Hono
@@ -31,8 +40,6 @@ afterEach(() => {
     globalThis.fetch = originalFetch
 })
 
-const fakeLoginSession = { status: 200, body: { access_token: "fake-nusawa-jwt", expires_in: 3600, token_type: "Bearer" } }
-
 function nusawaContact(overrides: Partial<Record<string, unknown>> = {}) {
     return {
         phone_number: "628123456789",
@@ -52,39 +59,23 @@ function nusawaContact(overrides: Partial<Record<string, unknown>> = {}) {
 
 let contactsCallCount = 0
 
-function mockNusawa(opts: {
-    login?: { status: number; body: unknown }
-    me?: { status: number; body: unknown }
-    contacts?: { status: number; body: unknown }
-}) {
+function mockNusawaContacts(opts: { status: number; body: unknown }) {
     contactsCallCount = 0
     globalThis.fetch = (async (url: string | URL | Request) => {
         const urlStr = url.toString()
-        if (urlStr === `${config.nusawa.baseUrl}/api/login`) {
-            if (!opts.login) throw new Error("Unexpected nusawa login call in test")
-            return new Response(JSON.stringify(opts.login.body), { status: opts.login.status })
-        }
-        if (urlStr === `${config.nusawa.baseUrl}/api/me`) {
-            if (!opts.me) throw new Error("Unexpected nusawa me call in test")
-            return new Response(JSON.stringify(opts.me.body), { status: opts.me.status })
-        }
         if (urlStr.startsWith(`${config.nusawa.baseUrl}/api/contacts`)) {
-            if (!opts.contacts) throw new Error("Unexpected nusawa contacts call in test")
             contactsCallCount++
-            return new Response(JSON.stringify(opts.contacts.body), { status: opts.contacts.status })
+            return new Response(JSON.stringify(opts.body), { status: opts.status })
         }
         throw new Error(`Unexpected fetch call in test: ${urlStr}`)
     }) as typeof fetch
 }
 
-async function loginAndGetToken(username = "agent@nusa.id") {
-    mockNusawa({
-        login: fakeLoginSession,
-        me: { status: 200, body: { username, name: "Budi Santoso", role: "agent", status: "active" } },
-    })
-    const login = await request(app, "/api/auth/login", { method: "POST", body: { email: username, password: "secret" } })
-    expect(login.status).toBe(200)
-    return login.body.data.accessToken as string
+/** Creates a real authenticated User and seeds a fake cached nusawa session for it (see file-level NOTE above). */
+async function loginWithNusawaSession(email = "agent@nusa.id") {
+    const { accessToken } = await createUserAndToken({ email })
+    nusawaSessionRegistry.set(email, "fake-nusawa-jwt", 3600)
+    return accessToken
 }
 
 describe("GET /api/contact", () => {
@@ -94,13 +85,11 @@ describe("GET /api/contact", () => {
     })
 
     test("returns the nusawa contact list, mapped to camelCase", async () => {
-        const accessToken = await loginAndGetToken()
+        const accessToken = await loginWithNusawaSession()
 
-        mockNusawa({
-            contacts: {
-                status: 200,
-                body: { data: [nusawaContact()], meta: { total: 1, per_page: 10, current_page: 1, total_page: 1 } },
-            },
+        mockNusawaContacts({
+            status: 200,
+            body: { data: [nusawaContact()], meta: { total: 1, per_page: 10, current_page: 1, total_page: 1 } },
         })
 
         const { status, body } = await request(app, "/api/contact", {
@@ -117,15 +106,13 @@ describe("GET /api/contact", () => {
     })
 
     test("unwraps a null SqlNullString name to null", async () => {
-        const accessToken = await loginAndGetToken("noname@nusa.id")
+        const accessToken = await loginWithNusawaSession("noname@nusa.id")
 
-        mockNusawa({
-            contacts: {
-                status: 200,
-                body: {
-                    data: [nusawaContact({ name: { String: "", Valid: false } })],
-                    meta: { total: 1, per_page: 10, current_page: 1, total_page: 1 },
-                },
+        mockNusawaContacts({
+            status: 200,
+            body: {
+                data: [nusawaContact({ name: { String: "", Valid: false } })],
+                meta: { total: 1, per_page: 10, current_page: 1, total_page: 1 },
             },
         })
 
@@ -137,13 +124,11 @@ describe("GET /api/contact", () => {
     })
 
     test("caches results within the TTL — nusawa is called once for repeated requests", async () => {
-        const accessToken = await loginAndGetToken("cached@nusa.id")
+        const accessToken = await loginWithNusawaSession("cached@nusa.id")
 
-        mockNusawa({
-            contacts: {
-                status: 200,
-                body: { data: [nusawaContact()], meta: { total: 1, per_page: 10, current_page: 1, total_page: 1 } },
-            },
+        mockNusawaContacts({
+            status: 200,
+            body: { data: [nusawaContact()], meta: { total: 1, per_page: 10, current_page: 1, total_page: 1 } },
         })
 
         await request(app, "/api/contact", { headers: { Authorization: `Bearer ${accessToken}` } })
@@ -153,9 +138,7 @@ describe("GET /api/contact", () => {
     })
 
     test("returns 401 asking to re-login when no nusawa session is cached", async () => {
-        // Bypasses the nusawa login flow entirely — NusawaSessionRegistry
-        // never got populated for this agent.
-        const { accessToken } = await createAgentAndToken({ username: "no-session@nusa.id" })
+        const { accessToken } = await createUserAndToken({ email: "no-session@nusa.id" })
 
         const { status, body } = await request(app, "/api/contact", {
             headers: { Authorization: `Bearer ${accessToken}` },
@@ -166,9 +149,9 @@ describe("GET /api/contact", () => {
     })
 
     test("returns 503 when nusawa is unreachable", async () => {
-        const accessToken = await loginAndGetToken("unreachable@nusa.id")
+        const accessToken = await loginWithNusawaSession("unreachable@nusa.id")
 
-        mockNusawa({ contacts: { status: 500, body: { message: "internal error" } } })
+        mockNusawaContacts({ status: 500, body: { message: "internal error" } })
 
         const { status } = await request(app, "/api/contact", {
             headers: { Authorization: `Bearer ${accessToken}` },
@@ -178,13 +161,11 @@ describe("GET /api/contact", () => {
     })
 
     test("supports search and pagination query params", async () => {
-        const accessToken = await loginAndGetToken("search@nusa.id")
+        const accessToken = await loginWithNusawaSession("search@nusa.id")
 
-        mockNusawa({
-            contacts: {
-                status: 200,
-                body: { data: [nusawaContact()], meta: { total: 1, per_page: 5, current_page: 2, total_page: 1 } },
-            },
+        mockNusawaContacts({
+            status: 200,
+            body: { data: [nusawaContact()], meta: { total: 1, per_page: 5, current_page: 2, total_page: 1 } },
         })
 
         const { status, body } = await request(app, "/api/contact?page=2&limit=5&search=budi", {

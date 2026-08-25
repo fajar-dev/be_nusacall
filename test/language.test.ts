@@ -21,7 +21,7 @@ beforeEach(async () => {
     await cleanTestDatabase()
 })
 
-// NOTE: These tests hit /api/agent (any authenticated route works, since
+// NOTE: These tests hit /api/user (any authenticated route works, since
 // languageMiddleware and the global error handler run regardless of the
 // route's own logic). Success-message translation tests will return once
 // a NusaCall module with a plain ApiResponse.success() path exists — the
@@ -34,13 +34,13 @@ beforeEach(async () => {
 
 describe("Language detection", () => {
     test("defaults to English when Accept-Language header is not sent", async () => {
-        const { headers } = await request(app, "/api/agent")
+        const { headers } = await request(app, "/api/user")
 
         expect(headers.get("Content-Language")).toBe("en")
     })
 
     test("uses Indonesian when Accept-Language: id is sent", async () => {
-        const { headers } = await request(app, "/api/agent", {
+        const { headers } = await request(app, "/api/user", {
             headers: { "Accept-Language": "id" },
         })
 
@@ -48,7 +48,7 @@ describe("Language detection", () => {
     })
 
     test("uses English when Accept-Language: en is sent", async () => {
-        const { headers } = await request(app, "/api/agent", {
+        const { headers } = await request(app, "/api/user", {
             headers: { "Accept-Language": "en" },
         })
 
@@ -56,7 +56,7 @@ describe("Language detection", () => {
     })
 
     test("resolves regional variants to the base language (id-ID -> id)", async () => {
-        const { headers } = await request(app, "/api/agent", {
+        const { headers } = await request(app, "/api/user", {
             headers: { "Accept-Language": "id-ID,id;q=0.9" },
         })
 
@@ -64,7 +64,7 @@ describe("Language detection", () => {
     })
 
     test("falls back to English when the requested language is unsupported", async () => {
-        const { headers } = await request(app, "/api/agent", {
+        const { headers } = await request(app, "/api/user", {
             headers: { "Accept-Language": "fr-FR,fr;q=0.9" },
         })
 
@@ -78,7 +78,7 @@ describe("Language detection", () => {
 
 describe("Localized response messages", () => {
     test("exception message is translated to Indonesian", async () => {
-        const { status, body } = await request(app, "/api/agent", {
+        const { status, body } = await request(app, "/api/user", {
             headers: { "Accept-Language": "id" },
         })
 
@@ -87,7 +87,7 @@ describe("Localized response messages", () => {
     })
 
     test("exception message stays in English by default", async () => {
-        const { status, body } = await request(app, "/api/agent")
+        const { status, body } = await request(app, "/api/user")
 
         expect(status).toBe(401)
         expect(body.message).toBe("Missing or invalid authorization header")

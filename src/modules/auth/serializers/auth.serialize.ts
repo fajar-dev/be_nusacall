@@ -1,17 +1,25 @@
-import { Agent } from "../../agent/entities/agent.entity"
+import { User } from "../../user/entities/user.entity"
+import { resolveFileUrl } from "../../../core/helpers/serializer-utils"
 
 export class AuthSerializer {
-    static loginResponse(agent: Agent, accessToken: string, expiresIn: number) {
+
+    static async single(user: User) {
         return {
-            accessToken,
-            expiresIn,
-            tokenType: "Bearer",
-            user: {
-                username: agent.username,
-                displayName: agent.displayName,
-                role: agent.role,
-                canReceiveCalls: agent.canReceiveCalls,
-            },
+            id: user.id,
+            employeeId: user.employeeId,
+            name: user.name,
+            photo: await resolveFileUrl(user.photo),
+            email: user.email,
+            isActive: Boolean(user.isActive),
+            organization: user.organization ? {
+                id: user.organization.id,
+                name: user.organization.name,
+            } : null,
+            role: user.role
         }
+    }
+
+    static async collection(users: User[]) {
+        return Promise.all(users.map(u => this.single(u)))
     }
 }

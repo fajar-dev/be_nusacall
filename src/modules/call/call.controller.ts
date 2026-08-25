@@ -7,7 +7,7 @@ import { CallStatus } from "./enum/call-status.enum"
 import { SortOrder } from "../../core/interfaces/base.repository.interface"
 import { BadGatewayException, ForbiddenException } from "../../core/exceptions/base"
 import { PermissionStatus } from "../permission/enum/permission-status.enum"
-import type { Agent } from "../agent/entities/agent.entity"
+import type { User } from "../user/entities/user.entity"
 
 /** docs/ROADMAP.md Fase 3 — full table sourced from Meta's Calling API troubleshooting docs. */
 const OUTBOUND_ERROR_MESSAGES: Record<number, string> = {
@@ -40,7 +40,7 @@ export class CallController {
                 q: c.req.query("q") || undefined,
                 status: statusParam ? (statusParam.split(",") as CallStatus[]) : undefined,
                 direction: c.req.query("direction") || undefined,
-                agentUsername: c.req.query("agentUsername") || undefined,
+                agentEmail: c.req.query("agentEmail") || undefined,
                 phoneNumberId: c.req.query("phoneNumberId") || undefined,
                 from: c.req.query("from") || undefined,
                 to: c.req.query("to") || undefined,
@@ -81,7 +81,7 @@ export class CallController {
      * Same pattern already used for /proxy and /upload in routes/api.ts.
      */
     async outbound(c: Context) {
-        const agent = c.get("agent") as Agent
+        const user = c.get("user") as User
         const data = c.req.valid("json" as never) as { phoneNumberId: string; waId: string; offerSdp: string }
 
         const { permissionService } = await import("../permission/permission.module")
@@ -94,7 +94,7 @@ export class CallController {
 
         const { callSignalingService } = await import("../../gateway/signaling.module")
         try {
-            const result = await callSignalingService.initiateOutbound(agent.username, data.phoneNumberId, data.waId, data.offerSdp)
+            const result = await callSignalingService.initiateOutbound(user.email, data.phoneNumberId, data.waId, data.offerSdp)
             return ApiResponse.success(c, result)
         } catch (err) {
             const code = (err as { context?: { code?: number } })?.context?.code

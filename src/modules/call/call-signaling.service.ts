@@ -8,7 +8,7 @@ import { MetaClient } from "../../infrastructure/meta/meta.client"
 import { NusawaClient } from "../../infrastructure/nusawa/nusawa.client"
 import { unwrapNullString } from "../../infrastructure/nusawa/nusawa.types"
 import { sessionRegistry } from "../../infrastructure/media/session-registry"
-import { presenceRegistry } from "../agent/presence.registry"
+import { presenceRegistry } from "../user/presence.registry"
 import { RoutingService, ContactContext } from "../routing/routing.service"
 import { NusawaLogService } from "./nusawa-log.service"
 import { formatCallLogMessage, CallLogOutcome } from "./call-log-message"
@@ -69,8 +69,8 @@ export class CallSignalingService implements ICallSignalingNotifier {
         const transitioned = await this.callState.transition(call.wacid, CallStatus.RINGING, { ringingAt: new Date() })
         if (!transitioned) return // stale/out-of-order — already moved past RINGING
 
-        for (const username of decision.targets) {
-            presenceRegistry.setCurrentCall(username, call.id)
+        for (const email of decision.targets) {
+            presenceRegistry.setCurrentCall(email, call.id)
         }
 
         const expiresAt = Date.now() + config.call.answerTimeoutSeconds * 1000
@@ -140,30 +140,30 @@ export class CallSignalingService implements ICallSignalingNotifier {
 
         const stillRinging = presenceRegistry.listAll().filter((p) => p.currentCallId === call.id)
         for (const presence of stillRinging) {
-            this.notifier.send(presence.username, packet("call_ended", wacid, { endReason: EndReason.ANSWER_TIMEOUT }))
-            presenceRegistry.setCurrentCall(presence.username, null)
+            this.notifier.send(presence.email, packet("call_ended", wacid, { endReason: EndReason.ANSWER_TIMEOUT }))
+            presenceRegistry.setCurrentCall(presence.email, null)
         }
     }
 
-    async handleAnswer(agentUsername: string, wacid: string, offerSdp: string): Promise<void> {
+    async handleAnswer(agentEmail: string, wacid: string, offerSdp: string): Promise<void> {
         const call = await this.callRepository.findByWacid(wacid)
         const session = sessionRegistry.get(wacid)
         if (!call || !session) {
-            this.notifier.send(agentUsername, packet("error", wacid, { code: "not_found", message: "Call not found" }))
+            this.notifier.send(agentEmail, packet("error", wacid, { code: "not_found", message: "Call not found" }))
             return
         }
 
-        const claimed = await this.callState.transition(wacid, CallStatus.CONNECTING, { agentUsername })
+        const claimed = await this.callState.transition(wacid, CallStatus.CONNECTING, { agentEmail })
         if (!claimed) {
-            this.notifier.send(agentUsername, packet("call_taken", wacid, { byUsername: call.agentUsername ?? "unknown" }))
-            presenceRegistry.setCurrentCall(agentUsername, null)
+            this.notifier.send(agentEmail, packet("call_taken", wacid, { byEmail: call.agentEmail ?? "unknown" }))
+            presenceRegistry.setCurrentCall(agentEmail, null)
             return
         }
 
-        this.releaseOtherRingingAgents(call, agentUsername)
+        this.releaseOtherRingingAgents(call, agentEmail)
 
         const answerSdp = await session.attachAgent(offerSdp)
-        this.notifier.send(agentUsername, packet("webrtc_answer", wacid, { sdp: answerSdp }))
+        this.notifier.send(agentEmail, packet("webrtc_answer", wacid, { sdp: answerSdp }))
 
         try {
             await this.metaClient.accept(call.phoneNumberId, wacid, session.metaAnswerSdp!)
@@ -171,8 +171,8 @@ export class CallSignalingService implements ICallSignalingNotifier {
             logger.error("Meta accept failed after agent answered", { wacid, err })
             await this.callState.transition(wacid, CallStatus.FAILED, { endReason: EndReason.MEDIA_FAILURE, endedAt: new Date() })
             await sessionRegistry.remove(wacid, "accept_failed")
-            this.notifier.send(agentUsername, packet("call_ended", wacid, { endReason: EndReason.MEDIA_FAILURE }))
-            presenceRegistry.setCurrentCall(agentUsername, null)
+            this.notifier.send(agentEmail, packet("call_ended", wacid, { endReason: EndReason.MEDIA_FAILURE }))
+            presenceRegistry.setCurrentCall(agentEmail, null)
             return
         }
 
@@ -188,10 +188,10 @@ export class CallSignalingService implements ICallSignalingNotifier {
             recordingEnabled: config.recording.recordingEnabled,
             transcriptionEnabled: config.recording.transcriptionEnabled,
         })
-        this.notifier.send(agentUsername, packet("call_state", wacid, { status: "active" }))
+        this.notifier.send(agentEmail, packet("call_state", wacid, { status: "active" }))
     }
 
-    async handleReject(agentUsername: string, wacid: string, reason?: string): Promise<void> {
+    async handleReject(agentEmail: string, wacid: string, reason?: string): Promise<void> {
         const call = await this.callRepository.findByWacid(wacid)
         if (!call) return
 
@@ -208,11 +208,11 @@ export class CallSignalingService implements ICallSignalingNotifier {
         })
         await sessionRegistry.remove(wacid, "agent_rejected")
         await this.logCallOutcome(call, "rejected")
-        this.releaseOtherRingingAgents(call, agentUsername)
-        presenceRegistry.setCurrentCall(agentUsername, null)
+        this.releaseOtherRingingAgents(call, agentEmail)
+        presenceRegistry.setCurrentCall(agentEmail, null)
     }
 
-    async handleHangup(agentUsername: string, wacid: string): Promise<void> {
+    async handleHangup(agentEmail: string, wacid: string): Promise<void> {
         const call = await this.callRepository.findByWacid(wacid)
         if (!call) return
 
@@ -228,13 +228,13 @@ export class CallSignalingService implements ICallSignalingNotifier {
         })
         await sessionRegistry.remove(wacid, "agent_hangup")
         await this.logCallOutcome(call, "completed", this.durationSince(call.answeredAt))
-        presenceRegistry.setCurrentCall(agentUsername, null)
-        this.notifier.send(agentUsername, packet("call_ended", wacid, { endReason: EndReason.AGENT_HANGUP }))
+        presenceRegistry.setCurrentCall(agentEmail, null)
+        this.notifier.send(agentEmail, packet("call_ended", wacid, { endReason: EndReason.AGENT_HANGUP }))
     }
 
     /** Used by WebhookService for terminal states nusawa itself reports (customer hangup, FAILED, etc). */
     async logCallOutcome(call: Call, outcome: CallLogOutcome, durationSeconds?: number | null): Promise<void> {
-        const body = formatCallLogMessage(outcome, { durationSeconds, agentUsername: call.agentUsername })
+        const body = formatCallLogMessage(outcome, { durationSeconds, agentEmail: call.agentEmail })
         await this.nusawaLog.enqueue({ callId: call.id, wacid: call.wacid, phoneNumberId: call.phoneNumberId, waId: call.waId, body })
     }
 
@@ -246,14 +246,14 @@ export class CallSignalingService implements ICallSignalingNotifier {
      * presence never frees up for the next call.
      */
     notifyCallEnded(call: Call, endReason: EndReason): void {
-        if (!call.agentUsername) return
-        presenceRegistry.setCurrentCall(call.agentUsername, null)
-        this.notifier.send(call.agentUsername, packet("call_ended", call.wacid, { endReason }))
+        if (!call.agentEmail) return
+        presenceRegistry.setCurrentCall(call.agentEmail, null)
+        this.notifier.send(call.agentEmail, packet("call_ended", call.wacid, { endReason }))
     }
 
     notifyOutboundActive(call: Call): void {
-        if (!call.agentUsername) return
-        this.notifier.send(call.agentUsername, packet("call_state", call.wacid, { status: "active" }))
+        if (!call.agentEmail) return
+        this.notifier.send(call.agentEmail, packet("call_state", call.wacid, { status: "active" }))
     }
 
     private durationSince(start: Date | null | undefined): number | null {
@@ -275,7 +275,7 @@ export class CallSignalingService implements ICallSignalingNotifier {
      * uses) — returning the agent-leg answer synchronously here means the
      * frontend needs no separate WS round-trip to complete its own leg.
      */
-    async initiateOutbound(agentUsername: string, phoneNumberId: string, waId: string, offerSdp: string): Promise<{ wacid: string; answerSdp: string }> {
+    async initiateOutbound(agentEmail: string, phoneNumberId: string, waId: string, offerSdp: string): Promise<{ wacid: string; answerSdp: string }> {
         const tempKey = `pending.${randomUUID()}`
         const session = sessionRegistry.create(tempKey)
 
@@ -305,19 +305,19 @@ export class CallSignalingService implements ICallSignalingNotifier {
             direction: CallDirection.OUTBOUND,
             status: CallStatus.PENDING,
             statusRank: 10,
-            agentUsername,
+            agentEmail,
         })
-        presenceRegistry.setCurrentCall(agentUsername, call.id)
+        presenceRegistry.setCurrentCall(agentEmail, call.id)
 
         return { wacid, answerSdp: agentAnswerSdp }
     }
 
     /** Tells agents who were rung but didn't win (or the call ended before anyone answered) to stop ringing. */
-    private releaseOtherRingingAgents(call: Call, exceptUsername: string): void {
-        const stillRinging = presenceRegistry.listAll().filter((p) => p.currentCallId === call.id && p.username !== exceptUsername)
+    private releaseOtherRingingAgents(call: Call, exceptEmail: string): void {
+        const stillRinging = presenceRegistry.listAll().filter((p) => p.currentCallId === call.id && p.email !== exceptEmail)
         for (const presence of stillRinging) {
-            this.notifier.send(presence.username, packet("call_taken", call.wacid, { byUsername: exceptUsername }))
-            presenceRegistry.setCurrentCall(presence.username, null)
+            this.notifier.send(presence.email, packet("call_taken", call.wacid, { byEmail: exceptEmail }))
+            presenceRegistry.setCurrentCall(presence.email, null)
         }
     }
 }

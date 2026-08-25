@@ -7,7 +7,7 @@ export interface CallListFilter {
     q?: string
     status?: CallStatus[]
     direction?: string
-    agentUsername?: string
+    agentEmail?: string
     phoneNumberId?: string
     from?: string
     to?: string

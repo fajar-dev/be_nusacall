@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from "bun:test"
 import { Hono } from "hono"
-import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createTestApp, request, createAgentAndToken } from "./setup"
+import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createTestApp, request, createUserAndToken } from "./setup"
 import { TypeOrmPhoneNumberRepository } from "../src/modules/phone-number/repositories/phone-number.repository"
 import { PhoneNumberService } from "../src/modules/phone-number/phone-number.service"
 import { getDataSource } from "../src/config/database"
@@ -61,7 +61,7 @@ describe("GET /api/phone-number", () => {
     })
 
     test("lists phone numbers", async () => {
-        const { headers } = await createAgentAndToken()
+        const { headers } = await createUserAndToken()
         await seedPhoneNumber()
 
         const { status, body } = await request(app, "/api/phone-number", { headers })
@@ -74,13 +74,13 @@ describe("GET /api/phone-number", () => {
 
 describe("GET /api/phone-number/:id", () => {
     test("404s for a non-existent phone number", async () => {
-        const { headers } = await createAgentAndToken()
+        const { headers } = await createUserAndToken()
         const { status } = await request(app, "/api/phone-number/999999", { headers })
         expect(status).toBe(404)
     })
 
     test("returns a single phone number", async () => {
-        const { headers } = await createAgentAndToken()
+        const { headers } = await createUserAndToken()
         const phoneNumber = await seedPhoneNumber()
 
         const { status, body } = await request(app, `/api/phone-number/${phoneNumber.id}`, { headers })

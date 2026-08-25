@@ -11,7 +11,7 @@ export class CallSerializer {
             profileName: call.profileName,
             contactName: call.contactName,
             inboxId: call.inboxId,
-            agentUsername: call.agentUsername,
+            agentEmail: call.agentEmail,
             direction: call.direction,
             status: call.status,
             endReason: call.endReason,

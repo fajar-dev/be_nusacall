@@ -75,7 +75,7 @@ async function seedAnsweredCall(wacid: string) {
         phoneNumberId: "202063559668129", waId: "628123456789",
         direction: CallDirection.INBOUND, status: CallStatus.PENDING, statusRank: 10,
     })
-    await callStateService.transition(wacid, CallStatus.CONNECTING, { agentUsername: "agent1@nusa.id" })
+    await callStateService.transition(wacid, CallStatus.CONNECTING, { agentEmail: "agent1@nusa.id" })
     await callStateService.transition(wacid, CallStatus.ACTIVE, { answeredAt: new Date() })
     await callStateService.transition(wacid, CallStatus.COMPLETED, { endedAt: new Date() })
     return call

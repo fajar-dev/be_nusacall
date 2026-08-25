@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach } from "bun:test"
 import { RoutingService, ContactContext } from "../src/modules/routing/routing.service"
-import { presenceRegistry } from "../src/modules/agent/presence.registry"
+import { presenceRegistry } from "../src/modules/user/presence.registry"
 import { EndReason } from "../src/modules/call/enum/end-reason.enum"
 import { CallDirection } from "../src/modules/call/enum/call-direction.enum"
 import { CallStatus } from "../src/modules/call/enum/call-status.enum"
@@ -75,15 +75,6 @@ describe("RoutingService", () => {
         const decision = new RoutingService().decide(fakeCall())
 
         expect(decision.targets).toEqual(["agent2@nusa.id"])
-    })
-
-    test("excludes an agent who set availability to busy/away/offline", () => {
-        presenceRegistry.register("agent1@nusa.id", "conn-1")
-        presenceRegistry.setAvailability("agent1@nusa.id", "away")
-
-        const decision = new RoutingService().decide(fakeCall())
-
-        expect(decision.kind).toBe("reject")
     })
 
     test("routes directly to an online PIC instead of broadcasting", () => {

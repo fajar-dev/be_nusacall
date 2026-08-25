@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from "bun:test"
 import { Hono } from "hono"
-import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createTestApp, request, createAgentAndToken } from "./setup"
+import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createTestApp, request, createUserAndToken } from "./setup"
 
 /**
  * HTTP-layer wiring only (auth, validation) for the Fase 3 outbound
@@ -42,7 +42,7 @@ describe("POST /api/permission/request", () => {
     })
 
     test("422s when phoneNumberId/waId are missing", async () => {
-        const { headers } = await createAgentAndToken()
+        const { headers } = await createUserAndToken()
         const { status, body } = await request(app, "/api/permission/request", { method: "POST", body: {}, headers })
         expect(status).toBe(422)
         expect(body.success).toBe(false)
@@ -56,7 +56,7 @@ describe("POST /api/call/outbound", () => {
     })
 
     test("422s when phoneNumberId/waId/offerSdp are missing", async () => {
-        const { headers } = await createAgentAndToken()
+        const { headers } = await createUserAndToken()
         const { status, body } = await request(app, "/api/call/outbound", { method: "POST", body: {}, headers })
         expect(status).toBe(422)
         expect(body.success).toBe(false)

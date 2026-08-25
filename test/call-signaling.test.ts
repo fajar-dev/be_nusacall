@@ -14,7 +14,7 @@ import { RoutingService } from "../src/modules/routing/routing.service"
 import { CallStatus } from "../src/modules/call/enum/call-status.enum"
 import { CallDirection } from "../src/modules/call/enum/call-direction.enum"
 import { sessionRegistry } from "../src/infrastructure/media/session-registry"
-import { presenceRegistry } from "../src/modules/agent/presence.registry"
+import { presenceRegistry } from "../src/modules/user/presence.registry"
 import { config } from "../src/config/config"
 import type { ICallMediaCoordinator } from "../src/modules/call/interfaces/call-media-coordinator.interface"
 import type { MetaClient } from "../src/infrastructure/meta/meta.client"
@@ -53,18 +53,18 @@ async function fakeBrowserOfferSdp(): Promise<string> {
 }
 
 class FakeNotifier implements IAgentNotifier {
-    sent: { username: string; packet: WsOutboundPacket }[] = []
+    sent: { email: string; packet: WsOutboundPacket }[] = []
 
-    send(username: string, packet: WsOutboundPacket): void {
-        this.sent.push({ username, packet })
+    send(email: string, packet: WsOutboundPacket): void {
+        this.sent.push({ email, packet })
     }
 
-    sendToAgents(usernames: string[], packet: WsOutboundPacket): void {
-        for (const username of usernames) this.send(username, packet)
+    sendToAgents(emails: string[], packet: WsOutboundPacket): void {
+        for (const email of emails) this.send(email, packet)
     }
 
-    packetsFor(username: string): WsOutboundPacket[] {
-        return this.sent.filter((s) => s.username === username).map((s) => s.packet)
+    packetsFor(email: string): WsOutboundPacket[] {
+        return this.sent.filter((s) => s.email === email).map((s) => s.packet)
     }
 }
 
@@ -276,7 +276,7 @@ describe("CallSignalingService.handleAnswer", () => {
 
         const updated = await callRepository.findByWacid(wacid)
         expect(updated!.status).toBe(CallStatus.ACTIVE)
-        expect(updated!.agentUsername).toBe("agent1@nusa.id")
+        expect(updated!.agentEmail).toBe("agent1@nusa.id")
         expect(acceptedWith[1]).toBe(wacid)
 
         const packets = notifier.packetsFor("agent1@nusa.id").map((p) => p.type)
@@ -329,7 +329,7 @@ describe("CallSignalingService.handleAnswer", () => {
         expect(agent2Packets.some((p) => p.type === "call_taken")).toBe(true)
 
         const updated = await callRepository.findByWacid(wacid)
-        expect(updated!.agentUsername).toBe("agent1@nusa.id")
+        expect(updated!.agentEmail).toBe("agent1@nusa.id")
     })
 
     test("notifies other ringing agents that the call was taken once one agent answers", async () => {
@@ -398,7 +398,7 @@ describe("CallSignalingService.initiateOutbound (Fase 3, BIC)", () => {
         const call = await callRepository.findByWacid("wacid.OUT1")
         expect(call).not.toBeNull()
         expect(call!.direction).toBe(CallDirection.OUTBOUND)
-        expect(call!.agentUsername).toBe("agent1@nusa.id")
+        expect(call!.agentEmail).toBe("agent1@nusa.id")
         expect(presenceRegistry.get("agent1@nusa.id")?.currentCallId).toBe(call!.id)
     })
 
@@ -491,7 +491,7 @@ describe("CallSignalingService.handleReject / handleHangup", () => {
     test("handleHangup calls Meta terminate and marks the call COMPLETED", async () => {
         const wacid = "wacid.SIGHANGUP1"
         await createRingingCall(wacid)
-        await callStateService.transition(wacid, CallStatus.CONNECTING, { agentUsername: "agent1@nusa.id" })
+        await callStateService.transition(wacid, CallStatus.CONNECTING, { agentEmail: "agent1@nusa.id" })
         await callStateService.transition(wacid, CallStatus.ACTIVE, { answeredAt: new Date() })
 
         const terminatedIds: string[] = []
@@ -528,7 +528,7 @@ describe("WebhookService + CallSignalingService — terminate logging", () => {
             phoneNumberId: "202063559668129", waId: "628123456789",
             direction: CallDirection.INBOUND, status: CallStatus.PENDING, statusRank: 10,
         })
-        await callStateService.transition(wacid, CallStatus.CONNECTING, { agentUsername: "agent1@nusa.id" })
+        await callStateService.transition(wacid, CallStatus.CONNECTING, { agentEmail: "agent1@nusa.id" })
         await callStateService.transition(wacid, CallStatus.ACTIVE, { answeredAt: new Date() })
         presenceRegistry.register("agent1@nusa.id", "conn-whsiglog1")
         presenceRegistry.setCurrentCall("agent1@nusa.id", call.id)
@@ -565,7 +565,7 @@ describe("WebhookService + CallSignalingService — terminate logging", () => {
             phoneNumberId: "202063559668129", waId: "628123456789",
             direction: CallDirection.INBOUND, status: CallStatus.PENDING, statusRank: 10,
         })
-        await callStateService.transition(wacid, CallStatus.CONNECTING, { agentUsername: "agent1@nusa.id" })
+        await callStateService.transition(wacid, CallStatus.CONNECTING, { agentEmail: "agent1@nusa.id" })
         await callStateService.transition(wacid, CallStatus.ACTIVE, { answeredAt: new Date() })
 
         const nusawaLog = fakeNusawaLog()

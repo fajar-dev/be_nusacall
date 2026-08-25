@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from "bun:test"
 import { Hono } from "hono"
-import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createTestApp, request, createAgentAndToken } from "./setup"
+import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createTestApp, request, createUserAndToken } from "./setup"
 import { getDataSource } from "../src/config/database"
 import { Call } from "../src/modules/call/entities/call.entity"
 import { CallRecording } from "../src/modules/call/entities/call-recording.entity"
@@ -46,7 +46,7 @@ describe("GET /api/call", () => {
     })
 
     test("lists calls, paginated", async () => {
-        const { headers } = await createAgentAndToken()
+        const { headers } = await createUserAndToken()
         await seedCall()
         await seedCall()
 
@@ -59,7 +59,7 @@ describe("GET /api/call", () => {
     })
 
     test("filters by status", async () => {
-        const { headers } = await createAgentAndToken()
+        const { headers } = await createUserAndToken()
         await seedCall({ status: CallStatus.COMPLETED, statusRank: 90 })
         await seedCall({ status: CallStatus.MISSED, statusRank: 90 })
 
@@ -70,7 +70,7 @@ describe("GET /api/call", () => {
     })
 
     test("searches by waId/contactName/wacid", async () => {
-        const { headers } = await createAgentAndToken()
+        const { headers } = await createUserAndToken()
         await seedCall({ waId: "628111111111" })
         await seedCall({ waId: "628222222222" })
 
@@ -83,7 +83,7 @@ describe("GET /api/call", () => {
 
 describe("GET /api/call/:id", () => {
     test("returns a single call", async () => {
-        const { headers } = await createAgentAndToken()
+        const { headers } = await createUserAndToken()
         const call = await seedCall()
 
         const { status, body } = await request(app, `/api/call/${call.id}`, { headers })
@@ -93,7 +93,7 @@ describe("GET /api/call/:id", () => {
     })
 
     test("404s for a non-existent call", async () => {
-        const { headers } = await createAgentAndToken()
+        const { headers } = await createUserAndToken()
         const { status } = await request(app, "/api/call/999999", { headers })
         expect(status).toBe(404)
     })
@@ -101,7 +101,7 @@ describe("GET /api/call/:id", () => {
 
 describe("GET /api/call/stats", () => {
     test("aggregates totals by outcome", async () => {
-        const { headers } = await createAgentAndToken()
+        const { headers } = await createUserAndToken()
         await seedCall({ status: CallStatus.COMPLETED, statusRank: 90, durationSeconds: 100 })
         await seedCall({ status: CallStatus.COMPLETED, statusRank: 90, durationSeconds: 200 })
         await seedCall({ status: CallStatus.MISSED, statusRank: 90, durationSeconds: null, endReason: EndReason.NO_AGENT_AVAILABLE })
@@ -123,14 +123,14 @@ describe("GET /api/call/:id/recording", () => {
     })
 
     test("404s when the call has no recording row at all", async () => {
-        const { headers } = await createAgentAndToken()
+        const { headers } = await createUserAndToken()
         const call = await seedCall()
         const { status } = await request(app, `/api/call/${call.id}/recording`, { headers })
         expect(status).toBe(404)
     })
 
     test("404s while still pending (not downloaded yet)", async () => {
-        const { headers } = await createAgentAndToken()
+        const { headers } = await createUserAndToken()
         const call = await seedCall()
         await getDataSource().getRepository(CallRecording).save({
             callId: call.id, wacid: call.wacid, recordingStatus: RecordingArtifactStatus.PENDING,
@@ -140,7 +140,7 @@ describe("GET /api/call/:id/recording", () => {
     })
 
     test("410s when Meta's 7-day window passed before we downloaded it", async () => {
-        const { headers } = await createAgentAndToken()
+        const { headers } = await createUserAndToken()
         const call = await seedCall()
         await getDataSource().getRepository(CallRecording).save({
             callId: call.id, wacid: call.wacid, recordingStatus: RecordingArtifactStatus.EXPIRED,
@@ -150,7 +150,7 @@ describe("GET /api/call/:id/recording", () => {
     })
 
     test("returns a presigned URL once stored", async () => {
-        const { headers } = await createAgentAndToken()
+        const { headers } = await createUserAndToken()
         const call = await seedCall()
         await getDataSource().getRepository(CallRecording).save({
             callId: call.id, wacid: call.wacid,
@@ -170,14 +170,14 @@ describe("GET /api/call/:id/transcript", () => {
     })
 
     test("404s when the call has no transcript row at all", async () => {
-        const { headers } = await createAgentAndToken()
+        const { headers } = await createUserAndToken()
         const call = await seedCall()
         const { status } = await request(app, `/api/call/${call.id}/transcript`, { headers })
         expect(status).toBe(404)
     })
 
     test("410s when Meta's 7-day window passed before we downloaded it", async () => {
-        const { headers } = await createAgentAndToken()
+        const { headers } = await createUserAndToken()
         const call = await seedCall()
         await getDataSource().getRepository(CallRecording).save({
             callId: call.id, wacid: call.wacid, transcriptStatus: RecordingArtifactStatus.EXPIRED,

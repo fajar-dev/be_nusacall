@@ -9,6 +9,7 @@
   "dependencies": {
     "@hono/swagger-ui": "^0.6.1",
     "@hono/zod-validator": "^0.7.6",
+    "google-auth-library": "^11.0.2",
     "hono": "^4.12.8",
     "minio": "^8.0.7",
     "mysql2": "^3.20.0",

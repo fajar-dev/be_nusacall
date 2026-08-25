@@ -12,8 +12,8 @@ export interface WsOutboundPacket {
 
 /** Implemented by SignalingGateway — lets CallSignalingService push to agents without knowing about WebSockets. */
 export interface IAgentNotifier {
-    send(username: string, packet: WsOutboundPacket): void
-    sendToAgents(usernames: string[], packet: WsOutboundPacket): void
+    send(email: string, packet: WsOutboundPacket): void
+    sendToAgents(emails: string[], packet: WsOutboundPacket): void
 }
 
 /** Implemented by CallSignalingService — lets WebhookService trigger ringing/logging without knowing about routing/WS/nusawa. */

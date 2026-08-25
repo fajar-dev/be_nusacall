@@ -1,14 +1,13 @@
 import { Context, Next } from 'hono'
 import { verify } from 'hono/jwt'
 import { config } from '../../config/config'
-import { AppDataSource } from '../../config/database'
-import { Agent } from '../../modules/agent/entities/agent.entity'
+import { userRepository } from '../../modules/user/user.module'
 import { UnauthorizedException } from '../exceptions/base'
 import type { NusaCallJwtPayload } from '../helpers/auth'
 
 /**
  * Verifies a NusaCall-issued JWT (Bearer header) and loads the corresponding
- * Agent by username (JWT `sub`). Used for all authenticated REST endpoints.
+ * User by id (JWT `sub`). Used for all authenticated REST endpoints.
  */
 export const authMiddleware = async (c: Context, next: Next) => {
     const authHeader = c.req.header('Authorization')
@@ -20,14 +19,13 @@ export const authMiddleware = async (c: Context, next: Next) => {
 
     try {
         const decoded = await verify(token, config.app.jwtSecret, "HS256") as unknown as NusaCallJwtPayload
-        const agentRepository = AppDataSource.getRepository(Agent)
-        const agent = await agentRepository.findOne({ where: { username: decoded.sub } })
+        const user = await userRepository.findById(decoded.sub)
 
-        if (!agent) {
+        if (!user || !user.isActive) {
             throw new UnauthorizedException("Unauthorized access")
         }
 
-        c.set('agent', agent)
+        c.set('user', user)
         await next()
     } catch (error) {
         if (error instanceof UnauthorizedException) throw error

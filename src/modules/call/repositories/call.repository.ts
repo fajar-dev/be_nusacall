@@ -41,8 +41,8 @@ export class TypeOrmCallRepository implements ICallRepository {
         if (filter.direction) {
             query.andWhere("call.direction = :direction", { direction: filter.direction })
         }
-        if (filter.agentUsername) {
-            query.andWhere("call.agentUsername = :agentUsername", { agentUsername: filter.agentUsername })
+        if (filter.agentEmail) {
+            query.andWhere("call.agentEmail = :agentEmail", { agentEmail: filter.agentEmail })
         }
         if (filter.phoneNumberId) {
             query.andWhere("call.phoneNumberId = :phoneNumberId", { phoneNumberId: filter.phoneNumberId })

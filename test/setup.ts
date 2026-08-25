@@ -8,7 +8,8 @@ import { NusawaLogQueue } from "../src/modules/call/entities/nusawa-log-queue.en
 import { CallRecording } from "../src/modules/call/entities/call-recording.entity"
 import { CallPermission } from "../src/modules/permission/entities/call-permission.entity"
 import { PhoneNumber } from "../src/modules/phone-number/entities/phone-number.entity"
-import { Agent } from "../src/modules/agent/entities/agent.entity"
+import { User } from "../src/modules/user/entities/user.entity"
+import { Organization } from "../src/modules/organization/entities/organization.entity"
 import { ApiResponse } from "../src/core/helpers/response"
 import { BaseException, ValidationException } from "../src/core/exceptions/base"
 import { ZodError } from "zod"
@@ -16,7 +17,6 @@ import { config } from "../src/config/config"
 import { setDataSource } from "../src/config/database"
 import { languageMiddleware } from "../src/core/middlewares/language.middleware"
 import { requestLogger } from "../src/core/middlewares/logger.middleware"
-import { sign } from "hono/jwt"
 
 // ── Test Database ───────────────────────────────────────────────────────────
 // Uses real database with a separate test database name
@@ -34,7 +34,7 @@ const TestDataSource = new DataSource({
     synchronize: true,
     dropSchema: true,
     timezone: "Z", // see src/config/database.ts — mysql2 defaults to local-time serialization
-    entities: [Call, CallEvent, NusawaLogQueue, CallRecording, CallPermission, PhoneNumber, Agent],
+    entities: [Call, CallEvent, NusawaLogQueue, CallRecording, CallPermission, PhoneNumber, User, Organization],
     logging: false,
 })
 
@@ -173,29 +173,31 @@ export async function request(app: Hono, path: string, options: RequestOptions =
 // ── Auth Helper ─────────────────────────────────────────────────────────────
 
 /**
- * Creates (or reuses) an Agent row and returns a NusaCall JWT for it.
- * Bypasses the nusawa relay entirely — suitable for module-level tests that
- * don't exercise the auth flow itself (see test/agent-auth.test.ts for that).
+ * Creates (or reuses) a User row and returns a real NusaCall JWT for it,
+ * signed the same way `AuthHelper.generateTokens` does in production —
+ * so tests exercise the actual auth contract (`sub: user.id`) rather than a
+ * hand-rolled shape. Bypasses Nusawork/Google entirely — suitable for
+ * module-level tests that don't exercise the login flow itself (see
+ * test/auth.test.ts for that).
  */
-export async function createAgentAndToken(overrides: Partial<{ username: string; role: string; canReceiveCalls: boolean }> = {}) {
-    const { AgentService } = require("../src/modules/agent/agent.service")
-    const { TypeOrmAgentRepository } = require("../src/modules/agent/repositories/agent.repository")
+export async function createUserAndToken(overrides: Partial<{ email: string; role: string; isActive: boolean; employeeId: number }> = {}) {
+    const { UserService } = require("../src/modules/user/user.service")
+    const { UserRepository } = require("../src/modules/user/repositories/user.repository")
+    const { AuthHelper } = require("../src/core/helpers/auth")
+    const { Role } = require("../src/modules/user/enums/role.enum")
 
-    const agentService = new AgentService(new TypeOrmAgentRepository())
-    const username = overrides.username || `agent${Date.now()}${Math.floor(Math.random() * 1000)}@nusa.id`
+    const userService = new (UserService as new (repo: unknown) => { save: (data: unknown) => Promise<any> })(new UserRepository())
+    const email = overrides.email || `user${Date.now()}${Math.floor(Math.random() * 1000)}@nusa.id`
 
-    const agent = await agentService.upsert({
-        username,
-        displayName: "Test Agent",
-        role: overrides.role ?? "agent",
-        canReceiveCalls: overrides.canReceiveCalls ?? true,
+    const user = await userService.save({
+        email,
+        name: "Test User",
+        employeeId: overrides.employeeId ?? Math.floor(Math.random() * 1_000_000),
+        role: overrides.role ?? Role.AGENT,
+        isActive: overrides.isActive ?? true,
     })
 
-    const accessToken = await sign(
-        { sub: agent.username, role: agent.role, exp: Math.floor(Date.now() / 1000) + 3600 },
-        config.app.jwtSecret,
-        "HS256"
-    )
+    const { accessToken } = await AuthHelper.generateTokens(user)
 
-    return { agent, accessToken, headers: { Authorization: `Bearer ${accessToken}` } }
+    return { user, accessToken, headers: { Authorization: `Bearer ${accessToken}` } }
 }

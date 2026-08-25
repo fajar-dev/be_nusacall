@@ -8,7 +8,8 @@ import { NusawaLogQueue } from "../modules/call/entities/nusawa-log-queue.entity
 import { CallRecording } from "../modules/call/entities/call-recording.entity"
 import { CallPermission } from "../modules/permission/entities/call-permission.entity"
 import { PhoneNumber } from "../modules/phone-number/entities/phone-number.entity"
-import { Agent } from "../modules/agent/entities/agent.entity"
+import { User } from "../modules/user/entities/user.entity"
+import { Organization } from "../modules/organization/entities/organization.entity"
 
 /**
  * TypeORM Database Configuration
@@ -25,12 +26,8 @@ const defaultDataSource = new DataSource({
     password: config.database.pass,
     database: config.database.name,
     synchronize: config.database.sync,
-    // mysql2 defaults to serializing/parsing dates in the process's LOCAL
-    // timezone, not the DB's. Since this runs wherever it's deployed (not
-    // necessarily UTC), that silently corrupts every datetime round-trip.
-    // "Z" forces UTC on both ends, independent of host timezone.
     timezone: "Z",
-    entities: [Call, CallEvent, NusawaLogQueue, CallRecording, CallPermission, PhoneNumber, Agent],
+    entities: [Call, CallEvent, NusawaLogQueue, CallRecording, CallPermission, PhoneNumber, User, Organization],
     migrations: [],
     subscribers: [],
 })

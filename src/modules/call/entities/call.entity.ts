@@ -39,8 +39,8 @@ export class Call {
     inboxId?: string | null
 
     @Index()
-    @Column({ name: "agent_username", length: 128, nullable: true })
-    agentUsername?: string | null
+    @Column({ name: "agent_email", length: 128, nullable: true })
+    agentEmail?: string | null
 
     // ── Status ──────────────────────────────────────────────────────
     @Column({ type: "enum", enum: CallDirection })
