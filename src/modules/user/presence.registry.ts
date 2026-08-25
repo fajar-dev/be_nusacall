@@ -1,6 +1,6 @@
-export type UserAvailability = "available" | "offline"
+type UserAvailability = "available" | "offline"
 
-export interface UserPresence {
+interface UserPresence {
     email: string
     availability: UserAvailability
     currentCallId: number | null
@@ -14,7 +14,7 @@ export interface UserPresence {
  */
 class PresenceRegistry {
     private readonly byEmail = new Map<string, UserPresence>()
-    private readonly byConnection = new Map<string, string>() // connectionId -> email
+    private readonly byConnection = new Map<string, string>()
 
     register(email: string, connectionId: string): UserPresence {
         let presence = this.byEmail.get(email)
@@ -33,7 +33,6 @@ class PresenceRegistry {
         return presence
     }
 
-    /** Returns true if the user has no more live connections (fully offline). */
     unregister(connectionId: string): boolean {
         const email = this.byConnection.get(connectionId)
         if (!email) return false

@@ -6,7 +6,7 @@ import { getDataSource } from "../src/config/database"
 import { NusawaLogQueue, QueueStatus } from "../src/modules/call/entities/nusawa-log-queue.entity"
 import type { NusawaClient } from "../src/infrastructure/nusawa/nusawa.client"
 
-// Backoff schedule under test: 5s, 30s, 2m, 10m, 1h (docs/INTEGRATION-NUSAWA.md §3.5).
+// Backoff schedule under test: 5s, 30s, 2m, 10m, 1h.
 
 let repository: TypeOrmNusawaLogQueueRepository
 

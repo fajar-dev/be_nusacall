@@ -10,7 +10,6 @@ export class CallSerializer {
             waId: call.waId,
             profileName: call.profileName,
             contactName: call.contactName,
-            inboxId: call.inboxId,
             agentEmail: call.agentEmail,
             direction: call.direction,
             status: call.status,

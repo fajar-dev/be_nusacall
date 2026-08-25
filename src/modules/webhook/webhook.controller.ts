@@ -8,7 +8,6 @@ import { UnauthorizedException } from "../../core/exceptions/base"
 export class WebhookController {
     constructor(private readonly service: WebhookService) {}
 
-    /** GET /wh — Meta's subscription handshake. */
     async verify(c: Context) {
         const mode = c.req.query("hub.mode")
         const token = c.req.query("hub.verify_token")
@@ -21,10 +20,6 @@ export class WebhookController {
         return c.body(null, 400)
     }
 
-    /**
-     * POST /wh — receives `calls` webhook events. Must reply fast (Meta retries on timeout,
-     * creating duplicates); signature is checked on the raw body before parsing.
-     */
     async receive(c: Context) {
         const raw = await c.req.text()
         const signature = c.req.header("x-hub-signature")
@@ -34,7 +29,6 @@ export class WebhookController {
             throw new UnauthorizedException("Invalid webhook signature")
         }
 
-        // Fire-and-forget: never await this in the request/response path.
         queueMicrotask(() => {
             this.service.process(raw).catch((err) => {
                 logger.error("Webhook processing failed", { err })

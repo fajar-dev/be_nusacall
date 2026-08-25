@@ -106,7 +106,7 @@ describe("POST /api/auth/login", () => {
 })
 
 describe("POST /api/auth/google", () => {
-    test("rejects a request without idToken (422)", async () => {
+    test("rejects a request without code (422)", async () => {
         const { status, body } = await request(app, "/api/auth/google", {
             method: "POST",
             body: {},
@@ -117,11 +117,11 @@ describe("POST /api/auth/google", () => {
 
     test("issues a NusaCall JWT for a valid Google ID token (200)", async () => {
         await seedUser({ email: "agent@nusa.id" })
-        spyOn(AuthHelper, "verifyGoogleIdToken").mockResolvedValue({ email: "agent@nusa.id" } as never)
+        spyOn(AuthHelper, "verifyGoogleCode").mockResolvedValue({ email: "agent@nusa.id" } as never)
 
         const { status, body } = await request(app, "/api/auth/google", {
             method: "POST",
-            body: { idToken: "fake-google-id-token" },
+            body: { code: "fake-google-auth-code" },
         })
 
         expect(status).toBe(200)
@@ -131,11 +131,11 @@ describe("POST /api/auth/google", () => {
     })
 
     test("rejects a user not registered locally (400)", async () => {
-        spyOn(AuthHelper, "verifyGoogleIdToken").mockResolvedValue({ email: "unknown@nusa.id" } as never)
+        spyOn(AuthHelper, "verifyGoogleCode").mockResolvedValue({ email: "unknown@nusa.id" } as never)
 
         const { status, body } = await request(app, "/api/auth/google", {
             method: "POST",
-            body: { idToken: "fake-google-id-token" },
+            body: { code: "fake-google-auth-code" },
         })
 
         expect(status).toBe(400)
@@ -144,11 +144,11 @@ describe("POST /api/auth/google", () => {
 
     test("rejects an inactive user (400)", async () => {
         await seedUser({ email: "inactive@nusa.id", isActive: false })
-        spyOn(AuthHelper, "verifyGoogleIdToken").mockResolvedValue({ email: "inactive@nusa.id" } as never)
+        spyOn(AuthHelper, "verifyGoogleCode").mockResolvedValue({ email: "inactive@nusa.id" } as never)
 
         const { status, body } = await request(app, "/api/auth/google", {
             method: "POST",
-            body: { idToken: "fake-google-id-token" },
+            body: { code: "fake-google-auth-code" },
         })
 
         expect(status).toBe(400)

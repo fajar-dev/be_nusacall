@@ -11,13 +11,8 @@ export interface UpdatePhoneNumberInput {
     callIconVisibility?: string
     answerTimeoutSeconds?: number
     callHours?: Record<string, unknown> | null
-    callerWhitelist?: string[]
 }
 
-/**
- * Owns phone number config and its sync to Meta. `call_hours` is a REPLACE, not a merge, on
- * Meta's side — so every sync always sends the full local config, never a partial update.
- */
 export class PhoneNumberService {
     constructor(
         private readonly repository: IPhoneNumberRepository,
@@ -34,7 +29,6 @@ export class PhoneNumberService {
         return phoneNumber
     }
 
-    /** Saves locally, then pushes the FULL config to Meta — never a partial update. */
     async update(id: number, input: UpdatePhoneNumberInput): Promise<PhoneNumber> {
         const existing = await this.getById(id)
         const merged = this.repository.merge(existing, input as Partial<PhoneNumber>)
@@ -42,7 +36,6 @@ export class PhoneNumberService {
         return await this.syncToMeta(saved)
     }
 
-    /** Re-pushes the current local config to Meta without changing it — e.g. after a manual fix on Meta's side. */
     async sync(id: number): Promise<PhoneNumber> {
         const phoneNumber = await this.getById(id)
         return await this.syncToMeta(phoneNumber)
@@ -61,8 +54,6 @@ export class PhoneNumberService {
                 ...(phoneNumber.callHours ? { call_hours: phoneNumber.callHours } : {}),
             })
         } catch (err) {
-            // Local config is already saved — Meta propagation can be retried
-            // via the sync button. Don't lose the admin's edit over a blip.
             logger.error("Failed to sync phone number settings to Meta", { phoneNumberId: phoneNumber.phoneNumberId, err })
             throw err
         }

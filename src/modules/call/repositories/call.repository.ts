@@ -78,8 +78,6 @@ export class TypeOrmCallRepository implements ICallRepository {
     ): Promise<number> {
         const runner = manager ? manager.getRepository(Call) : this.repository
 
-        // Only allow patching known columns — never let id/wacid/status/rank
-        // leak in from a caller-supplied patch object.
         const patchable: Record<string, unknown> = { ...patch }
         delete patchable.id
         delete patchable.wacid
@@ -89,9 +87,6 @@ export class TypeOrmCallRepository implements ICallRepository {
             if (patchable[key] === undefined) delete patchable[key]
         }
 
-        // The WHERE guard (statusRank < nextRank) is the entire idempotency/
-        // out-of-order defense — it lives in SQL so two concurrent webhook
-        // deliveries race the database, not application code.
         const result = await runner
             .createQueryBuilder()
             .update(Call)
@@ -111,9 +106,6 @@ export class TypeOrmCallRepository implements ICallRepository {
         try {
             return await runner.save({ wacid, ...defaults })
         } catch (err) {
-            // Race: another concurrent webhook created the row between our
-            // findOneBy and save (unique constraint on wacid). Re-fetch —
-            // this is the expected path for Meta's duplicate delivery.
             const raced = await runner.findOneBy({ wacid })
             if (raced) return raced
             throw err

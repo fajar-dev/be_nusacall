@@ -3,9 +3,8 @@
  * a safety net catching malformed SDP locally instead of a cryptic Meta rejection.
  */
 
-export class SdpValidationError extends Error {}
+class SdpValidationError extends Error {}
 
-/** Ensures `a=ptime:20` (and `a=maxptime:20`) are present; appends them to the audio m-line block if missing. */
 export function ensurePtime20(sdp: string, ptimeMs = 20): string {
     const lines = sdp.split("\r\n")
     const hasPtime = lines.some((l) => l.startsWith("a=ptime:"))
@@ -14,13 +13,12 @@ export function ensurePtime20(sdp: string, ptimeMs = 20): string {
     if (hasPtime && hasMaxptime) return sdp
 
     const mLineIndex = lines.findIndex((l) => l.startsWith("m=audio"))
-    if (mLineIndex === -1) return sdp // no audio section — nothing to do, let validation below catch it
+    if (mLineIndex === -1) return sdp 
 
     const toInsert: string[] = []
     if (!hasPtime) toInsert.push(`a=ptime:${ptimeMs}`)
     if (!hasMaxptime) toInsert.push(`a=maxptime:${ptimeMs}`)
 
-    // Insert right after the audio m-line's c= line if present, else right after m=audio.
     let insertAt = mLineIndex + 1
     while (insertAt < lines.length && lines[insertAt]!.startsWith("c=")) insertAt++
 
@@ -33,7 +31,6 @@ export interface SdpValidationResult {
     errors: string[]
 }
 
-/** Does NOT throw — callers decide whether to reject or log-and-proceed (see `assertValidOutboundSdp`). */
 export function validateOutboundSdp(sdp: string): SdpValidationResult {
     const errors: string[] = []
     const lines = sdp.split("\r\n")
@@ -72,7 +69,6 @@ export function validateOutboundSdp(sdp: string): SdpValidationResult {
     return { valid: errors.length === 0, errors }
 }
 
-/** Throws SdpValidationError with all violations joined, if any. */
 export function assertValidOutboundSdp(sdp: string): void {
     const result = validateOutboundSdp(sdp)
     if (!result.valid) {

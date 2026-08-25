@@ -16,7 +16,6 @@ export interface MediaStats {
  * Lifecycle: acceptMetaOffer() → attachAgent() → startForwarding() (only after Meta's `accept` returns 200) → close().
  */
 export class MediaSession {
-    /** Mutable only for the outbound-call rekey path (SessionRegistry.rekey) — a real wacid doesn't exist yet when the session is first created. */
     wacid: string
     readonly createdAt: Date = new Date()
 
@@ -29,10 +28,7 @@ export class MediaSession {
     private closed = false
     private closeTimer: ReturnType<typeof setTimeout> | null = null
 
-    /** The SDP answer sent to Meta via pre_accept. MUST be resent byte-identical to `accept`. */
     metaAnswerSdp: string | null = null
-
-    /** The offer WE sent Meta via createMetaOffer() (business-initiated calls). Exposed for tests to negotiate a real answer; production code doesn't need it. */
     metaOfferSdp: string | null = null
 
     readonly stats: MediaStats = {
@@ -44,22 +40,18 @@ export class MediaSession {
 
     constructor(wacid: string) {
         this.wacid = wacid
-        // Absolute safety net against a leaked session outliving its call.
         this.closeTimer = setTimeout(
             () => this.close("session_max_duration_exceeded"),
             config.media.sessionMaxDurationMinutes * 60 * 1000
         )
     }
 
-    /** ICE gathering completes before returning — Graph API has no channel for trickled candidates. */
     async acceptMetaOffer(offerSdp: string): Promise<string> {
         if (this.closed) throw new Error(`MediaSession ${this.wacid} is already closed`)
 
         this.legA = createPeerConnection()
         this.transceiverA = this.legA.addTransceiver("audio", { direction: "sendrecv" })
 
-        // MUST subscribe before negotiation — werift fires onTrack during SDP
-        // negotiation, not lazily on first packet.
         this.transceiverA.onTrack.subscribe((track) => {
             track.onReceiveRtp.subscribe((rtp) => this.forwardToAgent(rtp))
         })

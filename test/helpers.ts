@@ -1,9 +1,5 @@
 let callCounter = 0
 
-export function resetCounters() {
-    callCounter = 0
-}
-
 function nextWacid(): string {
     callCounter++
     return `wacid.TEST${Date.now()}${callCounter}`
@@ -237,32 +233,3 @@ export function createAccountUpdateWebhookPayload(overrides: AccountUpdatePayloa
     }
 }
 
-export function expectSuccess(body: any, statusCode: number = 200) {
-    if (body.success !== true) {
-        throw new Error(`Expected success=true, got: ${JSON.stringify(body)}`)
-    }
-    if (body.statusCode !== statusCode) {
-        throw new Error(`Expected statusCode=${statusCode}, got: ${body.statusCode}`)
-    }
-}
-
-export function expectError(body: any, statusCode: number) {
-    if (body.success !== false) {
-        throw new Error(`Expected success=false, got: ${JSON.stringify(body)}`)
-    }
-    if (body.statusCode !== statusCode) {
-        throw new Error(`Expected statusCode=${statusCode}, got: ${body.statusCode}`)
-    }
-}
-
-export function expectPagination(body: any) {
-    if (!body.meta) {
-        throw new Error(`Expected meta pagination, got: ${JSON.stringify(body)}`)
-    }
-    const requiredFields = ["total", "perPage", "currentPage", "lastPage", "from", "to"]
-    for (const field of requiredFields) {
-        if (body.meta[field] === undefined) {
-            throw new Error(`Missing pagination field: ${field}`)
-        }
-    }
-}

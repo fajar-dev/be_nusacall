@@ -26,8 +26,6 @@ export class TypeOrmCallPermissionRepository implements ICallPermissionRepositor
         try {
             return await this.repository.save(this.repository.create({ phoneNumberId, waId, status, expiresAt, checkedAt }))
         } catch (err) {
-            // Race: two concurrent checks for the same contact both missed
-            // the findByContact above — the unique index rejects the loser.
             if (this.isUniqueViolation(err)) {
                 const winner = await this.findByContact(phoneNumberId, waId)
                 if (winner) {

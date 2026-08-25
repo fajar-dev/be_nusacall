@@ -27,13 +27,8 @@ export class PhoneNumber {
     @Column({ name: "call_icon_visibility", length: 32, default: "DEFAULT" })
     callIconVisibility!: string
 
-    /** Salinan call_hours. Dikirim UTUH ke Meta — field ini bersifat replace, bukan merge. */
     @Column({ name: "call_hours", type: "json", nullable: true })
     callHours?: Record<string, unknown> | null
-
-    /** Whitelist nomor penelepon untuk testing. Array kosong = tanpa batas. */
-    @Column({ name: "caller_whitelist", type: "json", default: () => "('[]')" })
-    callerWhitelist!: string[]
 
     @Column({ name: "answer_timeout_seconds", type: "int", default: 20 })
     answerTimeoutSeconds!: number

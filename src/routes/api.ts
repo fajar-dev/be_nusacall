@@ -10,7 +10,6 @@ import { validationHook } from "../core/helpers/validator"
 import { BadRequestException } from "../core/exceptions/base"
 
 import { authController } from "../modules/auth/auth.module"
-import { contactController } from "../modules/contact/contact.module"
 import { callController } from "../modules/call/call.module"
 import { phoneNumberController } from "../modules/phone-number/phone-number.module"
 import { permissionController } from "../modules/permission/permission.module"
@@ -42,9 +41,6 @@ routes.get("/user/:id", authMiddleware, (c) => userController.show(c))
 routes.post("/user", authMiddleware, zValidator("json", CreateUserValidator, validationHook), (c) => userController.store(c))
 routes.put("/user/:id", authMiddleware, zValidator("json", UpdateUserValidator, validationHook), (c) => userController.update(c))
 routes.delete("/user/:id", authMiddleware, (c) => userController.destroy(c))
-
-// Read-only proxy over nusawa — NusaCall owns no contact data of its own.
-routes.get("/contact", authMiddleware, (c) => contactController.index(c))
 
 routes.get("/call", authMiddleware, (c) => callController.index(c))
 routes.get("/call/stats", authMiddleware, (c) => callController.stats(c))

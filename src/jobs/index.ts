@@ -2,7 +2,7 @@ import { callService, nusawaLogService, callRecordingService } from "../modules/
 import { config } from "../config/config"
 import { logger } from "../core/helpers/logger"
 
-/** Retries queued nusawa call-log messages (docs/INTEGRATION-NUSAWA.md §3.5). Every 30s. */
+/** Retries queued nusawa call-log messages. Every 30s. */
 export async function flushNusawaLogJob(): Promise<void> {
     const { sent, failed } = await nusawaLogService.flushDue()
     if (sent || failed) logger.info("nusawa log queue flushed", { sent, failed })
@@ -16,8 +16,8 @@ export async function reconcileCallsJob(): Promise<void> {
 
 /**
  * Downloads recordings/transcripts Meta has made available, soonest-
- * expiring first (docs/ROADMAP.md Fase 2). Every
- * config.recording.downloadJobIntervalMinutes (default 5 min) — Meta only
+ * expiring first. Every config.recording.downloadJobIntervalMinutes
+ * (default 5 min) — Meta only
  * gives us 7 days total, so this can't lag far behind.
  */
 export async function downloadRecordingsJob(): Promise<void> {

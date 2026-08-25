@@ -19,13 +19,11 @@ export class TypeOrmCallEventRepository implements ICallEventRepository {
                 eventType: input.eventType,
                 eventStatus: input.eventStatus ?? null,
                 metaTimestamp: input.metaTimestamp ?? null,
-                payload: input.payload as any, // TypeORM's json typing is stricter than our domain type
+                payload: input.payload as any,
                 isStale: input.isStale,
             })
             return true
         } catch (err) {
-            // Unique constraint violation on dedupKey = genuine duplicate
-            // webhook delivery (Meta does not guarantee exactly-once).
             if (this.isUniqueViolation(err)) return false
             throw err
         }

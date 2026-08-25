@@ -5,6 +5,3 @@ export async function resolveFileUrl(path?: string | null): Promise<string | nul
     if (path.startsWith("http://") || path.startsWith("https://")) return path
     return await minio.getPresignedUrl(path)
 }
-
-/** @deprecated Use resolveFileUrl instead */
-export const resolvePhotoUrl = resolveFileUrl

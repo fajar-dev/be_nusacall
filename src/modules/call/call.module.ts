@@ -12,9 +12,9 @@ import { metaClient } from "../../infrastructure/meta/meta.client"
 import { minio } from "../../core/helpers/minio"
 
 export const callRepository = new TypeOrmCallRepository()
-export const callEventRepository = new TypeOrmCallEventRepository()
-export const nusawaLogQueueRepository = new TypeOrmNusawaLogQueueRepository()
-export const callRecordingRepository = new TypeOrmCallRecordingRepository()
+const callEventRepository = new TypeOrmCallEventRepository()
+const nusawaLogQueueRepository = new TypeOrmNusawaLogQueueRepository()
+const callRecordingRepository = new TypeOrmCallRecordingRepository()
 export const callStateService = new CallStateService(callRepository, callEventRepository)
 export const callService = new CallService(callRepository)
 export const nusawaLogService = new NusawaLogService(nusawaLogQueueRepository, nusawaClient)

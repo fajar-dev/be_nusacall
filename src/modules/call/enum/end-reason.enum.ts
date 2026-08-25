@@ -8,6 +8,5 @@ export enum EndReason {
     MEDIA_FAILURE = "media_failure",
     META_ERROR = "meta_error",
     OUTSIDE_CALL_HOURS = "outside_call_hours",
-    NOT_WHITELISTED = "not_whitelisted",
     RECONCILED_TIMEOUT = "reconciled_timeout",
 }

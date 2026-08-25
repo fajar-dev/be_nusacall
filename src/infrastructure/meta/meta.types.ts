@@ -1,4 +1,4 @@
-export interface MetaSession {
+interface MetaSession {
     sdp_type: "offer" | "answer"
     sdp: string
 }

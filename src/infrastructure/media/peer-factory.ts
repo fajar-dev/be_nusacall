@@ -7,7 +7,7 @@ import { config } from "../../config/config"
  */
 export const OPUS_PAYLOAD_TYPE = 111
 
-export function opusCodec(): RTCRtpCodecParameters {
+function opusCodec(): RTCRtpCodecParameters {
     return new RTCRtpCodecParameters({
         mimeType: "audio/opus",
         clockRate: 48000,
@@ -19,11 +19,7 @@ export function opusCodec(): RTCRtpCodecParameters {
 export function createPeerConnection(): RTCPeerConnection {
     return new RTCPeerConnection({
         codecs: { audio: [opusCodec()] },
-        // Without this, werift only gathers private host candidates (NAT/Docker/cloud
-        // VM), unreachable from Meta or the browser — and no STUN server is configured.
         iceAdditionalHostAddresses: config.media.publicIp ? [config.media.publicIp] : undefined,
-        // Pins RTP traffic to MEDIA_UDP_PORT_MIN..MAX so a NAT/router port-forward
-        // rule targeting that range actually covers it.
         icePortRange: [config.media.udpPortMin, config.media.udpPortMax],
     })
 }
@@ -43,8 +39,6 @@ export async function waitForIceGatheringComplete(pc: RTCPeerConnection): Promis
                 resolve()
             }
         })
-        // werift's Event type doesn't expose an `once` helper; the timeout
-        // above is the real safety net if gathering never reports complete.
         void unsubscribe
     })
 }

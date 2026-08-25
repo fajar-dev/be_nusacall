@@ -55,7 +55,6 @@ class MinioHelper {
         return { stream, stat }
     }
 
-    /** Buffers a whole object into memory — only for small objects (e.g. transcript JSON), never recordings. */
     async download(objectName: string, bucket: string = BUCKET): Promise<Buffer> {
         const { stream } = await this.getObject(objectName, bucket)
         const chunks: Buffer[] = []
@@ -98,7 +97,6 @@ class MinioHelper {
         })
     }
 
-    /** Handles nested/double-encoded URLs when extracting the relative object path. */
     sanitizePath(urlOrPath: string | null | undefined, bucket: string = BUCKET): string | null {
         if (!urlOrPath) return null
         
@@ -130,4 +128,3 @@ class MinioHelper {
 }
 
 export const minio = new MinioHelper()
-export default minio

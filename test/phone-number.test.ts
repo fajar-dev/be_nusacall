@@ -37,7 +37,6 @@ async function seedPhoneNumber(overrides: Partial<PhoneNumber> = {}): Promise<Ph
         callingEnabled: true,
         callIconVisibility: "DEFAULT",
         answerTimeoutSeconds: 20,
-        callerWhitelist: [],
         ...overrides,
     })
 }

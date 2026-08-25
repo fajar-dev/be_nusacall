@@ -8,14 +8,9 @@ import type { MetaCallPermissionResponse } from "../../infrastructure/meta/meta.
 
 export interface PermissionCheckResult {
     permission: CallPermission
-    /** Only populated on a fresh Meta check (not served from cache) — live usage numbers aren't worth persisting. */
     quota: MetaCallPermissionResponse["actions"] | null
 }
 
-/**
- * Cached per `permissionCacheTtlSeconds` — Meta rate-limits the check endpoint (error 613),
- * so this isn't just an optimization; hammering it without a cache will get us throttled.
- */
 export class PermissionService {
     constructor(
         private readonly repository: ICallPermissionRepository,
@@ -36,7 +31,6 @@ export class PermissionService {
         return { permission, quota: meta.actions }
     }
 
-    /** Sends the VOICE_CALL_REQUEST template — the one place NusaCall sends a real outbound WhatsApp message. */
     async requestPermission(phoneNumberId: string, waId: string): Promise<void> {
         if (!config.outbound.permissionTemplateName) {
             throw new BadRequestException("CALL_PERMISSION_TEMPLATE_NAME is not configured — create the template in Meta Business Manager first")

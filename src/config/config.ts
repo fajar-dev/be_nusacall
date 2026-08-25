@@ -16,7 +16,6 @@ export const config = {
         jwtSecret: process.env.JWT_SECRET || 'dev-jwt-secret-change-me',
         jwtRefreshSecret: process.env.JWT_REFRESH_SECRET || 'dev-jwt-refresh-secret-change-me',
         jwtExpiresInSeconds: Number(process.env.JWT_EXPIRES_IN) || 28800,
-        apiKey: process.env.API_KEY || 'dev-api-key-change-me',
     },
     database: {
         host: process.env.DB_HOST || '127.0.0.1',
@@ -62,10 +61,7 @@ export const config = {
     nusawa: {
         baseUrl: process.env.NUSAWA_BASE_URL || 'http://localhost:9001',
         apiKey: process.env.NUSAWA_API_KEY || '',
-        webUrl: process.env.NUSAWA_WEB_URL || '',
         lookupTimeoutMs: Number(process.env.NUSAWA_LOOKUP_TIMEOUT_MS) || 2000,
-        meCacheTtlSeconds: Number(process.env.NUSAWA_ME_CACHE_TTL) || 60,
-        contactCacheTtlSeconds: Number(process.env.NUSAWA_CONTACT_CACHE_TTL) || 30,
     },
 
     call: {

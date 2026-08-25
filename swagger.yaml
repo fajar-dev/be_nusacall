@@ -4,9 +4,10 @@ info:
   description: >-
     API Documentation for NusaCall — the WhatsApp Business Calling backend for Nusanet.
     NusaCall owns calling (signaling, media, routing) and its own user identity (User/
-    Organization) — auth no longer depends on nusawa. nusawa remains the source of truth
-    for contacts only; the frontend never talks to nusawa directly, every nusawa call is
-    relayed through this backend. See docs/INTEGRATION-NUSAWA.md.
+    Organization) — auth no longer depends on nusawa, and inbound routing broadcasts to
+    every available agent rather than looking anything up from nusawa. The only remaining
+    integration point is posting a call-outcome message into the customer's nusawa thread
+    after each call.
     Language is detected from the `Accept-Language` header (`en` default, `id` supported)
     and echoed back via the `Content-Language` response header on every response.
   version: 1.0.0
@@ -21,8 +22,6 @@ tags:
     description: Login/logout — validates the Nusawork password (or a Google ID token) against a local User, issues a NusaCall JWT
   - name: User
     description: User roster and live presence. Every user can receive calls — there is no eligibility flag; availability is purely live WebSocket presence with no manual toggle (available on connect, offline on disconnect)
-  - name: Contact
-    description: Read-only proxy over nusawa's contact directory
   - name: Call
     description: Call history and stats
   - name: Phone Number
@@ -116,7 +115,11 @@ components:
       type: object
       required: [idToken]
       properties:
-        idToken: { type: string, description: "Google ID token from the frontend's Google Sign-In flow." }
+        idToken:
+          {
+            type: string,
+            description: "Google ID token from the frontend's Google Sign-In flow.",
+          }
 
     RefreshTokenRequest:
       type: object
@@ -186,24 +189,21 @@ components:
         employeeId: { type: integer }
         organizationId: { type: integer }
 
-    # --- Contact Schemas (mapped from nusawa's ContactDTO — see docs/INTEGRATION-NUSAWA.md §3.6) ---
-    Contact:
-      type: object
-      properties:
-        phoneNumber: { type: string, example: "628123456789" }
-        name: { type: string, nullable: true, example: "Budi Santoso" }
-        groups: { type: string, nullable: true, example: null }
-        timezone: { type: string, nullable: true, example: null }
-        branchCode: { type: string, nullable: true, example: null }
-        ownedByPhoneNumber: { type: string, example: "628990000000" }
-        isGroup: { type: boolean, example: false }
-        createdAt: { type: string, format: date-time, example: "2026-08-20T00:00:00.000Z" }
-        updatedAt: { type: string, format: date-time, example: "2026-08-20T00:00:00.000Z" }
-
     # --- Call Schemas ---
     CallStatus:
       type: string
-      enum: [pending, ringing, connecting, active, completed, missed, rejected, failed, abandoned]
+      enum:
+        [
+          pending,
+          ringing,
+          connecting,
+          active,
+          completed,
+          missed,
+          rejected,
+          failed,
+          abandoned,
+        ]
 
     Call:
       type: object
@@ -211,11 +211,11 @@ components:
         id: { type: integer, example: 4821 }
         wacid: { type: string, example: "wacid.ABGGFjFVU2AfAgo6V" }
         phoneNumberId: { type: string, example: "202063559668129" }
-        displayPhoneNumber: { type: string, nullable: true, example: "+62 819-8543-21" }
+        displayPhoneNumber:
+          { type: string, nullable: true, example: "+62 819-8543-21" }
         waId: { type: string, example: "628123456789" }
         profileName: { type: string, nullable: true, example: "Budi" }
         contactName: { type: string, nullable: true, example: "Budi Santoso" }
-        inboxId: { type: string, nullable: true, example: "12345" }
         agentEmail: { type: string, nullable: true, example: "agent@nusa.id" }
         direction: { type: string, enum: [inbound, outbound] }
         status: { $ref: "#/components/schemas/CallStatus" }
@@ -241,13 +241,24 @@ components:
         failed: { type: integer, example: 1 }
         avgDurationSeconds: { type: number, nullable: true, example: 128.4 }
         avgSetupMs: { type: number, nullable: true, example: 1100 }
-        answerRate: { type: number, nullable: true, example: 0.833, description: "answered / total, null when total is 0" }
+        answerRate:
+          {
+            type: number,
+            nullable: true,
+            example: 0.833,
+            description: "answered / total, null when total is 0",
+          }
 
     # --- Phone Number Schemas ---
     CallHoursDay:
       type: object
       properties:
-        day_of_week: { type: string, enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY] }
+        day_of_week:
+          {
+            type: string,
+            enum:
+              [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY],
+          }
         open_time: { type: string, example: "0800" }
         close_time: { type: string, example: "1700" }
 
@@ -257,7 +268,8 @@ components:
       properties:
         status: { type: string, enum: [ENABLED, DISABLED] }
         timezone_id: { type: string, example: "Asia/Jakarta" }
-        weekly_operating_hours: { type: array, items: { $ref: "#/components/schemas/CallHoursDay" } }
+        weekly_operating_hours:
+          { type: array, items: { $ref: "#/components/schemas/CallHoursDay" } }
         holiday_schedule:
           type: array
           items:
@@ -278,7 +290,6 @@ components:
         callingEnabled: { type: boolean }
         callIconVisibility: { type: string, enum: [DEFAULT, DISABLE_ALL] }
         callHours: { $ref: "#/components/schemas/CallHours" }
-        callerWhitelist: { type: array, items: { type: string }, example: ["628123456789"] }
         answerTimeoutSeconds: { type: integer, example: 20 }
         routingStrategy: { type: string, example: "pic_then_queue" }
         lastSyncedAt: { type: string, format: date-time, nullable: true }
@@ -291,7 +302,6 @@ components:
         callIconVisibility: { type: string, enum: [DEFAULT, DISABLE_ALL] }
         answerTimeoutSeconds: { type: integer, minimum: 5, maximum: 25 }
         callHours: { $ref: "#/components/schemas/CallHours" }
-        callerWhitelist: { type: array, items: { type: string } }
 
 paths:
   # ── Login ─────────────────────────────────────────────────────────────────
@@ -716,57 +726,6 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
 
-  # ── Contact List (read-only proxy over nusawa) ──────────────────────────
-  /contact:
-    parameters:
-      - $ref: "#/components/parameters/AcceptLanguage"
-    get:
-      tags: [Contact]
-      summary: Get the agent's contact list (paginated), proxied from nusawa
-      description: >-
-        Read-only. NusaCall owns no contact data of its own — this relays to nusawa's
-        GET /api/contacts using the agent's own nusawa session, captured at login time.
-        Results are cached in-memory per agent for a short TTL (NUSAWA_CONTACT_CACHE_TTL,
-        default 30s). If the cached nusawa session has expired, the agent must log in
-        again — there is no password on hand to silently re-authenticate with.
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: page
-          in: query
-          schema: { type: integer, default: 1 }
-        - name: limit
-          in: query
-          schema: { type: integer, default: 10 }
-        - name: search
-          in: query
-          description: Search by contact name or phone number
-          schema: { type: string }
-      responses:
-        "200":
-          description: Contacts retrieved successfully
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/BaseResponse"
-                  - type: object
-                    properties:
-                      data:
-                        type: array
-                        items: { $ref: "#/components/schemas/Contact" }
-                      meta: { $ref: "#/components/schemas/PaginationMeta" }
-        "401":
-          description: Unauthorized, or the cached nusawa session has expired (re-login required)
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ErrorResponse" }
-        "503":
-          description: nusawa (contact directory) is currently unreachable
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ErrorResponse" }
-
   # ── Call History ─────────────────────────────────────────────────────────
   /call:
     parameters:
@@ -808,7 +767,11 @@ paths:
           schema: { type: string, format: date-time }
         - name: sortBy
           in: query
-          schema: { type: string, enum: [createdAt, answeredAt, endedAt, durationSeconds] }
+          schema:
+            {
+              type: string,
+              enum: [createdAt, answeredAt, endedAt, durationSeconds],
+            }
         - name: order
           in: query
           schema: { type: string, enum: [ASC, DESC], default: DESC }
@@ -913,7 +876,7 @@ paths:
       summary: Get a presigned download URL for this call's recording
       description: >-
         Only returns a URL once the recording has been downloaded from Meta and
-        stored in MinIO (Fase 2). 404 if not requested/not ready yet, 410 if
+        stored in MinIO. 404 if not requested/not ready yet, 410 if
         Meta's 7-day retention window passed before we could download it.
       security:
         - bearerAuth: []
@@ -1169,7 +1132,7 @@ paths:
                     properties:
                       data:
                         type: object
-                        description: Meta's raw health_status payload — docs/INTEGRATION-META.md §5.5
+                        description: Meta's raw health_status payload
         "401":
           description: Unauthorized
           content:
@@ -1250,4 +1213,5 @@ paths:
               schema:
                 type: object
                 properties:
-                  message: { type: string, example: "Missing 'path' query parameter" }
+                  message:
+                    { type: string, example: "Missing 'path' query parameter" }

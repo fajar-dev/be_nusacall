@@ -33,11 +33,6 @@ export class Call {
     @Column({ name: "contact_name", length: 128, nullable: true })
     contactName?: string | null
 
-    // ── Referensi nusawa (tanpa FK — sistem terpisah) ───────────────
-    @Index()
-    @Column({ name: "inbox_id", type: "bigint", nullable: true })
-    inboxId?: string | null
-
     @Index()
     @Column({ name: "agent_email", length: 128, nullable: true })
     agentEmail?: string | null

@@ -5,11 +5,9 @@ import { CallStatus } from "./enum/call-status.enum"
 import { CallDirection } from "./enum/call-direction.enum"
 import { EndReason } from "./enum/end-reason.enum"
 import { MetaClient } from "../../infrastructure/meta/meta.client"
-import { NusawaClient } from "../../infrastructure/nusawa/nusawa.client"
-import { unwrapNullString } from "../../infrastructure/nusawa/nusawa.types"
 import { sessionRegistry } from "../../infrastructure/media/session-registry"
 import { presenceRegistry } from "../user/presence.registry"
-import { RoutingService, ContactContext } from "../routing/routing.service"
+import { RoutingService } from "../routing/routing.service"
 import { NusawaLogService } from "./nusawa-log.service"
 import { formatCallLogMessage, CallLogOutcome } from "./call-log-message"
 import { config } from "../../config/config"
@@ -29,18 +27,13 @@ export class CallSignalingService implements ICallSignalingNotifier {
         private readonly callState: CallStateService,
         private readonly metaClient: MetaClient,
         private readonly routing: RoutingService,
-        private readonly nusawaClient: NusawaClient,
         private readonly nusawaLog: NusawaLogService,
     ) {}
 
     async notifyIncoming(call: Call): Promise<void> {
-        const context = await this.lookupContext(call)
-        const decision = this.routing.decide(call, context)
+        const decision = this.routing.decide(call)
 
         if (decision.kind === "reject") {
-            // pre_accept already went out, so Meta is waiting for accept/reject next — skipping this
-            // leaves the caller hanging until Meta's own timeout. Best-effort: a failure here
-            // shouldn't block our own cleanup.
             try {
                 await this.metaClient.reject(call.phoneNumberId, call.wacid)
             } catch (err) {
@@ -55,7 +48,7 @@ export class CallSignalingService implements ICallSignalingNotifier {
         }
 
         const transitioned = await this.callState.transition(call.wacid, CallStatus.RINGING, { ringingAt: new Date() })
-        if (!transitioned) return // stale/out-of-order — already moved past RINGING
+        if (!transitioned) return
 
         for (const email of decision.targets) {
             presenceRegistry.setCurrentCall(email, call.id)
@@ -66,47 +59,15 @@ export class CallSignalingService implements ICallSignalingNotifier {
             decision.targets,
             packet("incoming_call", call.wacid, {
                 waId: call.waId,
-                contactName: context?.contactName ?? call.contactName,
+                contactName: call.contactName,
                 profileName: call.profileName,
                 phoneNumberId: call.phoneNumberId,
                 displayPhoneNumber: call.displayPhoneNumber,
-                lastMessage: context?.lastMessage ?? null,
-                tags: context?.tags ?? [],
-                nusawaThreadUrl: context?.nusawaThreadUrl ?? null,
-                isPicMatch: decision.kind === "direct",
                 expiresAt,
             })
         )
 
         setTimeout(() => this.expireIfStillRinging(call.wacid), config.call.answerTimeoutSeconds * 1000)
-    }
-
-    /**
-     * The second lookup is deliberately not cached — PIC can change between the two calls.
-     * Never throws: NusawaClient's call-path methods already degrade to null.
-     */
-    private async lookupContext(call: Call): Promise<ContactContext | null> {
-        try {
-            const found = await this.nusawaClient.findInboxByContact(call.phoneNumberId, call.waId)
-            if (!found) return null
-
-            const fresh = await this.nusawaClient.getInboxDetail(found.id)
-            const picUsername = unwrapNullString(fresh?.username ?? found.username)
-
-            return {
-                inboxId: found.id,
-                contactName: found.contact?.name ?? null,
-                lastMessage: unwrapNullString(found.last_sent_message),
-                tags: found.tags ?? [],
-                picUsername,
-                nusawaThreadUrl: config.nusawa.webUrl ? `${config.nusawa.webUrl}/inbox/${found.id}` : null,
-            }
-        } catch (err) {
-            // Belt-and-suspenders: NusawaClient's call-path methods are documented to never throw,
-            // but a call must not be blocked by nusawa if that contract ever breaks.
-            logger.warn("nusawa contact lookup failed unexpectedly — proceeding without context", { wacid: call.wacid, err })
-            return null
-        }
     }
 
     private async expireIfStillRinging(wacid: string): Promise<void> {
@@ -163,9 +124,6 @@ export class CallSignalingService implements ICallSignalingNotifier {
         session.startForwarding()
         await this.callState.transition(wacid, CallStatus.ACTIVE, {
             answeredAt: new Date(),
-            // Reflects what was actually requested on this accept() call, not global config
-            // state right now (that can change between calls) — the FE uses this to decide
-            // whether to show the recording/transcript sections.
             recordingEnabled: config.recording.recordingEnabled,
             transcriptionEnabled: config.recording.transcriptionEnabled,
         })

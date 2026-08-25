@@ -40,10 +40,6 @@ export function setDataSource(ds: DataSource): void {
     activeDataSource = ds
 }
 
-export function resetDataSource(): void {
-    activeDataSource = defaultDataSource
-}
-
 /** Proxy so existing `AppDataSource` imports keep working after a `setDataSource()` swap. */
 export const AppDataSource = new Proxy({} as DataSource, {
     get(_target, prop: string | symbol) {

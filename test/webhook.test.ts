@@ -103,8 +103,6 @@ describe("Webhook - POST /wh signature verification", () => {
     })
 })
 
-// The describe blocks below cover the 6 mandatory scenarios from docs/CALL-LIFECYCLE.md §2.4.
-
 describe("Call Lifecycle - normal flow (connect -> terminate)", () => {
     test("connect creates a PENDING call; terminate marks it COMPLETED after ACCEPTED", async () => {
         const wacid = "wacid.NORMAL1"
@@ -265,7 +263,7 @@ describe("Webhook - unrelated payloads", () => {
     })
 })
 
-// account_update is a launch-stop criteria signal (docs/ROADMAP.md), scoped per WABA.
+// account_update is a launch-stop criteria signal, scoped per WABA.
 describe("Webhook - account_update", () => {
     test("ACCOUNT_VIOLATION (calling quality) is accepted without crashing the webhook pipeline", async () => {
         const payload = createAccountUpdateWebhookPayload({ event: "ACCOUNT_VIOLATION", violationType: "LOW_USER_INITIATED_CALLING_QUALITY" })

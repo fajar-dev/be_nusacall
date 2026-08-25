@@ -27,6 +27,5 @@ export const UpdatePhoneNumberValidator = z.object({
     callIconVisibility: z.enum(["DEFAULT", "DISABLE_ALL"]).optional(),
     answerTimeoutSeconds: z.number().int().min(5).max(25).optional(),
     callHours: CallHoursValidator.nullable().optional(),
-    callerWhitelist: z.array(z.string()).optional(),
 })
 export type UpdatePhoneNumberValidator = z.infer<typeof UpdatePhoneNumberValidator>

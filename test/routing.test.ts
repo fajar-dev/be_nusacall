@@ -1,25 +1,12 @@
 import { describe, test, expect, beforeEach } from "bun:test"
-import { RoutingService, ContactContext } from "../src/modules/routing/routing.service"
+import { RoutingService } from "../src/modules/routing/routing.service"
 import { presenceRegistry } from "../src/modules/user/presence.registry"
 import { EndReason } from "../src/modules/call/enum/end-reason.enum"
 import { CallDirection } from "../src/modules/call/enum/call-direction.enum"
 import { CallStatus } from "../src/modules/call/enum/call-status.enum"
 import type { Call } from "../src/modules/call/entities/call.entity"
 
-// `pic_then_queue` policy: an online PIC gets the call directly, otherwise
-// broadcast to every available agent, first answer wins (docs/BACKEND-MODULES.md §7).
-
-function fakeContext(overrides: Partial<ContactContext> = {}): ContactContext {
-    return {
-        inboxId: 123,
-        contactName: "Budi Santoso",
-        lastMessage: null,
-        tags: [],
-        picUsername: null,
-        nusawaThreadUrl: null,
-        ...overrides,
-    }
-}
+// Broadcast policy: every available agent gets rung, first answer wins.
 
 function fakeCall(overrides: Partial<Call> = {}): Call {
     return {
@@ -72,32 +59,5 @@ describe("RoutingService", () => {
         const decision = new RoutingService().decide(fakeCall())
 
         expect(decision.targets).toEqual(["agent2@nusa.id"])
-    })
-
-    test("routes directly to an online PIC instead of broadcasting", () => {
-        presenceRegistry.register("pic@nusa.id", "conn-1")
-        presenceRegistry.register("other@nusa.id", "conn-2")
-
-        const decision = new RoutingService().decide(fakeCall(), fakeContext({ picUsername: "pic@nusa.id" }))
-
-        expect(decision.kind).toBe("direct")
-        expect(decision.targets).toEqual(["pic@nusa.id"])
-    })
-
-    test("falls back to broadcast when the PIC is offline", () => {
-        presenceRegistry.register("other@nusa.id", "conn-2")
-
-        const decision = new RoutingService().decide(fakeCall(), fakeContext({ picUsername: "pic@nusa.id" }))
-
-        expect(decision.kind).toBe("broadcast")
-        expect(decision.targets).toEqual(["other@nusa.id"])
-    })
-
-    test("broadcasts when there's no ticket context at all", () => {
-        presenceRegistry.register("agent1@nusa.id", "conn-1")
-
-        const decision = new RoutingService().decide(fakeCall(), null)
-
-        expect(decision.kind).toBe("broadcast")
     })
 })

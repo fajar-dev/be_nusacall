@@ -11,7 +11,6 @@ export class PhoneNumberSerializer {
             callingEnabled: phoneNumber.callingEnabled,
             callIconVisibility: phoneNumber.callIconVisibility,
             callHours: phoneNumber.callHours ?? null,
-            callerWhitelist: phoneNumber.callerWhitelist,
             answerTimeoutSeconds: phoneNumber.answerTimeoutSeconds,
             routingStrategy: phoneNumber.routingStrategy,
             lastSyncedAt: phoneNumber.lastSyncedAt ?? null,

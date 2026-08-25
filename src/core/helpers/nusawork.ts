@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from "axios"
 import { config } from "../../config/config"
 
-export class NusaworkHelper {
+class NusaworkHelper {
     private readonly http: AxiosInstance = axios.create({
         baseURL: config.nusawork.apiUrl,
         headers: {

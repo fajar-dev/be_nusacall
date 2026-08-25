@@ -21,11 +21,10 @@ interface Connection {
  * Pure transport for the softphone — dispatches to CallSignalingService, never touches the DB directly.
  * Token arrives via `?token=` query string since browser WebSocket has no custom-header support.
  */
-export class SignalingGateway implements IAgentNotifier {
+class SignalingGateway implements IAgentNotifier {
     private service!: CallSignalingService
-    private readonly connections = new Map<string, Connection>() // connectionId -> conn
+    private readonly connections = new Map<string, Connection>() 
 
-    /** Broken out from the constructor to avoid a circular dependency with CallSignalingService. */
     attachService(service: CallSignalingService): void {
         this.service = service
     }
