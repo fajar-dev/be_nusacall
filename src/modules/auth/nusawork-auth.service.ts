@@ -2,7 +2,7 @@ import { UnauthorizedException } from "../../core/exceptions/base"
 import { UserService } from "../user/user.service"
 import { AuthHelper } from "../../core/helpers/auth"
 import { LoginValidator } from "./validators/auth.validator"
-import { nusaworkHelper } from "../../core/helpers/nusawork"
+import { nusaworkHelper } from "../../infrastructure/nusawork/nusawork.client"
 
 interface PanelQrCodeResponse {
     qrcode_image: string

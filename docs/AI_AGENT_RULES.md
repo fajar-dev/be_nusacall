@@ -110,7 +110,7 @@ Baca: [`MODULE_GUIDE.md`](./MODULE_GUIDE.md)
 | JWT & Auth | `src/core/helpers/auth.ts` | AuthHelper.generateTokens |
 | Password hash | `src/core/helpers/hash.ts` | hashPassword, comparePassword |
 | Email sending | `src/core/helpers/mail.ts` | mail.sendText, mail.sendHtml |
-| File upload | `src/core/helpers/minio.ts` | minio.upload, minio.delete, dll |
+| File upload | `src/infrastructure/minio/minio.client.ts` | minio.upload, minio.delete, dll |
 | Structured logger | `src/core/helpers/logger.ts` | `logger.info/warn/error/debug()` — JSON, lihat `docs/LOGGING_GUIDE.md` |
 | Auth middleware | `src/core/middlewares/auth.middleware.ts` | JWT Bearer |
 | API key middleware | `src/core/middlewares/api-key.middleware.ts` | x-api-key |

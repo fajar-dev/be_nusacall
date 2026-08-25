@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach, spyOn } from "bun:test"
 import { Hono } from "hono"
 import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createTestApp, request, createUserAndToken } from "./setup"
-import { nusaworkHelper } from "../src/core/helpers/nusawork"
+import { nusaworkHelper } from "../src/infrastructure/nusawork/nusawork.client"
 import { AuthHelper } from "../src/core/helpers/auth"
 import { Role } from "../src/modules/user/enums/role.enum"
 

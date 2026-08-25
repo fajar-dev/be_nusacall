@@ -1,4 +1,4 @@
-import { minio } from "./minio"
+import { minio } from "../../infrastructure/minio/minio.client"
 
 export async function resolveFileUrl(path?: string | null): Promise<string | null> {
     if (!path) return null

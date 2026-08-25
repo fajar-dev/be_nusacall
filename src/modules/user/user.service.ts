@@ -2,7 +2,7 @@ import { User } from "./entities/user.entity"
 import { NotFoundException, BadRequestException } from "../../core/exceptions/base"
 import { EntityManager } from "typeorm"
 import { IUserRepository, UserListFilters } from "./interfaces/user.repository.interface"
-import { minio } from "../../core/helpers/minio"
+import { minio } from "../../infrastructure/minio/minio.client"
 import { presenceRegistry } from "./presence.registry"
 
 export class UserService {

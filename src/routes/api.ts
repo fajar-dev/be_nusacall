@@ -74,7 +74,7 @@ routes.post("/upload", authMiddleware, async (c) => {
     const extension = file.name.split(".").pop() || "bin"
     const objectName = `uploads/${crypto.randomUUID()}.${extension}`
 
-    const { minio } = await import("../core/helpers/minio")
+    const { minio } = await import("../infrastructure/minio/minio.client")
     await minio.upload(objectName, buffer, file.type)
 
     const { ApiResponse } = await import("../core/helpers/response")
@@ -85,7 +85,7 @@ routes.get("/proxy", async (c) => {
     const path = c.req.query("path")
     if (!path) return c.json({ message: "Missing 'path' query parameter" }, 400)
 
-    const { minio } = await import("../core/helpers/minio")
+    const { minio } = await import("../infrastructure/minio/minio.client")
     return minio.proxyHandler(path)
 })
 

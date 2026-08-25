@@ -152,7 +152,7 @@ src/routes/api.ts
     ├── src/core/helpers/validator.ts
     ├── src/modules/auth/auth.module.ts      → authController
     ├── src/modules/contact/contact.module.ts → contactController
-    └── src/core/helpers/minio.ts            → minio (lazy import for proxy)
+    └── src/infrastructure/minio/minio.client.ts → minio (lazy import for proxy)
 ```
 
 ### Auth Module
@@ -231,7 +231,7 @@ src/core/helpers/mail.ts
     ├── src/config/smtp.ts      → transporter
     └── src/config/config.ts    → config.mail.from
 
-src/core/helpers/minio.ts
+src/infrastructure/minio/minio.client.ts
     ├── minio (Client)
     ├── node:stream (Readable)
     └── src/config/config.ts

@@ -135,7 +135,7 @@ Error ditangani di `src/index.ts` → `app.onError()`:
 | **AuthHelper** | `core/helpers/auth.ts` | JWT token generation & Google OAuth verification |
 | **Hash** | `core/helpers/hash.ts` | bcrypt password hashing & comparison |
 | **Mail** | `core/helpers/mail.ts` | Singleton Nodemailer wrapper (sendText, sendHtml) |
-| **MinIO** | `core/helpers/minio.ts` | Singleton MinIO wrapper (upload, delete, presignedUrl, proxy) |
+| **MinIO** | `infrastructure/minio/minio.client.ts` | Singleton MinIO wrapper (upload, delete, presignedUrl, proxy) |
 | **Logger** | `core/helpers/logger.ts` | Structured JSON logger (stdout/stderr + `logs/app-{date}.log`, semua level), lihat `LOGGING_GUIDE.md` |
 | **Validator** | `core/helpers/validator.ts` | Zod validation hook untuk Hono |
 | **Auth Middleware** | `core/middlewares/auth.middleware.ts` | JWT Bearer token verification |

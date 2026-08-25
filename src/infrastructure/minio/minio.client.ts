@@ -1,7 +1,7 @@
 import * as Minio from "minio"
 import { config } from "../../config/config"
 import { Readable } from "node:stream"
-import { logger } from "./logger"
+import { logger } from "../../core/helpers/logger"
 
 const minioClient = new Minio.Client({
     endPoint: config.minio.endPoint,
