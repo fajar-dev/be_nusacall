@@ -27,6 +27,9 @@ export class PhoneNumber {
     @Column({ name: "call_icon_visibility", length: 32, default: "DEFAULT" })
     callIconVisibility!: string
 
+    @Column({ length: 16, default: "#6366F1" })
+    color!: string
+
     @Column({ name: "call_hours", type: "json", nullable: true })
     callHours?: Record<string, unknown> | null
 

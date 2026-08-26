@@ -14,6 +14,9 @@ export interface WsOutboundPacket {
 export interface IAgentNotifier {
     send(email: string, packet: WsOutboundPacket): void
     sendToAgents(emails: string[], packet: WsOutboundPacket): void
+
+    /** Sends to every currently-connected socket — used for the shared live call board, not personal notifications. */
+    broadcast(packet: WsOutboundPacket): void
 }
 
 /** Implemented by CallSignalingService — lets WebhookService trigger ringing/logging without knowing about routing/WS/nusawa. */

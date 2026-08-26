@@ -39,6 +39,11 @@ class SignalingGateway implements IAgentNotifier {
         for (const email of emails) this.send(email, packet)
     }
 
+    broadcast(packet: WsOutboundPacket): void {
+        const raw = JSON.stringify(packet)
+        for (const conn of this.connections.values()) conn.ws.send(raw)
+    }
+
     private async authenticate(c: Context): Promise<User | null> {
         const token = c.req.query("token")
         if (!token) return null

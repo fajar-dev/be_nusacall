@@ -31,7 +31,7 @@ export class TypeOrmCallRepository implements ICallRepository {
 
         if (filter.q) {
             query.andWhere(
-                "(call.waId LIKE :q OR call.contactName LIKE :q OR call.wacid LIKE :q)",
+                "(call.waId LIKE :q OR call.contactName LIKE :q OR call.profileName LIKE :q OR call.wacid LIKE :q)",
                 { q: `%${filter.q}%` }
             )
         }

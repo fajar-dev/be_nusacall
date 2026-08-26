@@ -298,6 +298,7 @@ components:
         isTestNumber: { type: boolean }
         callingEnabled: { type: boolean }
         callIconVisibility: { type: string, enum: [DEFAULT, DISABLE_ALL] }
+        color: { type: string, example: "#6366F1", description: "Hex swatch shown against this number's calls on the live call board" }
         callHours: { $ref: "#/components/schemas/CallHours" }
         answerTimeoutSeconds: { type: integer, example: 20 }
         routingStrategy: { type: string, example: "pic_then_queue" }
@@ -309,6 +310,7 @@ components:
         label: { type: string }
         callingEnabled: { type: boolean }
         callIconVisibility: { type: string, enum: [DEFAULT, DISABLE_ALL] }
+        color: { type: string, pattern: "^#[0-9A-Fa-f]{6}$", example: "#6366F1" }
         answerTimeoutSeconds: { type: integer, minimum: 5, maximum: 25 }
         callHours: { $ref: "#/components/schemas/CallHours" }
 

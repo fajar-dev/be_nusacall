@@ -26,11 +26,23 @@ export interface ProcessResult {
  * ICallRepository.updateIfRankLower's SQL guard, safe under concurrent webhook delivery — Meta
  * itself does not protect against that.
  */
+export type CallBoardListener = (call: Call) => void
+
 export class CallStateService {
+    private boardListener: CallBoardListener | null = null
+
     constructor(
         private readonly calls: ICallRepository,
         private readonly events: ICallEventRepository,
     ) {}
+
+    /**
+     * Broken out from the constructor to avoid a circular dependency with the gateway
+     * (same pattern as SignalingGateway.attachService) — called once from signaling.module.ts.
+     */
+    attachBoardListener(listener: CallBoardListener): void {
+        this.boardListener = listener
+    }
 
     /** Redacts session/sdp before persisting — SDP contains DTLS fingerprints and, under SDES, raw SRTP keys. */
     static redactPayload(payload: Record<string, unknown>): Record<string, unknown> {
@@ -118,8 +130,14 @@ export class CallStateService {
 
         if (affected === 0) {
             logger.info("Transition rejected by rank guard (out-of-order or duplicate)", { wacid, nextStatus })
+            return false
         }
 
-        return affected > 0
+        if (this.boardListener) {
+            const updated = await this.calls.findByWacid(wacid)
+            if (updated) this.boardListener(updated)
+        }
+
+        return true
     }
 }

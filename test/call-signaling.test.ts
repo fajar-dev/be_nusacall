@@ -57,6 +57,12 @@ class FakeNotifier implements IAgentNotifier {
         for (const email of emails) this.send(email, packet)
     }
 
+    broadcast(): void {
+        // Board broadcasts go through CallStateService.attachBoardListener, wired only in
+        // signaling.module.ts — these unit tests construct CallSignalingService directly, so
+        // no listener is attached and this never fires. No-op is correct here.
+    }
+
     packetsFor(email: string): WsOutboundPacket[] {
         return this.sent.filter((s) => s.email === email).map((s) => s.packet)
     }

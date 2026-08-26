@@ -10,6 +10,7 @@ export class PhoneNumberSerializer {
             isTestNumber: phoneNumber.isTestNumber,
             callingEnabled: phoneNumber.callingEnabled,
             callIconVisibility: phoneNumber.callIconVisibility,
+            color: phoneNumber.color,
             callHours: phoneNumber.callHours ?? null,
             answerTimeoutSeconds: phoneNumber.answerTimeoutSeconds,
             routingStrategy: phoneNumber.routingStrategy,

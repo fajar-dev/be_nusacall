@@ -9,6 +9,7 @@ export interface UpdatePhoneNumberInput {
     label?: string
     callingEnabled?: boolean
     callIconVisibility?: string
+    color?: string
     answerTimeoutSeconds?: number
     callHours?: Record<string, unknown> | null
 }
