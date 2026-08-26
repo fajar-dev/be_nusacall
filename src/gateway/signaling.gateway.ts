@@ -13,6 +13,7 @@ import type { CallSignalingService } from "../modules/call/call-signaling.servic
 import type { IAgentNotifier, WsOutboundPacket } from "../modules/call/interfaces/call-signaling.interface"
 
 interface Connection {
+    userId: number
     email: string
     ws: WSContext
 }
@@ -65,17 +66,18 @@ class SignalingGateway implements IAgentNotifier {
             }
 
             const connectionId = randomUUID()
+            const userId = user.id
             const email = user.email
 
             return {
                 onOpen: (_evt: Event, ws: WSContext) => {
                     logger.info("WS connected", { email, connectionId })
-                    this.connections.set(connectionId, { email, ws })
+                    this.connections.set(connectionId, { userId, email, ws })
                     presenceRegistry.register(email, connectionId)
                     ws.send(JSON.stringify({ type: "connected", data: { email, availability: "available" }, ts: Date.now() }))
                 },
                 onMessage: (evt: MessageEvent) => {
-                    this.dispatch(email, evt.data).catch((err) => {
+                    this.dispatch(userId, email, evt.data).catch((err) => {
                         logger.error("Failed handling WS packet", { email, err })
                     })
                 },
@@ -88,7 +90,7 @@ class SignalingGateway implements IAgentNotifier {
         })
     }
 
-    private async dispatch(email: string, raw: unknown): Promise<void> {
+    private async dispatch(userId: number, email: string, raw: unknown): Promise<void> {
         let packet: { type?: string; wacid?: string; data?: Record<string, unknown> }
         try {
             packet = JSON.parse(typeof raw === "string" ? raw : String(raw))
@@ -105,7 +107,7 @@ class SignalingGateway implements IAgentNotifier {
             case "ping":
                 return
             case "answer_call":
-                await this.service.handleAnswer(email, wacid, packet.data?.sdp as string)
+                await this.service.handleAnswer(userId, email, wacid, packet.data?.sdp as string)
                 return
             case "reject_call":
                 await this.service.handleReject(email, wacid, packet.data?.reason as string | undefined)

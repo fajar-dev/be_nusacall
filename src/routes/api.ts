@@ -21,15 +21,12 @@ import { organizationController } from "../modules/organization/organization.mod
 
 const routes = new Hono()
 
-// /wh and /ws are mounted outside /api — see src/index.ts.
-
 routes.post("/auth/login", zValidator("json", LoginValidator, validationHook), (c) => authController.nusaworkLogin(c))
 routes.post("/auth/google", zValidator("json", GoogleLoginValidator, validationHook), (c) => authController.google(c))
 routes.post("/auth/refresh", zValidator("json", RefreshTokenValidator, validationHook), (c) => authController.refreshToken(c))
 routes.post("/auth/logout", authMiddleware, (c) => authController.logout(c))
 routes.get("/auth/me", authMiddleware, (c) => authController.me(c))
 
-// Auth - QR Code Login (public, no auth required)
 routes.get("/auth/qrcode/generate", (c) => authController.generateQrCode(c))
 routes.get("/auth/qrcode/:token/status", (c) => authController.qrCodeStatus(c))
 routes.post("/auth/qrcode/login", (c) => authController.qrCodeLogin(c))

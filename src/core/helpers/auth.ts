@@ -12,22 +12,23 @@ export interface NusaCallJwtPayload {
 }
 
 export class AuthHelper {
+    /** Access token expires in 15 minutes, refresh token in 7 days. */
     static async generateTokens(user: any) {
         const accessToken = await sign(
-            { 
-                sub: user.id, 
-                email: user.email, 
-                exp: Math.floor(Date.now() / 1000) + 60 * 15 // 15 mins
-            }, 
+            {
+                sub: user.id,
+                email: user.email,
+                exp: Math.floor(Date.now() / 1000) + 60 * 15
+            },
             config.app.jwtSecret,
             "HS256"
         )
 
         const refreshToken = await sign(
-            { 
-                sub: user.id, 
-                exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7 // 7 days
-            }, 
+            {
+                sub: user.id,
+                exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7
+            },
             config.app.jwtRefreshSecret,
             "HS256"
         )
@@ -64,8 +65,6 @@ export class AuthHelper {
         return ticket.getPayload();
     }
 
-    // ── Panel QR Code Helpers ────────────────────────────────────────────
-
     static async panelFetch(path: string, options?: RequestInit): Promise<Response> {
         let response: Response
         try {
@@ -95,6 +94,7 @@ export class AuthHelper {
         return token
     }
 
+    /** Any fetch failure (network error or non-2xx) falls through to the exception below. */
     static async fetchQrCodeSvg(imageUrl: string): Promise<string> {
         try {
             const response = await fetch(imageUrl)
@@ -103,12 +103,12 @@ export class AuthHelper {
                 return `data:image/svg+xml;base64,${Buffer.from(svgText).toString("base64")}`
             }
         } catch {
-            // Ignore fetch errors
         }
 
         throw new BadRequestException("Failed to load QR Code image from panel")
     }
 
+    /** Any parse failure (malformed JWT) falls through to the exception below. */
     static decodeEmailFromJwt(token: string): string {
         try {
             const parts = token.split(".")
@@ -117,7 +117,6 @@ export class AuthHelper {
                 if (payload.email) return payload.email
             }
         } catch {
-            // Not a valid JWT
         }
 
         throw new BadRequestException("Could not retrieve user email from panel token")

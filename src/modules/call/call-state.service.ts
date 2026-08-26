@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto"
 import { Call } from "./entities/call.entity"
 import { CallStatus, CALL_STATUS_RANK } from "./enum/call-status.enum"
+import { CallEventType } from "./enum/call-event-type.enum"
+import { CallEventStatus } from "./enum/call-event-status.enum"
 import { ICallRepository } from "./interfaces/call.repository.interface"
 import { ICallEventRepository } from "./interfaces/call-event.repository.interface"
 import { config } from "../../config/config"
@@ -8,14 +10,14 @@ import { logger } from "../../core/helpers/logger"
 
 export interface WebhookEventInput {
     wacid: string
-    eventType: "connect" | "status" | "terminate" | "call_created" | "recording" | "transcript"
-    eventStatus?: string | null
-    metaTimestamp?: number | null // unix seconds, as sent by Meta
+    eventType: CallEventType
+    eventStatus?: CallEventStatus | null
+    metaTimestamp?: number | null
     rawPayload: Record<string, unknown>
 }
 
 export interface ProcessResult {
-    accepted: boolean // false = duplicate or stale, no further action should be taken
+    accepted: boolean
     isStale: boolean
     call: Call | null
 }

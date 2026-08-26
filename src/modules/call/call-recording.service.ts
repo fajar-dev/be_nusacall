@@ -129,17 +129,20 @@ export class CallRecordingService {
         }
     }
 
+    /**
+     * Always refetches the download URL fresh from the Media API — the webhook's own `url` has
+     * a ~5-minute validity that the job interval plus queueing can outlast. Meta's sha256 comes
+     * back as lowercase hex, not base64, despite what the docs say.
+     */
     private async downloadOne(row: CallRecording, kind: "recording" | "transcript"): Promise<void> {
         const mediaId = kind === "recording" ? row.recordingMediaId! : row.transcriptMediaId!
         const expectedSha256 = kind === "recording" ? row.recordingSha256 : row.transcriptSha256
         const mimeType = kind === "recording" ? row.recordingMimeType : row.transcriptMimeType
 
         try {
-            // The webhook's own `url` has a ~5-minute validity, which the job interval plus queueing can outlast — always refetch fresh from the Media API.
             const media = await this.metaClient.getMediaUrl(mediaId)
             const bytes = await this.metaClient.downloadMedia(media.url)
 
-            // Meta sends this as lowercase hex, not base64, despite what the docs say.
             const actualSha256 = createHash("sha256").update(bytes).digest("hex")
             if (expectedSha256 && actualSha256 !== expectedSha256) {
                 throw new Error(`SHA-256 mismatch: expected ${expectedSha256}, got ${actualSha256}`)

@@ -13,7 +13,6 @@ export class PhoneNumberSerializer {
             color: phoneNumber.color,
             callHours: phoneNumber.callHours ?? null,
             answerTimeoutSeconds: phoneNumber.answerTimeoutSeconds,
-            routingStrategy: phoneNumber.routingStrategy,
             lastSyncedAt: phoneNumber.lastSyncedAt ?? null,
         }
     }

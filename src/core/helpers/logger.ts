@@ -4,7 +4,7 @@ import { config } from "../../config/config"
 
 const LOG_DIR = join(process.cwd(), "logs")
 
-// One file per date (UTC, matches the `timestamp` field), e.g. logs/app-2026-08-14.log
+/** One file per date (UTC, matches the `timestamp` field), e.g. logs/app-2026-08-14.log */
 function logFile(): string {
     const date = new Date().toISOString().slice(0, 10)
     return join(LOG_DIR, `app-${date}.log`)
@@ -28,7 +28,7 @@ function serializeError(err: unknown) {
     return { name: error.name, message: error.message, stack: error.stack }
 }
 
-// One JSON object per line (Loki/ndjson-friendly). Every level persists to logs/app-YYYY-MM-DD.log.
+/** One JSON object per line (Loki/ndjson-friendly). Every level persists to logs/app-YYYY-MM-DD.log. */
 function write(level: LogLevel, message: string, fields: LogFields = {}) {
     const { err, ...rest } = fields
 

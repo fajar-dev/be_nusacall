@@ -90,7 +90,7 @@ export class CallSignalingService implements ICallSignalingNotifier {
         }
     }
 
-    async handleAnswer(agentEmail: string, wacid: string, offerSdp: string): Promise<void> {
+    async handleAnswer(userId: number, agentEmail: string, wacid: string, offerSdp: string): Promise<void> {
         const call = await this.callRepository.findByWacid(wacid)
         const session = sessionRegistry.get(wacid)
         if (!call || !session) {
@@ -98,9 +98,9 @@ export class CallSignalingService implements ICallSignalingNotifier {
             return
         }
 
-        const claimed = await this.callState.transition(wacid, CallStatus.CONNECTING, { agentEmail })
+        const claimed = await this.callState.transition(wacid, CallStatus.CONNECTING, { userId })
         if (!claimed) {
-            this.notifier.send(agentEmail, packet("call_taken", wacid, { byEmail: call.agentEmail ?? "unknown" }))
+            this.notifier.send(agentEmail, packet("call_taken", wacid, { byEmail: call.user?.email ?? "unknown" }))
             presenceRegistry.setCurrentCall(agentEmail, null)
             return
         }
@@ -172,7 +172,7 @@ export class CallSignalingService implements ICallSignalingNotifier {
     }
 
     async logCallOutcome(call: Call, outcome: CallLogOutcome, durationSeconds?: number | null): Promise<void> {
-        const body = formatCallLogMessage(outcome, { durationSeconds, agentEmail: call.agentEmail })
+        const body = formatCallLogMessage(outcome, { durationSeconds, agentEmail: call.user?.email })
         await this.nusawaLog.enqueue({ callId: call.id, wacid: call.wacid, phoneNumberId: call.phoneNumberId, waId: call.waId, body })
     }
 
@@ -182,14 +182,16 @@ export class CallSignalingService implements ICallSignalingNotifier {
      * would sit on an active call forever and presence would never free up.
      */
     notifyCallEnded(call: Call, endReason: EndReason): void {
-        if (!call.agentEmail) return
-        presenceRegistry.setCurrentCall(call.agentEmail, null)
-        this.notifier.send(call.agentEmail, packet("call_ended", call.wacid, { endReason }))
+        const email = call.user?.email
+        if (!email) return
+        presenceRegistry.setCurrentCall(email, null)
+        this.notifier.send(email, packet("call_ended", call.wacid, { endReason }))
     }
 
     notifyOutboundActive(call: Call): void {
-        if (!call.agentEmail) return
-        this.notifier.send(call.agentEmail, packet("call_state", call.wacid, { status: "active" }))
+        const email = call.user?.email
+        if (!email) return
+        this.notifier.send(email, packet("call_state", call.wacid, { status: "active" }))
     }
 
     private durationSince(start: Date | null | undefined): number | null {
@@ -200,9 +202,10 @@ export class CallSignalingService implements ICallSignalingNotifier {
     /**
      * Reverses the usual offer/answer direction: we offer, and Meta relays the user's answer
      * back via a later `connect` webhook. Returns the agent-leg answer synchronously so the
-     * frontend needs no separate WS round-trip to complete its own leg.
+     * frontend needs no separate WS round-trip to complete its own leg. Rethrows Meta connect
+     * errors as-is — the caller maps the error code (138006/138009/138012/...) to a clear message.
      */
-    async initiateOutbound(agentEmail: string, phoneNumberId: string, waId: string, offerSdp: string): Promise<{ wacid: string; answerSdp: string }> {
+    async initiateOutbound(userId: number, agentEmail: string, phoneNumberId: string, waId: string, offerSdp: string): Promise<{ wacid: string; answerSdp: string }> {
         const tempKey = `pending.${randomUUID()}`
         const session = sessionRegistry.create(tempKey)
 
@@ -222,7 +225,7 @@ export class CallSignalingService implements ICallSignalingNotifier {
             wacid = response.calls?.[0]?.id ?? tempKey
         } catch (err) {
             await sessionRegistry.remove(tempKey, "outbound_connect_failed")
-            throw err // caller maps Meta's error code (138006/138009/138012/...) to a clear message
+            throw err
         }
 
         sessionRegistry.rekey(tempKey, wacid)
@@ -232,7 +235,7 @@ export class CallSignalingService implements ICallSignalingNotifier {
             direction: CallDirection.OUTBOUND,
             status: CallStatus.PENDING,
             statusRank: 10,
-            agentEmail,
+            userId,
         })
         presenceRegistry.setCurrentCall(agentEmail, call.id)
 

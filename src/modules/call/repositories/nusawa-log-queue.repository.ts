@@ -1,6 +1,7 @@
 import { LessThanOrEqual, Repository } from "typeorm"
 import { AppDataSource } from "../../../config/database"
-import { NusawaLogQueue, QueueStatus } from "../entities/nusawa-log-queue.entity"
+import { NusawaLogQueue } from "../entities/nusawa-log-queue.entity"
+import { QueueStatus } from "../enum/queue-status.enum"
 import { EnqueueLogInput, INusawaLogQueueRepository } from "../interfaces/nusawa-log-queue.repository.interface"
 
 export class TypeOrmNusawaLogQueueRepository implements INusawaLogQueueRepository {

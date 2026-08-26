@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from "bun:test"
 import { RTCPeerConnection, RTCRtpCodecParameters } from "werift"
-import { initTestDatabase, destroyTestDatabase, cleanTestDatabase } from "./setup"
+import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createUserAndToken } from "./setup"
 import { createTerminateWebhookPayload, createStatusWebhookPayload } from "./helpers"
 import { TypeOrmCallRepository } from "../src/modules/call/repositories/call.repository"
 import { TypeOrmCallEventRepository } from "../src/modules/call/repositories/call-event.repository"
@@ -85,6 +85,8 @@ function fakeNusawaLog(): { enqueued: unknown[]; service: NusawaLogService } {
 
 let callRepository: TypeOrmCallRepository
 let callStateService: CallStateService
+let agent1Id: number
+let agent2Id: number
 
 beforeAll(async () => {
     await initTestDatabase()
@@ -101,6 +103,10 @@ beforeEach(async () => {
     for (const p of presenceRegistry.listAll()) {
         for (const connectionId of p.connectionIds) presenceRegistry.unregister(connectionId)
     }
+    // Call.userId is now a real FK to users — every test that answers/places a call needs
+    // a matching User row for "agent1@nusa.id"/"agent2@nusa.id" to exist first.
+    agent1Id = (await createUserAndToken({ email: "agent1@nusa.id" })).user.id
+    agent2Id = (await createUserAndToken({ email: "agent2@nusa.id" })).user.id
 })
 
 async function createRingingCall(wacid: string) {
@@ -205,11 +211,11 @@ describe("CallSignalingService.handleAnswer", () => {
         )
 
         const offerSdp = await fakeBrowserOfferSdp()
-        await service.handleAnswer("agent1@nusa.id", wacid, offerSdp)
+        await service.handleAnswer(agent1Id, "agent1@nusa.id", wacid, offerSdp)
 
         const updated = await callRepository.findByWacid(wacid)
         expect(updated!.status).toBe(CallStatus.ACTIVE)
-        expect(updated!.agentEmail).toBe("agent1@nusa.id")
+        expect(updated!.userId).toBe(agent1Id)
         expect(acceptedWith[1]).toBe(wacid)
 
         const packets = notifier.packetsFor("agent1@nusa.id").map((p) => p.type)
@@ -232,7 +238,7 @@ describe("CallSignalingService.handleAnswer", () => {
                 new RoutingService(), fakeNusawaLog().service,
             )
 
-            await service.handleAnswer("agent1@nusa.id", wacid, await fakeBrowserOfferSdp())
+            await service.handleAnswer(agent1Id, "agent1@nusa.id", wacid, await fakeBrowserOfferSdp())
 
             const updated = await callRepository.findByWacid(wacid)
             expect(updated!.recordingEnabled).toBe(true)
@@ -254,14 +260,14 @@ describe("CallSignalingService.handleAnswer", () => {
 
         const offer1 = await fakeBrowserOfferSdp()
         const offer2 = await fakeBrowserOfferSdp()
-        await service.handleAnswer("agent1@nusa.id", wacid, offer1)
-        await service.handleAnswer("agent2@nusa.id", wacid, offer2)
+        await service.handleAnswer(agent1Id, "agent1@nusa.id", wacid, offer1)
+        await service.handleAnswer(agent2Id, "agent2@nusa.id", wacid, offer2)
 
         const agent2Packets = notifier.packetsFor("agent2@nusa.id")
         expect(agent2Packets.some((p) => p.type === "call_taken")).toBe(true)
 
         const updated = await callRepository.findByWacid(wacid)
-        expect(updated!.agentEmail).toBe("agent1@nusa.id")
+        expect(updated!.userId).toBe(agent1Id)
     })
 
     test("notifies other ringing agents that the call was taken once one agent answers", async () => {
@@ -275,7 +281,7 @@ describe("CallSignalingService.handleAnswer", () => {
         const service = new CallSignalingService(notifier, callRepository, callStateService, fakeMetaClient(), new RoutingService(), fakeNusawaLog().service)
 
         const offerSdp = await fakeBrowserOfferSdp()
-        await service.handleAnswer("agent1@nusa.id", wacid, offerSdp)
+        await service.handleAnswer(agent1Id, "agent1@nusa.id", wacid, offerSdp)
 
         const agent2Packets = notifier.packetsFor("agent2@nusa.id")
         expect(agent2Packets.some((p) => p.type === "call_taken")).toBe(true)
@@ -294,7 +300,7 @@ describe("CallSignalingService.handleAnswer", () => {
         )
 
         const offerSdp = await fakeBrowserOfferSdp()
-        await service.handleAnswer("agent1@nusa.id", wacid, offerSdp)
+        await service.handleAnswer(agent1Id, "agent1@nusa.id", wacid, offerSdp)
 
         const updated = await callRepository.findByWacid(wacid)
         expect(updated!.status).toBe(CallStatus.FAILED)
@@ -322,7 +328,7 @@ describe("CallSignalingService.initiateOutbound", () => {
         )
 
         const offerSdp = await fakeBrowserOfferSdp()
-        const result = await service.initiateOutbound("agent1@nusa.id", "202063559668129", "628999888777", offerSdp)
+        const result = await service.initiateOutbound(agent1Id, "agent1@nusa.id", "202063559668129", "628999888777", offerSdp)
 
         expect(result.wacid).toBe("wacid.OUT1")
         expect(result.answerSdp).toContain("v=0")
@@ -330,7 +336,7 @@ describe("CallSignalingService.initiateOutbound", () => {
         const call = await callRepository.findByWacid("wacid.OUT1")
         expect(call).not.toBeNull()
         expect(call!.direction).toBe(CallDirection.OUTBOUND)
-        expect(call!.agentEmail).toBe("agent1@nusa.id")
+        expect(call!.userId).toBe(agent1Id)
         expect(presenceRegistry.get("agent1@nusa.id")?.currentCallId).toBe(call!.id)
     })
 
@@ -342,7 +348,7 @@ describe("CallSignalingService.initiateOutbound", () => {
         )
 
         const offerSdp = await fakeBrowserOfferSdp()
-        await expect(service.initiateOutbound("agent1@nusa.id", "202063559668129", "628999888777", offerSdp)).rejects.toThrow()
+        await expect(service.initiateOutbound(agent1Id, "agent1@nusa.id", "202063559668129", "628999888777", offerSdp)).rejects.toThrow()
 
         const call = await callRepository.findByWacid("628999888777")
         expect(call).toBeNull()
@@ -362,7 +368,7 @@ describe("CallSignalingService.initiateOutbound", () => {
         )
 
         const agentOfferSdp = await fakeBrowserOfferSdp()
-        const { wacid } = await signaling.initiateOutbound("agent1@nusa.id", "202063559668129", "628999888777", agentOfferSdp)
+        const { wacid } = await signaling.initiateOutbound(agent1Id, "agent1@nusa.id", "202063559668129", "628999888777", agentOfferSdp)
 
         // metaOfferSdp is exposed on MediaSession only for tests like this one —
         // production code never needs to read the offer back.
@@ -422,7 +428,7 @@ describe("CallSignalingService.handleReject / handleHangup", () => {
     test("handleHangup calls Meta terminate and marks the call COMPLETED", async () => {
         const wacid = "wacid.SIGHANGUP1"
         await createRingingCall(wacid)
-        await callStateService.transition(wacid, CallStatus.CONNECTING, { agentEmail: "agent1@nusa.id" })
+        await callStateService.transition(wacid, CallStatus.CONNECTING, { userId: agent1Id })
         await callStateService.transition(wacid, CallStatus.ACTIVE, { answeredAt: new Date() })
 
         const terminatedIds: string[] = []
@@ -459,7 +465,7 @@ describe("WebhookService + CallSignalingService — terminate logging", () => {
             phoneNumberId: "202063559668129", waId: "628123456789",
             direction: CallDirection.INBOUND, status: CallStatus.PENDING, statusRank: 10,
         })
-        await callStateService.transition(wacid, CallStatus.CONNECTING, { agentEmail: "agent1@nusa.id" })
+        await callStateService.transition(wacid, CallStatus.CONNECTING, { userId: agent1Id })
         await callStateService.transition(wacid, CallStatus.ACTIVE, { answeredAt: new Date() })
         presenceRegistry.register("agent1@nusa.id", "conn-whsiglog1")
         presenceRegistry.setCurrentCall("agent1@nusa.id", call.id)
@@ -495,7 +501,7 @@ describe("WebhookService + CallSignalingService — terminate logging", () => {
             phoneNumberId: "202063559668129", waId: "628123456789",
             direction: CallDirection.INBOUND, status: CallStatus.PENDING, statusRank: 10,
         })
-        await callStateService.transition(wacid, CallStatus.CONNECTING, { agentEmail: "agent1@nusa.id" })
+        await callStateService.transition(wacid, CallStatus.CONNECTING, { userId: agent1Id })
         await callStateService.transition(wacid, CallStatus.ACTIVE, { answeredAt: new Date() })
 
         const nusawaLog = fakeNusawaLog()

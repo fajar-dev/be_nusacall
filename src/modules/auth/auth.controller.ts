@@ -57,8 +57,6 @@ export class AuthController {
         return ApiResponse.success(c, null, "Logged out successfully")
     }
 
-    // ── QR Code Login ────────────────────────────────────────────────────
-
     async generateQrCode(c: Context) {
         const data = await this.nusaworkAuthService.generateQrCode()
         return ApiResponse.success(c, NusaworkAuthSerializer.generate(data), "QR Code generated successfully")

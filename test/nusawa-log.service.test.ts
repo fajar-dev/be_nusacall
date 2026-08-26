@@ -3,12 +3,17 @@ import { initTestDatabase, destroyTestDatabase, cleanTestDatabase } from "./setu
 import { TypeOrmNusawaLogQueueRepository } from "../src/modules/call/repositories/nusawa-log-queue.repository"
 import { NusawaLogService } from "../src/modules/call/nusawa-log.service"
 import { getDataSource } from "../src/config/database"
-import { NusawaLogQueue, QueueStatus } from "../src/modules/call/entities/nusawa-log-queue.entity"
+import { Call } from "../src/modules/call/entities/call.entity"
+import { NusawaLogQueue } from "../src/modules/call/entities/nusawa-log-queue.entity"
+import { QueueStatus } from "../src/modules/call/enum/queue-status.enum"
+import { CallStatus } from "../src/modules/call/enum/call-status.enum"
+import { CallDirection } from "../src/modules/call/enum/call-direction.enum"
 import type { NusawaClient } from "../src/infrastructure/nusawa/nusawa.client"
 
 // Backoff schedule under test: 5s, 30s, 2m, 10m, 1h.
 
 let repository: TypeOrmNusawaLogQueueRepository
+let callId: number
 
 beforeAll(async () => {
     await initTestDatabase()
@@ -21,6 +26,13 @@ afterAll(async () => {
 
 beforeEach(async () => {
     await cleanTestDatabase()
+    // NusawaLogQueue.callId is a real FK now — cleanTestDatabase() uses DELETE, not TRUNCATE,
+    // so AUTO_INCREMENT keeps climbing across tests and can't be assumed to be 1.
+    const call = await getDataSource().getRepository(Call).save({
+        wacid: "wacid.NUSAWALOGFIXTURE", phoneNumberId: "202063559668129", waId: "628123456789",
+        direction: CallDirection.INBOUND, status: CallStatus.COMPLETED, statusRank: 90,
+    })
+    callId = call.id
 })
 
 function fakeNusawaClient(logCallMessage: () => Promise<boolean>): NusawaClient {
@@ -29,7 +41,7 @@ function fakeNusawaClient(logCallMessage: () => Promise<boolean>): NusawaClient 
 
 describe("NusawaLogService.flushDue", () => {
     test("marks a successfully-sent row as SENT", async () => {
-        await repository.enqueue({ callId: 1, wacid: "wacid.LOG1", phoneNumberId: "202063559668129", waId: "628123456789", body: "test" })
+        await repository.enqueue({ callId, wacid: "wacid.LOG1", phoneNumberId: "202063559668129", waId: "628123456789", body: "test" })
 
         const service = new NusawaLogService(repository, fakeNusawaClient(async () => true))
         const result = await service.flushDue()
@@ -40,7 +52,7 @@ describe("NusawaLogService.flushDue", () => {
     })
 
     test("reschedules a failed row with the first backoff step (5s)", async () => {
-        await repository.enqueue({ callId: 1, wacid: "wacid.LOG2", phoneNumberId: "202063559668129", waId: "628123456789", body: "test" })
+        await repository.enqueue({ callId, wacid: "wacid.LOG2", phoneNumberId: "202063559668129", waId: "628123456789", body: "test" })
 
         const service = new NusawaLogService(repository, fakeNusawaClient(async () => false))
         const before = Date.now()
@@ -55,7 +67,7 @@ describe("NusawaLogService.flushDue", () => {
     })
 
     test("does not retry a row whose next_attempt_at is still in the future", async () => {
-        const row = await repository.enqueue({ callId: 1, wacid: "wacid.LOG3", phoneNumberId: "202063559668129", waId: "628123456789", body: "test" })
+        const row = await repository.enqueue({ callId, wacid: "wacid.LOG3", phoneNumberId: "202063559668129", waId: "628123456789", body: "test" })
         await getDataSource().getRepository(NusawaLogQueue).update(row.id, { nextAttemptAt: new Date(Date.now() + 60_000) })
 
         const service = new NusawaLogService(repository, fakeNusawaClient(async () => true))
@@ -65,7 +77,7 @@ describe("NusawaLogService.flushDue", () => {
     })
 
     test("abandons a row after exhausting the backoff schedule (5 attempts)", async () => {
-        const row = await repository.enqueue({ callId: 1, wacid: "wacid.LOG4", phoneNumberId: "202063559668129", waId: "628123456789", body: "test" })
+        const row = await repository.enqueue({ callId, wacid: "wacid.LOG4", phoneNumberId: "202063559668129", waId: "628123456789", body: "test" })
         await getDataSource().getRepository(NusawaLogQueue).update(row.id, { attempts: 5 })
 
         const service = new NusawaLogService(repository, fakeNusawaClient(async () => false))

@@ -15,6 +15,7 @@ export class AuthService {
         private readonly userService: UserService
     ) {}
 
+    /** Returns the raw user — the controller+serializer strip sensitive fields before the response. */
     async googleLogin(data: GoogleLoginValidator) {
         const payload = await AuthHelper.verifyGoogleCode(data.code)
         let user = await this.userService.getByEmail(payload.email!)
@@ -28,10 +29,10 @@ export class AuthService {
         }
 
         const { accessToken, refreshToken } = await AuthHelper.generateTokens(user)
-        // Biarkan controller+serializer yang strip sensitive data
         return { user, accessToken, refreshToken }
     }
 
+    /** Returns the raw user — the controller+serializer strip sensitive fields before the response. */
     async nusaworklogin(data: LoginValidator) {
         const user = await this.userService.getByEmail(data.email)
         if (!user) {
@@ -43,7 +44,6 @@ export class AuthService {
         }
 
         const { accessToken, refreshToken } = await AuthHelper.generateTokens(user)
-        // Biarkan controller+serializer yang strip sensitive data
         return { user, accessToken, refreshToken }
     }
 

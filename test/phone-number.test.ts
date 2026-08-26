@@ -5,6 +5,7 @@ import { TypeOrmPhoneNumberRepository } from "../src/modules/phone-number/reposi
 import { PhoneNumberService } from "../src/modules/phone-number/phone-number.service"
 import { getDataSource } from "../src/config/database"
 import { PhoneNumber } from "../src/modules/phone-number/entities/phone-number.entity"
+import { CallIconVisibility } from "../src/modules/phone-number/enum/call-icon-visibility.enum"
 import type { MetaClient } from "../src/infrastructure/meta/meta.client"
 
 // GET routes go through the real HTTP app (read-only, no Meta call). update/sync/health
@@ -35,7 +36,7 @@ async function seedPhoneNumber(overrides: Partial<PhoneNumber> = {}): Promise<Ph
         label: "Helpdesk Medan",
         isTestNumber: true,
         callingEnabled: true,
-        callIconVisibility: "DEFAULT",
+        callIconVisibility: CallIconVisibility.DEFAULT,
         answerTimeoutSeconds: 20,
         ...overrides,
     })

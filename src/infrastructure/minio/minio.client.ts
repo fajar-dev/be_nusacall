@@ -97,9 +97,10 @@ class MinioHelper {
         })
     }
 
+    /** Falls through with whatever was decoded so far if the encoding turns out malformed. */
     sanitizePath(urlOrPath: string | null | undefined, bucket: string = BUCKET): string | null {
         if (!urlOrPath) return null
-        
+
         let decoded = urlOrPath
         try {
             while (decoded && decoded.includes('%')) {
@@ -108,7 +109,6 @@ class MinioHelper {
                 decoded = next
             }
         } catch {
-            // malformed encoding — fall through with whatever we decoded so far
         }
 
         const marker = `/${bucket}/`

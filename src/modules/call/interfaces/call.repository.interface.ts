@@ -7,7 +7,7 @@ export interface CallListFilter {
     q?: string
     status?: CallStatus[]
     direction?: string
-    agentEmail?: string
+    userId?: number
     phoneNumberId?: string
     from?: string
     to?: string
@@ -21,13 +21,7 @@ export interface ICallRepository extends IBaseRepository<Call> {
         sortBy?: string,
         order?: SortOrder
     ): Promise<{ data: Call[]; total: number }>
-
     findByWacid(wacid: string): Promise<Call | null>
-
-    /**
-     * Applies a transition only if `nextRank` > current status_rank (SQL guard, race-safe
-     * under concurrent webhooks). Returns rows affected — 0 means rejected as stale/out-of-order.
-     */
     updateIfRankLower(
         wacid: string,
         nextStatus: CallStatus,
@@ -35,11 +29,8 @@ export interface ICallRepository extends IBaseRepository<Call> {
         patch: Partial<Call>,
         manager?: EntityManager
     ): Promise<number>
-
     findOrCreateByWacid(wacid: string, defaults: Partial<Call>, manager?: EntityManager): Promise<Call>
-
     findStaleActive(olderThanMinutes: number): Promise<Call[]>
-
     getStats(filter: { phoneNumberId?: string; from?: string; to?: string }): Promise<{
         total: number
         answered: number

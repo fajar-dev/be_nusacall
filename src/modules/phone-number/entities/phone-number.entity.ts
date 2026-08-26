@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, UpdateDateColumn } from "typeorm"
+import { CallIconVisibility } from "../enum/call-icon-visibility.enum"
 
 @Entity("phone_numbers")
 export class PhoneNumber {
@@ -24,8 +25,8 @@ export class PhoneNumber {
     @Column({ name: "calling_enabled", default: false })
     callingEnabled!: boolean
 
-    @Column({ name: "call_icon_visibility", length: 32, default: "DEFAULT" })
-    callIconVisibility!: string
+    @Column({ name: "call_icon_visibility", type: "enum", enum: CallIconVisibility, default: CallIconVisibility.DEFAULT })
+    callIconVisibility!: CallIconVisibility
 
     @Column({ length: 16, default: "#6366F1" })
     color!: string
@@ -35,9 +36,6 @@ export class PhoneNumber {
 
     @Column({ name: "answer_timeout_seconds", type: "int", default: 20 })
     answerTimeoutSeconds!: number
-
-    @Column({ name: "routing_strategy", length: 32, default: "pic_then_queue" })
-    routingStrategy!: string
 
     @Column({ name: "last_synced_at", type: "datetime", nullable: true })
     lastSyncedAt?: Date | null

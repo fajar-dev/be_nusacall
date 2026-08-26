@@ -1,5 +1,6 @@
 import { IPhoneNumberRepository } from "./interfaces/phone-number.repository.interface"
 import { PhoneNumber } from "./entities/phone-number.entity"
+import { CallIconVisibility } from "./enum/call-icon-visibility.enum"
 import { MetaClient } from "../../infrastructure/meta/meta.client"
 import { NotFoundException } from "../../core/exceptions/base"
 import { logger } from "../../core/helpers/logger"
@@ -8,7 +9,7 @@ import type { MetaHealthStatusResponse } from "../../infrastructure/meta/meta.ty
 export interface UpdatePhoneNumberInput {
     label?: string
     callingEnabled?: boolean
-    callIconVisibility?: string
+    callIconVisibility?: CallIconVisibility
     color?: string
     answerTimeoutSeconds?: number
     callHours?: Record<string, unknown> | null

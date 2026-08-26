@@ -40,11 +40,10 @@ export function setDataSource(ds: DataSource): void {
     activeDataSource = ds
 }
 
-/** Proxy so existing `AppDataSource` imports keep working after a `setDataSource()` swap. */
+/** Proxy so existing `AppDataSource` imports keep working after a `setDataSource()` swap — methods are bound to the real DataSource so `this` resolves correctly. */
 export const AppDataSource = new Proxy({} as DataSource, {
     get(_target, prop: string | symbol) {
         const value = (activeDataSource as any)[prop]
-        // Bind to the real DataSource so `this` resolves correctly
         if (typeof value === "function") {
             return value.bind(activeDataSource)
         }

@@ -19,7 +19,6 @@ function fakeCall(overrides: Partial<Call> = {}): Call {
         statusRank: 10,
         recordingEnabled: false,
         transcriptionEnabled: false,
-        nusawaLogged: false,
         createdAt: new Date(),
         updatedAt: new Date(),
         ...overrides,

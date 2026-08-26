@@ -1,9 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, Index, ManyToOne, JoinColumn, CreateDateColumn } from "typeorm"
+import type { Relation } from "typeorm"
+import { Call } from "./call.entity"
+import { CallEventType } from "../enum/call-event-type.enum"
+import { CallEventStatus } from "../enum/call-event-status.enum"
 
-/**
- * Append-only log of every webhook from Meta. `dedupKey` (unique) guards
- * idempotency against Meta's duplicate deliveries; full payload is kept for audit/replay.
- */
 @Entity("call_events")
 @Index(["callId", "receivedAt"])
 export class CallEvent {
@@ -21,16 +21,19 @@ export class CallEvent {
     @Column({ name: "call_id", nullable: true })
     callId?: number | null
 
-    @Column({ name: "event_type", length: 48 })
-    eventType!: string // connect | status | terminate | recording | transcript
+    @ManyToOne(() => Call, { onDelete: "CASCADE", nullable: true })
+    @JoinColumn({ name: "call_id" })
+    call?: Relation<Call> | null
 
-    @Column({ name: "event_status", length: 32, nullable: true })
-    eventStatus?: string | null // RINGING | ACCEPTED | REJECTED
+    @Column({ name: "event_type", type: "enum", enum: CallEventType })
+    eventType!: CallEventType
+
+    @Column({ name: "event_status", type: "enum", enum: CallEventStatus, nullable: true })
+    eventStatus?: CallEventStatus | null
 
     @Column({ name: "meta_timestamp", type: "bigint", nullable: true })
     metaTimestamp?: string | null
 
-    /** Payload mentah TANPA field session/sdp. */
     @Column({ type: "json" })
     payload!: Record<string, unknown>
 

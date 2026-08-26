@@ -51,20 +51,17 @@ app.get('/health', async (c) => {
     }, statusCode)
 })
 
-// Closes active media sessions before a rolling restart — the media plane is
-// stateful, so a bare restart would drop every active call.
+/** Closes active media sessions before a rolling restart — a bare restart would drop every active call. */
 app.post('/internal/drain', async (c) => {
     await sessionRegistry.closeAll('drain_requested')
     return c.json({ drained: true, remainingSessions: sessionRegistry.activeCount })
 })
 
-// ── Meta Webhook (Calling API) ────────────────────────────────────────────
-// Mounted OUTSIDE /api and OUTSIDE authMiddleware — auth here is the Meta
-// signature check inside the controller itself.
+/** Mounted outside /api and authMiddleware — auth here is the Meta signature check inside the controller. */
 app.get('/wh', (c) => webhookController.verify(c))
 app.post('/wh', (c) => webhookController.receive(c))
 
-// Softphone signaling — auth via `?token=` query string.
+/** Softphone signaling — auth via `?token=` query string. */
 app.get('/ws', signalingGateway.handler())
 
 app.route('/api', api)

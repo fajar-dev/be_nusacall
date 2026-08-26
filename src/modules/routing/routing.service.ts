@@ -8,7 +8,6 @@ export interface RoutingDecision {
     reason?: EndReason
 }
 
-/** Chooses which agent(s) to ring for an inbound call: broadcast to every available agent, first answer wins. */
 export class RoutingService {
     decide(_call: Call): RoutingDecision {
         const targets = presenceRegistry.listAvailable().map((p) => p.email)

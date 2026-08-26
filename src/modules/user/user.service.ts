@@ -43,6 +43,7 @@ export class UserService {
         return await this.repository.saveInTransaction(data)
     }
 
+    /** Reloads via getById() so the response includes the joined organization. */
     async create(data: Partial<User>): Promise<User> {
         if (data.email) {
             const existing = await this.repository.findByEmail(data.email)
@@ -54,7 +55,6 @@ export class UserService {
             data.photo = minio.sanitizePath(data.photo) ?? undefined
         }
         const saved = await this.repository.save(data)
-        // Reload with relations so the response includes the role/employee objects.
         return await this.getById(saved.id)
     }
 

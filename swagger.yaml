@@ -225,6 +225,7 @@ components:
         waId: { type: string, example: "628123456789" }
         profileName: { type: string, nullable: true, example: "Budi" }
         contactName: { type: string, nullable: true, example: "Budi Santoso" }
+        userId: { type: integer, nullable: true, example: 3 }
         agentEmail: { type: string, nullable: true, example: "agent@nusa.id" }
         direction: { type: string, enum: [inbound, outbound] }
         status: { $ref: "#/components/schemas/CallStatus" }
@@ -301,7 +302,6 @@ components:
         color: { type: string, example: "#6366F1", description: "Hex swatch shown against this number's calls on the live call board" }
         callHours: { $ref: "#/components/schemas/CallHours" }
         answerTimeoutSeconds: { type: integer, example: 20 }
-        routingStrategy: { type: string, example: "pic_then_queue" }
         lastSyncedAt: { type: string, format: date-time, nullable: true }
 
     UpdatePhoneNumberRequest:
@@ -787,7 +787,7 @@ paths:
           schema: { type: integer, default: 10 }
         - name: q
           in: query
-          description: Search by wa_id, contact name, or wacid
+          description: Search by wa_id, contact name, profile name, or wacid
           schema: { type: string }
         - name: status
           in: query
@@ -796,9 +796,9 @@ paths:
         - name: direction
           in: query
           schema: { type: string, enum: [inbound, outbound] }
-        - name: agentEmail
+        - name: userId
           in: query
-          schema: { type: string }
+          schema: { type: integer }
         - name: phoneNumberId
           in: query
           schema: { type: string }

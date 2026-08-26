@@ -2,7 +2,7 @@ import { Context } from "hono"
 import { ContentfulStatusCode } from "hono/utils/http-status"
 import { translate } from "./i18n"
 
-// Translates each item's message in errors arrays (e.g. ValidationException's [{ field, message }]).
+/** Translates each item's message in errors arrays (e.g. ValidationException's [{ field, message }]). */
 function translateErrors(c: Context, errors: any) {
     if (!Array.isArray(errors)) return errors
 

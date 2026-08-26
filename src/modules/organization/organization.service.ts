@@ -31,6 +31,7 @@ export class OrganizationService {
         return await this.getById(saved.id)
     }
 
+    /** Clears the eagerly-loaded `org.parent` before merge/save — otherwise TypeORM prioritizes that stale relation object over the new `parentId` scalar. */
     async update(id: number, data: Partial<Organization>): Promise<Organization> {
         const org = await this.getById(id)
 
@@ -46,13 +47,10 @@ export class OrganizationService {
         }
 
         if (data.parentId !== undefined) {
-            // `org.parent` was eagerly loaded by getById() above — if it's left in place, TypeORM's
-            // save() prioritizes that stale relation object over the new `parentId` scalar we just merged.
             org.parent = undefined as any
         }
         this.repository.merge(org, data)
         await this.repository.save(org)
-        // Reload with relations so the response includes the parent object.
         return await this.getById(id)
     }
 

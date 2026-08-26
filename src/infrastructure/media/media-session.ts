@@ -12,15 +12,15 @@ export interface MediaStats {
 }
 
 /**
- * One MediaSession = one call = two WebRTC legs bridged together (Meta <-> NusaCall <-> Agent).
+ * One MediaSession = one call = two WebRTC legs bridged together (legA/Meta <-> NusaCall <-> legB/Agent browser).
  * Lifecycle: acceptMetaOffer() → attachAgent() → startForwarding() (only after Meta's `accept` returns 200) → close().
  */
 export class MediaSession {
     wacid: string
     readonly createdAt: Date = new Date()
 
-    private legA: RTCPeerConnection | null = null // Meta
-    private legB: RTCPeerConnection | null = null // Agent browser
+    private legA: RTCPeerConnection | null = null
+    private legB: RTCPeerConnection | null = null
     private transceiverA: RTCRtpTransceiver | null = null
     private transceiverB: RTCRtpTransceiver | null = null
 

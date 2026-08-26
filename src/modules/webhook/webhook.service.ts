@@ -3,6 +3,8 @@ import { CallStateService } from "../call/call-state.service"
 import { CallStatus, isTerminalCallStatus } from "../call/enum/call-status.enum"
 import { CallDirection, fromMetaDirection } from "../call/enum/call-direction.enum"
 import { EndReason } from "../call/enum/end-reason.enum"
+import { CallEventType } from "../call/enum/call-event-type.enum"
+import { CallEventStatus } from "../call/enum/call-event-status.enum"
 import { ICallMediaCoordinator } from "../call/interfaces/call-media-coordinator.interface"
 import { ICallSignalingNotifier } from "../call/interfaces/call-signaling.interface"
 import { ICallRepository } from "../call/interfaces/call.repository.interface"
@@ -21,9 +23,6 @@ interface MetaCallObject {
     start_time?: string
     end_time?: string
     duration?: number
-    cta_payload?: string
-    deeplink_payload?: string
-    biz_opaque_callback_data?: string
     errors?: Array<{ code: number; message?: string; error_data?: { details?: string } }>
     call_recording?: { type: "audio"; audio: { id: string; sha256: string; mime_type: string; url: string } }
     call_transcript?: { document: { id: string; sha256: string; mime_type: string; url: string } }
@@ -32,10 +31,9 @@ interface MetaCallObject {
 interface MetaStatusObject {
     id: string
     type: string
-    status: "RINGING" | "ACCEPTED" | "REJECTED"
+    status: CallEventStatus
     timestamp: string
     recipient_id?: string
-    biz_opaque_callback_data?: string
 }
 
 interface MetaMetadata {
@@ -84,23 +82,23 @@ export class WebhookService {
                     continue
                 }
                 if (change.field !== "calls") continue
-                await this.processChangeValue(change.value, businessAccountId, payload)
+                await this.processChangeValue(change.value, payload)
             }
         }
     }
 
-    private async processChangeValue(value: any, businessAccountId: string, fullPayload: unknown): Promise<void> {
+    private async processChangeValue(value: any, fullPayload: unknown): Promise<void> {
         const metadata: MetaMetadata | undefined = value.metadata
         const contacts: MetaContact[] = value.contacts ?? []
 
         for (const callObj of (value.calls ?? []) as MetaCallObject[]) {
             try {
                 if (callObj.event === "connect") {
-                    await this.handleConnect(callObj, metadata, businessAccountId, contacts, fullPayload)
+                    await this.handleConnect(callObj, metadata, contacts, fullPayload)
                 } else if (callObj.event === "terminate") {
-                    await this.handleTerminate(callObj, metadata, businessAccountId, contacts, fullPayload)
+                    await this.handleTerminate(callObj, metadata, contacts, fullPayload)
                 } else if (callObj.event === "call_created") {
-                    await this.handleCallCreated(callObj, metadata, businessAccountId, contacts, fullPayload)
+                    await this.handleCallCreated(callObj, metadata, contacts, fullPayload)
                 } else if (callObj.event === "call_recording_available") {
                     await this.handleRecordingAvailable(callObj)
                 } else if (callObj.event === "call_transcription_available") {
@@ -126,7 +124,6 @@ export class WebhookService {
     private async handleConnect(
         callObj: MetaCallObject,
         metadata: MetaMetadata | undefined,
-        businessAccountId: string,
         contacts: MetaContact[],
         fullPayload: unknown
     ): Promise<void> {
@@ -134,7 +131,7 @@ export class WebhookService {
 
         const { accepted } = await this.callState.recordEvent({
             wacid: callObj.id,
-            eventType: "connect",
+            eventType: CallEventType.CONNECT,
             metaTimestamp,
             rawPayload: fullPayload as Record<string, unknown>,
         })
@@ -145,17 +142,12 @@ export class WebhookService {
 
         const defaults: Partial<Call> = {
             phoneNumberId: metadata?.phone_number_id ?? "",
-            businessAccountId,
             displayPhoneNumber: metadata?.display_phone_number ?? null,
             waId: waId ?? "",
             profileName: contacts[0]?.profile?.name ?? null,
             direction,
             status: CallStatus.PENDING,
             statusRank: 10,
-            connectedWebhookAt: new Date(),
-            ctaPayload: callObj.cta_payload ?? null,
-            deeplinkPayload: callObj.deeplink_payload ?? null,
-            bizOpaqueCallbackData: callObj.biz_opaque_callback_data ?? null,
         }
 
         const call = await this.callState.findOrCreate(callObj.id, defaults)
@@ -202,7 +194,7 @@ export class WebhookService {
 
         const { accepted } = await this.callState.recordEvent({
             wacid: statusObj.id,
-            eventType: "status",
+            eventType: CallEventType.STATUS,
             eventStatus: statusObj.status,
             metaTimestamp,
             rawPayload: fullPayload as Record<string, unknown>,
@@ -218,10 +210,10 @@ export class WebhookService {
         })
 
         switch (statusObj.status) {
-            case "RINGING":
+            case CallEventStatus.RINGING:
                 await this.callState.transition(statusObj.id, CallStatus.RINGING, { ringingAt: new Date() })
                 break
-            case "ACCEPTED": {
+            case CallEventStatus.ACCEPTED: {
                 const transitioned = await this.callState.transition(statusObj.id, CallStatus.ACTIVE, { answeredAt: new Date() })
                 if (transitioned) {
                     await this.media.startOutboundForwarding(statusObj.id)
@@ -230,7 +222,7 @@ export class WebhookService {
                 }
                 break
             }
-            case "REJECTED":
+            case CallEventStatus.REJECTED:
                 await this.callState.transition(statusObj.id, CallStatus.REJECTED, {
                     endReason: EndReason.CUSTOMER_REJECTED,
                     endedAt: new Date(),
@@ -243,7 +235,6 @@ export class WebhookService {
     private async handleTerminate(
         callObj: MetaCallObject,
         metadata: MetaMetadata | undefined,
-        businessAccountId: string,
         contacts: MetaContact[],
         fullPayload: unknown
     ): Promise<void> {
@@ -251,7 +242,7 @@ export class WebhookService {
 
         const { accepted } = await this.callState.recordEvent({
             wacid: callObj.id,
-            eventType: "terminate",
+            eventType: CallEventType.TERMINATE,
             metaTimestamp,
             rawPayload: fullPayload as Record<string, unknown>,
         })
@@ -261,7 +252,6 @@ export class WebhookService {
         const waId = direction === CallDirection.INBOUND ? callObj.from : callObj.to
         const call = await this.callState.findOrCreate(callObj.id, {
             phoneNumberId: metadata?.phone_number_id ?? "",
-            businessAccountId,
             displayPhoneNumber: metadata?.display_phone_number ?? null,
             waId: waId ?? "",
             profileName: contacts[0]?.profile?.name ?? null,
@@ -364,7 +354,6 @@ export class WebhookService {
     private async handleCallCreated(
         callObj: MetaCallObject,
         metadata: MetaMetadata | undefined,
-        businessAccountId: string,
         contacts: MetaContact[],
         fullPayload: unknown
     ): Promise<void> {
@@ -372,7 +361,7 @@ export class WebhookService {
 
         const { accepted } = await this.callState.recordEvent({
             wacid: callObj.id,
-            eventType: "call_created",
+            eventType: CallEventType.CALL_CREATED,
             metaTimestamp,
             rawPayload: fullPayload as Record<string, unknown>,
         })
@@ -383,7 +372,6 @@ export class WebhookService {
 
         await this.callState.findOrCreate(callObj.id, {
             phoneNumberId: metadata?.phone_number_id ?? "",
-            businessAccountId,
             displayPhoneNumber: metadata?.display_phone_number ?? null,
             waId: waId ?? "",
             profileName: contacts[0]?.profile?.name ?? null,

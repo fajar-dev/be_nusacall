@@ -45,8 +45,6 @@ export class CallService {
         if (![CallStatus.RINGING, CallStatus.CONNECTING].includes(call.status)) {
             throw new ConflictException(`Cannot reject a call in status "${call.status}"`)
         }
-        // State transition happens later via CallStateService once the Meta reject call succeeds;
-        // this only validates preconditions.
         return call
     }
 

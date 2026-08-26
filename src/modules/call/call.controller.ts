@@ -40,7 +40,7 @@ export class CallController {
                 q: c.req.query("q") || undefined,
                 status: statusParam ? (statusParam.split(",") as CallStatus[]) : undefined,
                 direction: c.req.query("direction") || undefined,
-                agentEmail: c.req.query("agentEmail") || undefined,
+                userId: c.req.query("userId") ? Number(c.req.query("userId")) : undefined,
                 phoneNumberId: c.req.query("phoneNumberId") || undefined,
                 from: c.req.query("from") || undefined,
                 to: c.req.query("to") || undefined,
@@ -91,7 +91,7 @@ export class CallController {
 
         const { callSignalingService } = await import("../../gateway/signaling.module")
         try {
-            const result = await callSignalingService.initiateOutbound(user.email, data.phoneNumberId, data.waId, data.offerSdp)
+            const result = await callSignalingService.initiateOutbound(user.id, user.email, data.phoneNumberId, data.waId, data.offerSdp)
             return ApiResponse.success(c, result)
         } catch (err) {
             const code = (err as { context?: { code?: number } })?.context?.code

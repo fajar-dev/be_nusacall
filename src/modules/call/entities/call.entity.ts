@@ -1,28 +1,27 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, UpdateDateColumn } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, Index, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from "typeorm"
+import type { Relation } from "typeorm"
 import { CallStatus, CALL_STATUS_RANK } from "../enum/call-status.enum"
 import { CallDirection } from "../enum/call-direction.enum"
 import { EndReason } from "../enum/end-reason.enum"
+import { User } from "../../user/entities/user.entity"
 
 @Entity("calls")
+@Index(["status", "createdAt"])
 export class Call {
     @PrimaryGeneratedColumn()
     id!: number
 
-    // ── Identitas Meta ──────────────────────────────────────────────
     @Index({ unique: true })
     @Column({ length: 128 })
     wacid!: string
 
+    @Index()
     @Column({ name: "phone_number_id", length: 32 })
     phoneNumberId!: string
-
-    @Column({ name: "business_account_id", length: 32, nullable: true })
-    businessAccountId?: string | null
 
     @Column({ name: "display_phone_number", length: 32, nullable: true })
     displayPhoneNumber?: string | null
 
-    // ── Pihak lawan ─────────────────────────────────────────────────
     @Index()
     @Column({ name: "wa_id", length: 32 })
     waId!: string
@@ -34,10 +33,13 @@ export class Call {
     contactName?: string | null
 
     @Index()
-    @Column({ name: "agent_email", length: 128, nullable: true })
-    agentEmail?: string | null
+    @Column({ name: "user_id", nullable: true })
+    userId?: number | null
 
-    // ── Status ──────────────────────────────────────────────────────
+    @ManyToOne(() => User, { onDelete: "SET NULL", nullable: true })
+    @JoinColumn({ name: "user_id" })
+    user?: Relation<User> | null
+
     @Column({ type: "enum", enum: CallDirection })
     direction!: CallDirection
 
@@ -57,10 +59,6 @@ export class Call {
     @Column({ name: "error_message", type: "text", nullable: true })
     errorMessage?: string | null
 
-    // ── Linimasa ────────────────────────────────────────────────────
-    @Column({ name: "connected_webhook_at", type: "datetime", nullable: true })
-    connectedWebhookAt?: Date | null
-
     @Column({ name: "ringing_at", type: "datetime", nullable: true })
     ringingAt?: Date | null
 
@@ -76,26 +74,13 @@ export class Call {
     @Column({ name: "setup_duration_ms", type: "int", nullable: true })
     setupDurationMs?: number | null
 
-    // ── Atribusi ────────────────────────────────────────────────────
-    @Column({ name: "cta_payload", type: "text", nullable: true })
-    ctaPayload?: string | null
-
-    @Column({ name: "deeplink_payload", type: "text", nullable: true })
-    deeplinkPayload?: string | null
-
-    @Column({ name: "biz_opaque_callback_data", length: 512, nullable: true })
-    bizOpaqueCallbackData?: string | null
-
-    // ── Bendera ─────────────────────────────────────────────────────
     @Column({ name: "recording_enabled", default: false })
     recordingEnabled!: boolean
 
     @Column({ name: "transcription_enabled", default: false })
     transcriptionEnabled!: boolean
 
-    @Column({ name: "nusawa_logged", default: false })
-    nusawaLogged!: boolean
-
+    @Index()
     @CreateDateColumn({ name: "created_at" })
     createdAt!: Date
 

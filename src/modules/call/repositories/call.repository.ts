@@ -27,7 +27,7 @@ export class TypeOrmCallRepository implements ICallRepository {
         order: SortOrder = "DESC"
     ): Promise<{ data: Call[]; total: number }> {
         const offset = (page - 1) * limit
-        const query = this.repository.createQueryBuilder("call")
+        const query = this.repository.createQueryBuilder("call").leftJoinAndSelect("call.user", "user")
 
         if (filter.q) {
             query.andWhere(
@@ -41,8 +41,8 @@ export class TypeOrmCallRepository implements ICallRepository {
         if (filter.direction) {
             query.andWhere("call.direction = :direction", { direction: filter.direction })
         }
-        if (filter.agentEmail) {
-            query.andWhere("call.agentEmail = :agentEmail", { agentEmail: filter.agentEmail })
+        if (filter.userId) {
+            query.andWhere("call.userId = :userId", { userId: filter.userId })
         }
         if (filter.phoneNumberId) {
             query.andWhere("call.phoneNumberId = :phoneNumberId", { phoneNumberId: filter.phoneNumberId })
@@ -62,11 +62,11 @@ export class TypeOrmCallRepository implements ICallRepository {
     }
 
     async findById(id: number): Promise<Call | null> {
-        return await this.repository.findOneBy({ id })
+        return await this.repository.findOne({ where: { id }, relations: { user: true } })
     }
 
     async findByWacid(wacid: string): Promise<Call | null> {
-        return await this.repository.findOneBy({ wacid })
+        return await this.repository.findOne({ where: { wacid }, relations: { user: true } })
     }
 
     async updateIfRankLower(
@@ -100,7 +100,7 @@ export class TypeOrmCallRepository implements ICallRepository {
     async findOrCreateByWacid(wacid: string, defaults: Partial<Call>, manager?: EntityManager): Promise<Call> {
         const runner = manager ? manager.getRepository(Call) : this.repository
 
-        const existing = await runner.findOneBy({ wacid })
+        const existing = await runner.findOne({ where: { wacid }, relations: { user: true } })
         if (existing) return existing
 
         try {

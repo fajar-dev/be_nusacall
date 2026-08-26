@@ -1,6 +1,6 @@
 export enum CallDirection {
-    INBOUND = "inbound",   // Meta: USER_INITIATED
-    OUTBOUND = "outbound", // Meta: BUSINESS_INITIATED
+    INBOUND = "inbound",
+    OUTBOUND = "outbound",
 }
 
 export function fromMetaDirection(direction: string): CallDirection {

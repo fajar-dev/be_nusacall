@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { CallIconVisibility } from "../enum/call-icon-visibility.enum"
 
 const CallHoursValidator = z.object({
     status: z.enum(["ENABLED", "DISABLED"]),
@@ -24,7 +25,7 @@ const CallHoursValidator = z.object({
 export const UpdatePhoneNumberValidator = z.object({
     label: z.string().min(1, "label is required").optional(),
     callingEnabled: z.boolean().optional(),
-    callIconVisibility: z.enum(["DEFAULT", "DISABLE_ALL"]).optional(),
+    callIconVisibility: z.nativeEnum(CallIconVisibility).optional(),
     color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Format warna harus hex, contoh #6366F1").optional(),
     answerTimeoutSeconds: z.number().int().min(5).max(25).optional(),
     callHours: CallHoursValidator.nullable().optional(),
