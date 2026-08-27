@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach, spyOn } from "bun:test"
 import { Hono } from "hono"
 import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createTestApp, request, createUserAndToken } from "./setup"
-import { nusaworkHelper } from "../src/infrastructure/nusawork/nusawork.client"
+import { nusaworkClient } from "../src/infrastructure/nusawork/nusawork.client"
 import { AuthHelper } from "../src/core/helpers/auth"
 import { Role } from "../src/modules/user/enums/role.enum"
 
@@ -52,7 +52,7 @@ describe("POST /api/auth/login", () => {
 
     test("issues a NusaCall JWT for valid credentials (200)", async () => {
         await seedUser({ email: "agent@nusa.id" })
-        spyOn(nusaworkHelper, "authLogin").mockResolvedValue(true)
+        spyOn(nusaworkClient, "authLogin").mockResolvedValue(true)
 
         const { status, body } = await request(app, "/api/auth/login", {
             method: "POST",
@@ -67,7 +67,7 @@ describe("POST /api/auth/login", () => {
     })
 
     test("rejects a user not registered locally (401)", async () => {
-        spyOn(nusaworkHelper, "authLogin").mockResolvedValue(true)
+        spyOn(nusaworkClient, "authLogin").mockResolvedValue(true)
 
         const { status, body } = await request(app, "/api/auth/login", {
             method: "POST",
@@ -80,7 +80,7 @@ describe("POST /api/auth/login", () => {
 
     test("rejects an inactive user (401)", async () => {
         await seedUser({ email: "inactive@nusa.id", isActive: false })
-        spyOn(nusaworkHelper, "authLogin").mockResolvedValue(true)
+        spyOn(nusaworkClient, "authLogin").mockResolvedValue(true)
 
         const { status, body } = await request(app, "/api/auth/login", {
             method: "POST",
@@ -93,7 +93,7 @@ describe("POST /api/auth/login", () => {
 
     test("rejects an invalid password (401)", async () => {
         await seedUser({ email: "agent@nusa.id" })
-        spyOn(nusaworkHelper, "authLogin").mockResolvedValue(false)
+        spyOn(nusaworkClient, "authLogin").mockResolvedValue(false)
 
         const { status, body } = await request(app, "/api/auth/login", {
             method: "POST",

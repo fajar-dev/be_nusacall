@@ -3,7 +3,7 @@ import { config } from "../../config/config"
 import { Readable } from "node:stream"
 import { logger } from "../../core/helpers/logger"
 
-const minioClient = new Minio.Client({
+const rawMinioClient = new Minio.Client({
     endPoint: config.minio.endPoint,
     port: config.minio.port,
     useSSL: config.minio.useSSL,
@@ -13,11 +13,11 @@ const minioClient = new Minio.Client({
 
 const BUCKET = config.minio.bucket
 
-class MinioHelper {
+export class MinioClient {
     async ensureBucket(bucket: string = BUCKET) {
-        const exists = await minioClient.bucketExists(bucket)
+        const exists = await rawMinioClient.bucketExists(bucket)
         if (!exists) {
-            await minioClient.makeBucket(bucket)
+            await rawMinioClient.makeBucket(bucket)
             logger.info('MinIO bucket created', { bucket })
         }
     }
@@ -25,7 +25,7 @@ class MinioHelper {
     async upload(objectName: string, buffer: Buffer, contentType: string, bucket: string = BUCKET): Promise<string> {
         await this.ensureBucket(bucket)
 
-        await minioClient.putObject(bucket, objectName, buffer, buffer.length, {
+        await rawMinioClient.putObject(bucket, objectName, buffer, buffer.length, {
             "Content-Type": contentType,
         })
 
@@ -34,7 +34,7 @@ class MinioHelper {
     }
 
     async getPresignedUrl(objectName: string, expiry: number = 7 * 24 * 60 * 60, bucket: string = BUCKET): Promise<string> {
-        return minioClient.presignedGetObject(bucket, objectName, expiry)
+        return rawMinioClient.presignedGetObject(bucket, objectName, expiry)
     }
 
     getPublicUrl(objectName: string, bucket: string = BUCKET): string {
@@ -50,8 +50,8 @@ class MinioHelper {
     }
 
     async getObject(objectName: string, bucket: string = BUCKET): Promise<{ stream: Readable; stat: Minio.BucketItemStat }> {
-        const stat = await minioClient.statObject(bucket, objectName)
-        const stream = await minioClient.getObject(bucket, objectName)
+        const stat = await rawMinioClient.statObject(bucket, objectName)
+        const stream = await rawMinioClient.getObject(bucket, objectName)
         return { stream, stat }
     }
 
@@ -63,13 +63,13 @@ class MinioHelper {
     }
 
     async delete(objectName: string, bucket: string = BUCKET): Promise<void> {
-        await minioClient.removeObject(bucket, objectName)
+        await rawMinioClient.removeObject(bucket, objectName)
         logger.info('MinIO object deleted', { bucket, objectName })
     }
 
     async exists(objectName: string, bucket: string = BUCKET): Promise<boolean> {
         try {
-            await minioClient.statObject(bucket, objectName)
+            await rawMinioClient.statObject(bucket, objectName)
             return true
         } catch {
             return false
@@ -127,4 +127,5 @@ class MinioHelper {
     }
 }
 
-export const minio = new MinioHelper()
+export const minioClient = new MinioClient()
+export const minio = minioClient

@@ -7,7 +7,7 @@ import { config } from "../../config/config"
 import { logger } from "../../core/helpers/logger"
 import { NotFoundException, GoneException } from "../../core/exceptions/base"
 
-/** The MinioHelper methods this service needs — injected so tests don't hit a real bucket. */
+/** The MinioClient methods this service needs — injected so tests don't hit a real bucket. */
 export interface IObjectStorage {
     upload(objectName: string, buffer: Buffer, contentType: string): Promise<string>
     getPresignedUrl(objectName: string, expirySeconds?: number): Promise<string>

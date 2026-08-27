@@ -2,7 +2,7 @@ import { User } from "./entities/user.entity"
 import { NotFoundException, BadRequestException } from "../../core/exceptions/base"
 import { EntityManager } from "typeorm"
 import { IUserRepository, UserListFilters } from "./interfaces/user.repository.interface"
-import { minio } from "../../infrastructure/minio/minio.client"
+import { minioClient } from "../../infrastructure/minio/minio.client"
 import { presenceRegistry } from "./presence.registry"
 
 export class UserService {
@@ -52,7 +52,7 @@ export class UserService {
             }
         }
         if (data.photo !== undefined) {
-            data.photo = minio.sanitizePath(data.photo) ?? undefined
+            data.photo = minioClient.sanitizePath(data.photo) ?? undefined
         }
         const saved = await this.repository.save(data)
         return await this.getById(saved.id)
@@ -67,7 +67,7 @@ export class UserService {
             }
         }
         if (data.photo !== undefined) {
-            data.photo = minio.sanitizePath(data.photo) ?? undefined
+            data.photo = minioClient.sanitizePath(data.photo) ?? undefined
         }
         this.repository.merge(user, data)
         await this.repository.save(user)

@@ -2,7 +2,7 @@ import { UnauthorizedException } from "../../core/exceptions/base"
 import { UserService } from "../user/user.service"
 import { AuthHelper } from "../../core/helpers/auth"
 import { LoginValidator } from "./validators/auth.validator"
-import { nusaworkHelper } from "../../infrastructure/nusawork/nusawork.client"
+import { nusaworkClient } from "../../infrastructure/nusawork/nusawork.client"
 
 interface PanelQrCodeResponse {
     qrcode_image: string
@@ -41,7 +41,7 @@ export class NusaworkAuthService {
             throw new UnauthorizedException("Account is inactive")
         }
 
-        const isValid = await nusaworkHelper.authLogin(data.email, data.password)
+        const isValid = await nusaworkClient.authLogin(data.email, data.password)
         if (!isValid) {
             throw new UnauthorizedException("Invalid credentials")
         }

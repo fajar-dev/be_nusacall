@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from "axios"
 import { config } from "../../config/config"
 
-class NusaworkHelper {
+export class NusaworkClient {
     private readonly http: AxiosInstance = axios.create({
         baseURL: config.nusawork.apiUrl,
         headers: {
@@ -32,19 +32,6 @@ class NusaworkHelper {
             multi_value: false,
             currentPage: 1,
         }, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-        })
-
-        return (res?.data?.data as any[]) ?? []
-    }
-
-    async getBranch(): Promise<any[]> {
-        const token = await this.getToken()
-
-        const res = await this.http.get<any>('/emp/api/branch', {
             headers: {
                 Authorization: `Bearer ${token}`,
                 'Content-Type': 'application/json',
@@ -87,6 +74,19 @@ class NusaworkHelper {
             return false
         }
     }
+
+    async getBranch(): Promise<any[]> {
+        const token = await this.getToken()
+
+        const res = await this.http.get<any>('/emp/api/branch', {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+        })
+
+        return (res?.data?.data as any[]) ?? []
+    }
 }
 
-export const nusaworkHelper = new NusaworkHelper()
+export const nusaworkClient = new NusaworkClient()

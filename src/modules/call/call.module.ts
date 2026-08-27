@@ -9,7 +9,7 @@ import { NusawaLogService } from "./nusawa-log.service"
 import { CallRecordingService } from "./call-recording.service"
 import { nusawaClient } from "../../infrastructure/nusawa/nusawa.client"
 import { metaClient } from "../../infrastructure/meta/meta.client"
-import { minio } from "../../infrastructure/minio/minio.client"
+import { minioClient } from "../../infrastructure/minio/minio.client"
 
 export const callRepository = new TypeOrmCallRepository()
 const callEventRepository = new TypeOrmCallEventRepository()
@@ -18,5 +18,5 @@ const callRecordingRepository = new TypeOrmCallRecordingRepository()
 export const callStateService = new CallStateService(callRepository, callEventRepository)
 export const callService = new CallService(callRepository)
 export const nusawaLogService = new NusawaLogService(nusawaLogQueueRepository, nusawaClient)
-export const callRecordingService = new CallRecordingService(callRecordingRepository, metaClient, minio)
+export const callRecordingService = new CallRecordingService(callRecordingRepository, metaClient, minioClient)
 export const callController = new CallController(callService, callRecordingService)

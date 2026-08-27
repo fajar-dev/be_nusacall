@@ -1,7 +1,7 @@
-import { minio } from "../../infrastructure/minio/minio.client"
+import { minioClient } from "../../infrastructure/minio/minio.client"
 
 export async function resolveFileUrl(path?: string | null): Promise<string | null> {
     if (!path) return null
     if (path.startsWith("http://") || path.startsWith("https://")) return path
-    return await minio.getPresignedUrl(path)
+    return await minioClient.getPresignedUrl(path)
 }
