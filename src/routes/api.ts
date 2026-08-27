@@ -18,6 +18,7 @@ import { RequestOutboundCallValidator } from "../modules/call/validators/call.va
 import { userController } from "../modules/user/user.module"
 import { CreateUserValidator, UpdateUserValidator } from "../modules/user/validators/user.validator"
 import { organizationController } from "../modules/organization/organization.module"
+import { contactController } from "../modules/contact/contact.module"
 
 const routes = new Hono()
 
@@ -53,6 +54,9 @@ routes.get("/phone-number/:id", authMiddleware, (c) => phoneNumberController.sho
 routes.put("/phone-number/:id", authMiddleware, zValidator("json", UpdatePhoneNumberValidator, validationHook), (c) => phoneNumberController.update(c))
 routes.post("/phone-number/:id/sync", authMiddleware, (c) => phoneNumberController.sync(c))
 routes.get("/phone-number/:id/health", authMiddleware, (c) => phoneNumberController.health(c))
+
+routes.get("/contact", authMiddleware, (c) => contactController.index(c))
+routes.get("/contact/:id", authMiddleware, (c) => contactController.show(c))
 
 routes.get("/permission", authMiddleware, (c) => permissionController.check(c))
 routes.post("/permission/request", authMiddleware, zValidator("json", RequestPermissionValidator, validationHook), (c) => permissionController.request(c))

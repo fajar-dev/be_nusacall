@@ -10,6 +10,8 @@ import { RecordingArtifactStatus } from "../src/modules/call/enum/recording-arti
 import { CallDirection } from "../src/modules/call/enum/call-direction.enum"
 import { CallStatus } from "../src/modules/call/enum/call-status.enum"
 import { WebhookService } from "../src/modules/webhook/webhook.service"
+import { ContactService } from "../src/modules/contact/contact.service"
+import { TypeOrmContactRepository } from "../src/modules/contact/repositories/contact.repository"
 import type { ICallMediaCoordinator } from "../src/modules/call/interfaces/call-media-coordinator.interface"
 import type { ICallSignalingNotifier } from "../src/modules/call/interfaces/call-signaling.interface"
 import type { MetaClient } from "../src/infrastructure/meta/meta.client"
@@ -50,12 +52,14 @@ function fakeStorage(): { uploads: { key: string; contentType: string }[]; stora
 let callRepository: TypeOrmCallRepository
 let callRecordingRepository: TypeOrmCallRecordingRepository
 let callStateService: CallStateService
+let contactService: ContactService
 
 beforeAll(async () => {
     await initTestDatabase()
     callRepository = new TypeOrmCallRepository()
     callRecordingRepository = new TypeOrmCallRecordingRepository()
     callStateService = new CallStateService(callRepository, new TypeOrmCallEventRepository())
+    contactService = new ContactService(new TypeOrmContactRepository())
 })
 
 afterAll(async () => {
@@ -83,7 +87,7 @@ describe("Webhook -> CallRecordingService — recording/transcript availability"
         await seedAnsweredCall(wacid)
 
         const recording = new CallRecordingService(callRecordingRepository, fakeMetaClient(), fakeStorage().storage)
-        const webhook = new WebhookService(callStateService, noopMedia, noopSignaling, callRepository, recording)
+        const webhook = new WebhookService(callStateService, noopMedia, noopSignaling, callRepository, recording, contactService)
 
         const payload = createRecordingAvailableWebhookPayload({ wacid, mediaId: "media.abc", sha256: "abc123==" })
         await webhook.process(JSON.stringify(payload))
@@ -103,7 +107,7 @@ describe("Webhook -> CallRecordingService — recording/transcript availability"
         await seedAnsweredCall(wacid)
 
         const recording = new CallRecordingService(callRecordingRepository, fakeMetaClient(), fakeStorage().storage)
-        const webhook = new WebhookService(callStateService, noopMedia, noopSignaling, callRepository, recording)
+        const webhook = new WebhookService(callStateService, noopMedia, noopSignaling, callRepository, recording, contactService)
 
         await webhook.process(JSON.stringify(createRecordingAvailableWebhookPayload({ wacid })))
         await webhook.process(JSON.stringify(createTranscriptionAvailableWebhookPayload({ wacid, mediaId: "media.xyz" })))
@@ -119,7 +123,7 @@ describe("Webhook -> CallRecordingService — recording/transcript availability"
         const call = await seedAnsweredCall(wacid)
 
         const recording = new CallRecordingService(callRecordingRepository, fakeMetaClient(), fakeStorage().storage)
-        const webhook = new WebhookService(callStateService, noopMedia, noopSignaling, callRepository, recording)
+        const webhook = new WebhookService(callStateService, noopMedia, noopSignaling, callRepository, recording, contactService)
 
         await webhook.process(JSON.stringify(createRecordingAvailableWebhookPayload({ wacid, mediaId: "media.first" })))
         // Manually advance state past PENDING, as the download job would.

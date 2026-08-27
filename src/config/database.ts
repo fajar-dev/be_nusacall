@@ -10,6 +10,7 @@ import { CallPermission } from "../modules/permission/entities/call-permission.e
 import { PhoneNumber } from "../modules/phone-number/entities/phone-number.entity"
 import { User } from "../modules/user/entities/user.entity"
 import { Organization } from "../modules/organization/entities/organization.entity"
+import { Contact } from "../modules/contact/entities/contact.entity"
 
 /**
  * Access via `AppDataSource` (default) or `getDataSource()`.
@@ -25,7 +26,7 @@ const defaultDataSource = new DataSource({
     database: config.database.name,
     synchronize: config.database.sync,
     timezone: "Z",
-    entities: [Call, CallEvent, NusawaLogQueue, CallRecording, CallPermission, PhoneNumber, User, Organization],
+    entities: [Call, CallEvent, NusawaLogQueue, CallRecording, CallPermission, PhoneNumber, User, Organization, Contact],
     migrations: [],
     subscribers: [],
 })

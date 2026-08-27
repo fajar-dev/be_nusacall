@@ -9,6 +9,7 @@ import { ICallMediaCoordinator } from "../call/interfaces/call-media-coordinator
 import { ICallSignalingNotifier } from "../call/interfaces/call-signaling.interface"
 import { ICallRepository } from "../call/interfaces/call.repository.interface"
 import { CallRecordingService } from "../call/call-recording.service"
+import { ContactService } from "../contact/contact.service"
 import { logger } from "../../core/helpers/logger"
 
 interface MetaCallObject {
@@ -59,6 +60,7 @@ export class WebhookService {
         private readonly signaling: ICallSignalingNotifier,
         private readonly calls: ICallRepository,
         private readonly recording: CallRecordingService,
+        private readonly contacts: ContactService,
     ) {}
 
     async process(rawBody: string): Promise<void> {
@@ -139,12 +141,17 @@ export class WebhookService {
 
         const direction = fromMetaDirection(callObj.direction ?? "USER_INITIATED")
         const waId = direction === CallDirection.INBOUND ? callObj.from : callObj.to
+        const profileName = contacts[0]?.profile?.name ?? null
+
+        if (direction === CallDirection.INBOUND && waId) {
+            await this.contacts.findOrCreate(waId, profileName)
+        }
 
         const defaults: Partial<Call> = {
             phoneNumberId: metadata?.phone_number_id ?? "",
             displayPhoneNumber: metadata?.display_phone_number ?? null,
             waId: waId ?? "",
-            profileName: contacts[0]?.profile?.name ?? null,
+            profileName,
             direction,
             status: CallStatus.PENDING,
             statusRank: 10,

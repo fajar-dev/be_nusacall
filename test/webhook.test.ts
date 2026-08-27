@@ -18,6 +18,7 @@ import { config } from "../src/config/config"
 import { getDataSource } from "../src/config/database"
 import { Call } from "../src/modules/call/entities/call.entity"
 import { CallEvent } from "../src/modules/call/entities/call-event.entity"
+import { Contact } from "../src/modules/contact/entities/contact.entity"
 import { CallStatus } from "../src/modules/call/enum/call-status.enum"
 
 let app: Hono
@@ -58,6 +59,11 @@ async function getCall(wacid: string): Promise<Call | null> {
 async function countCallEvents(wacid: string): Promise<number> {
     const repo = getDataSource().getRepository(CallEvent)
     return await repo.countBy({ wacid })
+}
+
+async function getContact(waId: string): Promise<Contact | null> {
+    const repo = getDataSource().getRepository(Contact)
+    return await repo.findOneBy({ waId })
 }
 
 // Webhook processing is fire-and-forget (queueMicrotask) — 150ms headroom avoids a
@@ -132,6 +138,41 @@ describe("Call Lifecycle - normal flow (connect -> terminate)", () => {
         expect(call!.statusRank).toBe(90)
         expect(call!.durationSeconds).toBe(135)
         expect(call!.endedAt).not.toBeNull()
+    })
+})
+
+describe("Contact - auto-saved on inbound calls", () => {
+    test("an inbound connect from a new number saves a contact", async () => {
+        const waId = "628111000001"
+        await postWebhook(app, createConnectWebhookPayload({ waId, profileName: "Budi" }))
+        await flush()
+
+        const contact = await getContact(waId)
+        expect(contact).not.toBeNull()
+        expect(contact!.profileName).toBe("Budi")
+    })
+
+    test("a second inbound call from the same number does not create a duplicate or overwrite the name", async () => {
+        const waId = "628111000002"
+        await postWebhook(app, createConnectWebhookPayload({ waId, profileName: "Budi" }))
+        await flush()
+
+        await postWebhook(app, createConnectWebhookPayload({ waId, profileName: "Someone Else" }))
+        await flush()
+
+        const repo = getDataSource().getRepository(Contact)
+        const matches = await repo.findBy({ waId })
+        expect(matches).toHaveLength(1)
+        expect(matches[0]!.profileName).toBe("Budi")
+    })
+
+    /** For BUSINESS_INITIATED, handleConnect resolves waId from the payload's fixed `to` field, not the `waId` override (that only sets `from`). */
+    test("an outbound connect does not save the dialed number as a contact", async () => {
+        const dialedNumber = "62819854321"
+        await postWebhook(app, createConnectWebhookPayload({ direction: "BUSINESS_INITIATED" }))
+        await flush()
+
+        expect(await getContact(dialedNumber)).toBeNull()
     })
 })
 

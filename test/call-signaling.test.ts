@@ -10,6 +10,8 @@ import { CallMediaCoordinator } from "../src/modules/call/call-media.coordinator
 import { WebhookService } from "../src/modules/webhook/webhook.service"
 import { CallRecordingService } from "../src/modules/call/call-recording.service"
 import { TypeOrmCallRecordingRepository } from "../src/modules/call/repositories/call-recording.repository"
+import { ContactService } from "../src/modules/contact/contact.service"
+import { TypeOrmContactRepository } from "../src/modules/contact/repositories/contact.repository"
 import { RoutingService } from "../src/modules/routing/routing.service"
 import { CallStatus } from "../src/modules/call/enum/call-status.enum"
 import { CallDirection } from "../src/modules/call/enum/call-direction.enum"
@@ -85,6 +87,7 @@ function fakeNusawaLog(): { enqueued: unknown[]; service: NusawaLogService } {
 
 let callRepository: TypeOrmCallRepository
 let callStateService: CallStateService
+let contactService: ContactService
 let agent1Id: number
 let agent2Id: number
 
@@ -92,6 +95,7 @@ beforeAll(async () => {
     await initTestDatabase()
     callRepository = new TypeOrmCallRepository()
     callStateService = new CallStateService(callRepository, new TypeOrmCallEventRepository())
+    contactService = new ContactService(new TypeOrmContactRepository())
 })
 
 afterAll(async () => {
@@ -365,6 +369,7 @@ describe("CallSignalingService.initiateOutbound", () => {
         const webhook = new WebhookService(
             callStateService, media, signaling, callRepository,
             new CallRecordingService(new TypeOrmCallRecordingRepository(), fakeMetaClient(), { upload: async () => "", getPresignedUrl: async () => "", download: async () => Buffer.from("") }),
+            contactService,
         )
 
         const agentOfferSdp = await fakeBrowserOfferSdp()
@@ -479,6 +484,7 @@ describe("WebhookService + CallSignalingService — terminate logging", () => {
         const webhook = new WebhookService(
             callStateService, noopMedia, signaling, callRepository,
             new CallRecordingService(new TypeOrmCallRecordingRepository(), fakeMetaClient(), { upload: async () => "", getPresignedUrl: async () => "", download: async () => Buffer.from("") }),
+            contactService,
         )
 
         const payload = createTerminateWebhookPayload({ wacid, status: "COMPLETED", duration: 42 })
@@ -512,6 +518,7 @@ describe("WebhookService + CallSignalingService — terminate logging", () => {
         const webhook = new WebhookService(
             callStateService, noopMedia, signaling, callRepository,
             new CallRecordingService(new TypeOrmCallRecordingRepository(), fakeMetaClient(), { upload: async () => "", getPresignedUrl: async () => "", download: async () => Buffer.from("") }),
+            contactService,
         )
 
         await signaling.handleHangup("agent1@nusa.id", wacid)
