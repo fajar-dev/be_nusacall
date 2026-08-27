@@ -173,6 +173,17 @@ components:
           properties:
             id: { type: integer, example: 3 }
             name: { type: string, example: "Helpdesk Medan" }
+        branch:
+          type: object
+          nullable: true
+          description: >-
+            Office branch, resolved during the Nusawork sync by matching the
+            employee's `branch_id` against `Branch.code`. Null when the code has
+            no matching Branch yet.
+          properties:
+            id: { type: integer, example: 2 }
+            name: { type: string, example: "PT. Media Antar Nusa - HO" }
+            code: { type: string, example: "020" }
         availability:
           type: string
           enum: [available, offline]

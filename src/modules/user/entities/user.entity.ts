@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index, OneToMany } from "typeorm"
 import type { Relation } from "typeorm"
 import { Organization } from "../../organization/entities/organization.entity"
+import { Branch } from "../../branch/entities/branch.entity"
 import { Role } from "../enums/role.enum"
 
 @Entity("users")
@@ -15,6 +16,14 @@ export class User {
     @ManyToOne(() => Organization, { onDelete: "SET NULL", nullable: true })
     @JoinColumn({ name: "organization_id" })
     organization?: Relation<Organization> | null
+
+    @Index()
+    @Column({ name: "branch_id", nullable: true })
+    branchId!: number | null
+
+    @ManyToOne(() => Branch, { onDelete: "SET NULL", nullable: true })
+    @JoinColumn({ name: "branch_id" })
+    branch?: Relation<Branch> | null
 
     @Index()
     @Column({ name: "employee_id" })

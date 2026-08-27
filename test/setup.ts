@@ -11,6 +11,7 @@ import { Account } from "../src/modules/account/entities/account.entity"
 import { User } from "../src/modules/user/entities/user.entity"
 import { Organization } from "../src/modules/organization/entities/organization.entity"
 import { Contact } from "../src/modules/contact/entities/contact.entity"
+import { Branch } from "../src/modules/branch/entities/branch.entity"
 import { ApiResponse } from "../src/core/helpers/response"
 import { BaseException, ValidationException } from "../src/core/exceptions/base"
 import { ZodError } from "zod"
@@ -32,7 +33,7 @@ const TestDataSource = new DataSource({
     synchronize: true,
     dropSchema: true,
     timezone: "Z", // see src/config/database.ts — mysql2 defaults to local-time serialization
-    entities: [Call, CallEvent, NusawaLogQueue, CallRecording, CallPermission, Account, User, Organization, Contact],
+    entities: [Call, CallEvent, NusawaLogQueue, CallRecording, CallPermission, Account, User, Organization, Contact, Branch],
     logging: false,
 })
 

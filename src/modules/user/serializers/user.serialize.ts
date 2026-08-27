@@ -22,6 +22,7 @@ export class UserSerializer {
             employeeId: user.employeeId,
             isActive: Boolean(user.isActive),
             role: user.role,
+            branch: user.branch ? { id: user.branch.id, name: user.branch.name, code: user.branch.code } : null,
             availability: presence?.availability ?? "offline",
             currentCallId: presence?.currentCallId ?? null,
         }

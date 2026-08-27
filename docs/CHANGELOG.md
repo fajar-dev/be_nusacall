@@ -14,6 +14,14 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.7.1] — 2026-08-27
+
+### Fixed
+
+- **`sync-user.job.ts`**: Fixed User sync job by removing non-existent fields (`jobPosition`, `phone`) from entity creation, updating existing user entity instances to preserve existing fields (such as `role` and `lastSeenAt`), performing case-insensitive `active_status` checks, and skipping invalid employee records with missing `user_id` or `email`.
+
+---
+
 ## [0.7.0] — 2026-08-24
 
 ### Added

@@ -4,7 +4,10 @@
     "dev": "bun run --hot src/index.ts",
     "build": "bun build --minify --outfile dist/index.js --target bun src/index.ts",
     "start": "bun run src/index.ts",
-    "test": "bun test --timeout 30000"
+    "test": "bun test --timeout 30000",
+    "sync:organization": "bun run src/jobs/sync-organization.job.ts",
+    "sync:user": "bun run src/jobs/sync-user.job.ts",
+    "sync:branch": "bun run src/jobs/sync-branch.job.ts"
   },
   "dependencies": {
     "@hono/swagger-ui": "^0.6.1",

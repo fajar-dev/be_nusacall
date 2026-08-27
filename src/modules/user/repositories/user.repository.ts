@@ -15,6 +15,7 @@ export class UserRepository implements IUserRepository {
 
         const query = this.repository.createQueryBuilder("user")
             .leftJoinAndSelect("user.organization", "organization")
+            .leftJoinAndSelect("user.branch", "branch")
             .where("user.deleted_at IS NULL")
 
         if (q) {
@@ -74,6 +75,7 @@ export class UserRepository implements IUserRepository {
     async findById(id: number): Promise<User | null> {
         return await this.repository.createQueryBuilder("user")
             .leftJoinAndSelect("user.organization", "organization")
+            .leftJoinAndSelect("user.branch", "branch")
             .where("user.id = :id", { id })
             .andWhere("user.deleted_at IS NULL")
             .getOne()
