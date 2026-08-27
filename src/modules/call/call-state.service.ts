@@ -28,7 +28,7 @@ export interface ProcessResult {
  * ICallRepository.updateIfRankLower's SQL guard, safe under concurrent webhook delivery — Meta
  * itself does not protect against that.
  */
-export type CallBoardListener = (call: Call) => void
+export type CallBoardListener = (call: Call) => void | Promise<void>
 
 export class CallStateService {
     private boardListener: CallBoardListener | null = null

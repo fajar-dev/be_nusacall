@@ -4,6 +4,7 @@ import { CallStatus, CALL_STATUS_RANK } from "../enum/call-status.enum"
 import { CallDirection } from "../enum/call-direction.enum"
 import { EndReason } from "../enum/end-reason.enum"
 import { User } from "../../user/entities/user.entity"
+import { Contact } from "../../contact/entities/contact.entity"
 
 @Entity("calls")
 @Index(["status", "createdAt"])
@@ -31,6 +32,14 @@ export class Call {
 
     @Column({ name: "contact_name", length: 128, nullable: true })
     contactName?: string | null
+
+    @Index()
+    @Column({ name: "contact_id", nullable: true })
+    contactId?: number | null
+
+    @ManyToOne(() => Contact, { onDelete: "SET NULL", nullable: true })
+    @JoinColumn({ name: "contact_id" })
+    contact?: Relation<Contact> | null
 
     @Index()
     @Column({ name: "user_id", nullable: true })

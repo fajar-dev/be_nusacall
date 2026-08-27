@@ -27,7 +27,10 @@ export class TypeOrmCallRepository implements ICallRepository {
         order: SortOrder = "DESC"
     ): Promise<{ data: Call[]; total: number }> {
         const offset = (page - 1) * limit
-        const query = this.repository.createQueryBuilder("call").leftJoinAndSelect("call.user", "user")
+        const query = this.repository.createQueryBuilder("call")
+            .leftJoinAndSelect("call.user", "user")
+            .leftJoinAndSelect("user.organization", "organization")
+            .leftJoinAndSelect("call.contact", "contact")
 
         if (filter.q) {
             query.andWhere(
@@ -62,11 +65,11 @@ export class TypeOrmCallRepository implements ICallRepository {
     }
 
     async findById(id: number): Promise<Call | null> {
-        return await this.repository.findOne({ where: { id }, relations: { user: true } })
+        return await this.repository.findOne({ where: { id }, relations: { user: { organization: true }, contact: true } })
     }
 
     async findByWacid(wacid: string): Promise<Call | null> {
-        return await this.repository.findOne({ where: { wacid }, relations: { user: true } })
+        return await this.repository.findOne({ where: { wacid }, relations: { user: { organization: true }, contact: true } })
     }
 
     async updateIfRankLower(
@@ -100,7 +103,7 @@ export class TypeOrmCallRepository implements ICallRepository {
     async findOrCreateByWacid(wacid: string, defaults: Partial<Call>, manager?: EntityManager): Promise<Call> {
         const runner = manager ? manager.getRepository(Call) : this.repository
 
-        const existing = await runner.findOne({ where: { wacid }, relations: { user: true } })
+        const existing = await runner.findOne({ where: { wacid }, relations: { user: { organization: true }, contact: true } })
         if (existing) return existing
 
         try {

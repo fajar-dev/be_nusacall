@@ -1,17 +1,17 @@
 import { Call } from "../entities/call.entity"
+import { UserSerializer } from "../../user/serializers/user.serialize"
+import { ContactSerializer } from "../../contact/serializers/contact.serialize"
 
 export class CallSerializer {
-    static single(call: Call) {
+    static async single(call: Call) {
         return {
             id: call.id,
             wacid: call.wacid,
             phoneNumberId: call.phoneNumberId,
             displayPhoneNumber: call.displayPhoneNumber,
             waId: call.waId,
-            profileName: call.profileName,
-            contactName: call.contactName,
-            userId: call.userId ?? null,
-            agentEmail: call.user?.email ?? null,
+            contact: call.contact ? ContactSerializer.single(call.contact) : null,
+            user: call.user ? await UserSerializer.summary(call.user) : null,
             direction: call.direction,
             status: call.status,
             endReason: call.endReason,
@@ -28,7 +28,7 @@ export class CallSerializer {
         }
     }
 
-    static collection(calls: Call[]) {
-        return calls.map((c) => this.single(c))
+    static async collection(calls: Call[]) {
+        return Promise.all(calls.map((c) => this.single(c)))
     }
 }

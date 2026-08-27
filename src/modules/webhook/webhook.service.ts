@@ -142,16 +142,14 @@ export class WebhookService {
         const direction = fromMetaDirection(callObj.direction ?? "USER_INITIATED")
         const waId = direction === CallDirection.INBOUND ? callObj.from : callObj.to
         const profileName = contacts[0]?.profile?.name ?? null
-
-        if (direction === CallDirection.INBOUND && waId) {
-            await this.contacts.findOrCreate(waId, profileName)
-        }
+        const contactId = await this.resolveContactId(direction, waId ?? "", profileName)
 
         const defaults: Partial<Call> = {
             phoneNumberId: metadata?.phone_number_id ?? "",
             displayPhoneNumber: metadata?.display_phone_number ?? null,
             waId: waId ?? "",
             profileName,
+            contactId,
             direction,
             status: CallStatus.PENDING,
             statusRank: 10,
@@ -208,9 +206,13 @@ export class WebhookService {
         })
         if (!accepted) return
 
+        const statusWaId = statusObj.recipient_id ?? ""
+        const contactId = await this.resolveContactId(CallDirection.OUTBOUND, statusWaId, null)
+
         await this.callState.findOrCreate(statusObj.id, {
             phoneNumberId: metadata?.phone_number_id ?? "",
-            waId: statusObj.recipient_id ?? "",
+            waId: statusWaId,
+            contactId,
             direction: CallDirection.OUTBOUND,
             status: CallStatus.PENDING,
             statusRank: 10,
@@ -257,11 +259,14 @@ export class WebhookService {
 
         const direction = fromMetaDirection(callObj.direction ?? "USER_INITIATED")
         const waId = direction === CallDirection.INBOUND ? callObj.from : callObj.to
+        const profileName = contacts[0]?.profile?.name ?? null
+        const contactId = await this.resolveContactId(direction, waId ?? "", profileName)
         const call = await this.callState.findOrCreate(callObj.id, {
             phoneNumberId: metadata?.phone_number_id ?? "",
             displayPhoneNumber: metadata?.display_phone_number ?? null,
             waId: waId ?? "",
-            profileName: contacts[0]?.profile?.name ?? null,
+            profileName,
+            contactId,
             direction,
             status: CallStatus.PENDING,
             statusRank: 10,
@@ -326,6 +331,17 @@ export class WebhookService {
         })
     }
 
+    /** Creates a contact on first sight of an inbound waId; for outbound, only links an existing one — never creates. */
+    private async resolveContactId(direction: CallDirection, waId: string, profileName: string | null): Promise<number | null> {
+        if (!waId) return null
+        if (direction === CallDirection.INBOUND) {
+            const contact = await this.contacts.findOrCreate(waId, profileName)
+            return contact.id
+        }
+        const contact = await this.contacts.findByWaId(waId)
+        return contact?.id ?? null
+    }
+
     private handleAccountUpdate(value: MetaAccountUpdateValue, businessAccountId: string): void {
         if (value.event === "ACCOUNT_VIOLATION") {
             logger.error("Meta account_update: ACCOUNT_VIOLATION — launch-stop criterion, evaluate immediately", {
@@ -376,12 +392,15 @@ export class WebhookService {
 
         const direction = fromMetaDirection(callObj.direction ?? "USER_INITIATED")
         const waId = direction === CallDirection.INBOUND ? callObj.from : callObj.to
+        const profileName = contacts[0]?.profile?.name ?? null
+        const contactId = await this.resolveContactId(direction, waId ?? "", profileName)
 
         await this.callState.findOrCreate(callObj.id, {
             phoneNumberId: metadata?.phone_number_id ?? "",
             displayPhoneNumber: metadata?.display_phone_number ?? null,
             waId: waId ?? "",
-            profileName: contacts[0]?.profile?.name ?? null,
+            profileName,
+            contactId,
             direction,
             status: CallStatus.PENDING,
             statusRank: 10,

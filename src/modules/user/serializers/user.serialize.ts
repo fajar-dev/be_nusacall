@@ -4,16 +4,23 @@ import { presenceRegistry } from "../presence.registry"
 
 export class UserSerializer {
 
+    /** Lean shape for embedding a user inside another resource's response (e.g. Call.user). */
+    static async summary(user: User) {
+        return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            photo: await resolveFileUrl(user.photo),
+            organization: user.organization ? { id: user.organization.id, name: user.organization.name } : null,
+        }
+    }
+
     static async single(user: User) {
         const presence = presenceRegistry.get(user.email)
         return {
-            id: user.id,
+            ...(await this.summary(user)),
             employeeId: user.employeeId,
-            name: user.name,
-            photo: await resolveFileUrl(user.photo),
-            email: user.email,
             isActive: Boolean(user.isActive),
-            organization: user.organization ? { id: user.organization.id, name: user.organization.name } : null,
             role: user.role,
             availability: presence?.availability ?? "offline",
             currentCallId: presence?.currentCallId ?? null,

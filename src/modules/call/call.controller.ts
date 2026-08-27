@@ -9,7 +9,6 @@ import { BadGatewayException, ForbiddenException } from "../../core/exceptions/b
 import { PermissionStatus } from "../permission/enum/permission-status.enum"
 import type { User } from "../user/entities/user.entity"
 
-/** Error codes and messages from Meta's Calling API troubleshooting docs. */
 const OUTBOUND_ERROR_MESSAGES: Record<number, string> = {
     138006: "This customer hasn't granted call permission yet — request it first.",
     138009: "Too many permission requests sent to this customer recently — try again later.",
@@ -49,13 +48,13 @@ export class CallController {
             order
         )
 
-        return ApiResponse.paginate(c, CallSerializer.collection(data), total, page, limit)
+        return ApiResponse.paginate(c, await CallSerializer.collection(data), total, page, limit)
     }
 
     async show(c: Context) {
         const id = Number(c.req.param("id"))
         const call = await this.service.getById(id)
-        return ApiResponse.success(c, CallSerializer.single(call))
+        return ApiResponse.success(c, await CallSerializer.single(call))
     }
 
     async stats(c: Context) {
