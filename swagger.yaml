@@ -26,7 +26,7 @@ tags:
     description: Organization tree, used to group and filter users
   - name: Call
     description: Call history and stats
-  - name: Phone Number
+  - name: Account
     description: Per-number calling configuration, synced to Meta
   - name: Upload
     description: File upload & retrieval via MinIO object storage
@@ -276,7 +276,7 @@ components:
             description: "answered / total, null when total is 0",
           }
 
-    # --- Phone Number Schemas ---
+    # --- Account Schemas ---
     CallHoursDay:
       type: object
       properties:
@@ -306,10 +306,11 @@ components:
               start_time: { type: string, example: "0000" }
               end_time: { type: string, example: "2359" }
 
-    PhoneNumber:
+    Account:
       type: object
       properties:
         id: { type: integer, example: 1 }
+        appId: { type: string, nullable: true, example: "1234567890123456" }
         phoneNumberId: { type: string, example: "202063559668129" }
         displayPhoneNumber: { type: string, example: "+62 819-8543-21" }
         label: { type: string, example: "Helpdesk Medan" }
@@ -321,7 +322,7 @@ components:
         answerTimeoutSeconds: { type: integer, example: 20 }
         lastSyncedAt: { type: string, format: date-time, nullable: true }
 
-    UpdatePhoneNumberRequest:
+    UpdateAccountRequest:
       type: object
       properties:
         label: { type: string }
@@ -1028,13 +1029,13 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
 
-  # ── Phone Number Admin ───────────────────────────────────────────────────
-  /phone-number:
+  # ── Account Admin ────────────────────────────────────────────────────────
+  /account:
     parameters:
       - $ref: "#/components/parameters/AcceptLanguage"
     get:
-      tags: [Phone Number]
-      summary: Get all configured phone numbers
+      tags: [Account]
+      summary: Get all configured accounts
       security:
         - bearerAuth: []
       parameters:
@@ -1046,7 +1047,7 @@ paths:
           schema: { type: integer, default: 10 }
       responses:
         "200":
-          description: Phone numbers retrieved successfully
+          description: Accounts retrieved successfully
           content:
             application/json:
               schema:
@@ -1056,7 +1057,7 @@ paths:
                     properties:
                       data:
                         type: array
-                        items: { $ref: "#/components/schemas/PhoneNumber" }
+                        items: { $ref: "#/components/schemas/Account" }
                       meta: { $ref: "#/components/schemas/PaginationMeta" }
         "401":
           description: Unauthorized
@@ -1064,7 +1065,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
 
-  /phone-number/{id}:
+  /account/{id}:
     parameters:
       - $ref: "#/components/parameters/AcceptLanguage"
       - name: id
@@ -1072,13 +1073,13 @@ paths:
         required: true
         schema: { type: integer }
     get:
-      tags: [Phone Number]
-      summary: Get a single phone number's configuration
+      tags: [Account]
+      summary: Get a single account's configuration
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: Phone number retrieved successfully
+          description: Account retrieved successfully
           content:
             application/json:
               schema:
@@ -1086,20 +1087,20 @@ paths:
                   - $ref: "#/components/schemas/BaseResponse"
                   - type: object
                     properties:
-                      data: { $ref: "#/components/schemas/PhoneNumber" }
+                      data: { $ref: "#/components/schemas/Account" }
         "401":
           description: Unauthorized
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
         "404":
-          description: Phone number not found
+          description: Account not found
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
 
     put:
-      tags: [Phone Number]
+      tags: [Account]
       summary: Update configuration and push the FULL config to Meta
       description: >-
         call_hours is a REPLACE on Meta's side, not a merge — this endpoint always sends
@@ -1110,7 +1111,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/UpdatePhoneNumberRequest" }
+            schema: { $ref: "#/components/schemas/UpdateAccountRequest" }
       responses:
         "200":
           description: Updated and synced to Meta successfully
@@ -1121,14 +1122,14 @@ paths:
                   - $ref: "#/components/schemas/BaseResponse"
                   - type: object
                     properties:
-                      data: { $ref: "#/components/schemas/PhoneNumber" }
+                      data: { $ref: "#/components/schemas/Account" }
         "401":
           description: Unauthorized
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
         "404":
-          description: Phone number not found
+          description: Account not found
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -1143,7 +1144,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
 
-  /phone-number/{id}/sync:
+  /account/{id}/sync:
     parameters:
       - $ref: "#/components/parameters/AcceptLanguage"
       - name: id
@@ -1151,7 +1152,7 @@ paths:
         required: true
         schema: { type: integer }
     post:
-      tags: [Phone Number]
+      tags: [Account]
       summary: Re-push the current local config to Meta without changing it
       security:
         - bearerAuth: []
@@ -1165,7 +1166,7 @@ paths:
                   - $ref: "#/components/schemas/BaseResponse"
                   - type: object
                     properties:
-                      data: { $ref: "#/components/schemas/PhoneNumber" }
+                      data: { $ref: "#/components/schemas/Account" }
         "401":
           description: Unauthorized
           content:
@@ -1177,7 +1178,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
 
-  /phone-number/{id}/health:
+  /account/{id}/health:
     parameters:
       - $ref: "#/components/parameters/AcceptLanguage"
       - name: id
@@ -1185,8 +1186,8 @@ paths:
         required: true
         schema: { type: integer }
     get:
-      tags: [Phone Number]
-      summary: Get the phone number's health status from Meta
+      tags: [Account]
+      summary: Get the account's health status from Meta
       security:
         - bearerAuth: []
       responses:

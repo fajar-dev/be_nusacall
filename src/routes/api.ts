@@ -3,7 +3,7 @@ import crypto from "crypto"
 import { zValidator } from "@hono/zod-validator"
 
 import { LoginValidator, GoogleLoginValidator, RefreshTokenValidator } from "../modules/auth/validators/auth.validator"
-import { UpdatePhoneNumberValidator } from "../modules/phone-number/validators/phone-number.validator"
+import { UpdateAccountValidator } from "../modules/account/validators/account.validator"
 
 import { authMiddleware } from "../core/middlewares/auth.middleware"
 import { validationHook } from "../core/helpers/validator"
@@ -11,7 +11,7 @@ import { BadRequestException } from "../core/exceptions/base"
 
 import { authController } from "../modules/auth/auth.module"
 import { callController } from "../modules/call/call.module"
-import { phoneNumberController } from "../modules/phone-number/phone-number.module"
+import { accountController } from "../modules/account/account.module"
 import { permissionController } from "../modules/permission/permission.module"
 import { RequestPermissionValidator } from "../modules/permission/validators/permission.validator"
 import { RequestOutboundCallValidator } from "../modules/call/validators/call.validator"
@@ -19,6 +19,7 @@ import { userController } from "../modules/user/user.module"
 import { CreateUserValidator, UpdateUserValidator } from "../modules/user/validators/user.validator"
 import { organizationController } from "../modules/organization/organization.module"
 import { contactController } from "../modules/contact/contact.module"
+import { branchController } from "../modules/branch/branch.module"
 
 const routes = new Hono()
 
@@ -42,6 +43,7 @@ routes.put("/user/:id", authMiddleware, zValidator("json", UpdateUserValidator, 
 routes.delete("/user/:id", authMiddleware, (c) => userController.destroy(c))
 
 routes.get("/organization/list", authMiddleware, (c) => organizationController.list(c))
+routes.get("/branch/list", authMiddleware, (c) => branchController.list(c))
 
 routes.get("/call", authMiddleware, (c) => callController.index(c))
 routes.get("/call/stats", authMiddleware, (c) => callController.stats(c))
@@ -49,11 +51,11 @@ routes.get("/call/:id", authMiddleware, (c) => callController.show(c))
 routes.get("/call/:id/recording", authMiddleware, (c) => callController.recording(c))
 routes.get("/call/:id/transcript", authMiddleware, (c) => callController.transcript(c))
 
-routes.get("/phone-number", authMiddleware, (c) => phoneNumberController.index(c))
-routes.get("/phone-number/:id", authMiddleware, (c) => phoneNumberController.show(c))
-routes.put("/phone-number/:id", authMiddleware, zValidator("json", UpdatePhoneNumberValidator, validationHook), (c) => phoneNumberController.update(c))
-routes.post("/phone-number/:id/sync", authMiddleware, (c) => phoneNumberController.sync(c))
-routes.get("/phone-number/:id/health", authMiddleware, (c) => phoneNumberController.health(c))
+routes.get("/account", authMiddleware, (c) => accountController.index(c))
+routes.get("/account/:id", authMiddleware, (c) => accountController.show(c))
+routes.put("/account/:id", authMiddleware, zValidator("json", UpdateAccountValidator, validationHook), (c) => accountController.update(c))
+routes.post("/account/:id/sync", authMiddleware, (c) => accountController.sync(c))
+routes.get("/account/:id/health", authMiddleware, (c) => accountController.health(c))
 
 routes.get("/contact", authMiddleware, (c) => contactController.index(c))
 routes.get("/contact/:id", authMiddleware, (c) => contactController.show(c))

@@ -1,10 +1,13 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, UpdateDateColumn } from "typeorm"
 import { CallIconVisibility } from "../enum/call-icon-visibility.enum"
 
-@Entity("phone_numbers")
-export class PhoneNumber {
+@Entity("accounts")
+export class Account {
     @PrimaryGeneratedColumn()
     id!: number
+
+    @Column({ name: "app_id", length: 32, nullable: true })
+    appId?: string | null
 
     @Index({ unique: true })
     @Column({ name: "phone_number_id", length: 32 })

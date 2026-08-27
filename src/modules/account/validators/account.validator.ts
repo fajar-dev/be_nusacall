@@ -22,7 +22,7 @@ const CallHoursValidator = z.object({
         .optional(),
 })
 
-export const UpdatePhoneNumberValidator = z.object({
+export const UpdateAccountValidator = z.object({
     label: z.string().min(1, "label is required").optional(),
     callingEnabled: z.boolean().optional(),
     callIconVisibility: z.nativeEnum(CallIconVisibility).optional(),
@@ -30,4 +30,4 @@ export const UpdatePhoneNumberValidator = z.object({
     answerTimeoutSeconds: z.number().int().min(5).max(25).optional(),
     callHours: CallHoursValidator.nullable().optional(),
 })
-export type UpdatePhoneNumberValidator = z.infer<typeof UpdatePhoneNumberValidator>
+export type UpdateAccountValidator = z.infer<typeof UpdateAccountValidator>
