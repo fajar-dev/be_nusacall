@@ -46,16 +46,34 @@ export class MediaSession {
         )
     }
 
+    /**
+     * Without this, a leg that never completes ICE looks identical in the logs to
+     * one that works — both just report zero packets when the session closes.
+     */
+    private traceIce(pc: RTCPeerConnection, leg: "meta" | "agent"): void {
+        pc.iceConnectionStateChange.subscribe((state) => {
+            logger.info("ICE state changed", { wacid: this.wacid, leg, state })
+        })
+    }
+
+    /** The c= and a=candidate lines actually offered to the peer, so a wrong advertised IP is visible. */
+    private logCandidates(sdp: string, leg: "meta" | "agent" | "meta-remote"): void {
+        const lines = sdp.split(/\r?\n/).filter((l) => l.startsWith("a=candidate:") || l.startsWith("c="))
+        logger.info("Local ICE candidates", { wacid: this.wacid, leg, lines })
+    }
+
     async acceptMetaOffer(offerSdp: string): Promise<string> {
         if (this.closed) throw new Error(`MediaSession ${this.wacid} is already closed`)
 
         this.legA = createPeerConnection()
+        this.traceIce(this.legA, "meta")
         this.transceiverA = this.legA.addTransceiver("audio", { direction: "sendrecv" })
 
         this.transceiverA.onTrack.subscribe((track) => {
             track.onReceiveRtp.subscribe((rtp) => this.forwardToAgent(rtp))
         })
 
+        this.logCandidates(offerSdp, "meta-remote")
         await this.legA.setRemoteDescription({ type: "offer", sdp: offerSdp })
         const answer = await this.legA.createAnswer()
         await this.legA.setLocalDescription(answer)
@@ -66,6 +84,7 @@ export class MediaSession {
         assertValidOutboundSdp(finalSdp)
 
         this.metaAnswerSdp = finalSdp
+        this.logCandidates(finalSdp, "meta")
         return finalSdp
     }
 
@@ -105,6 +124,7 @@ export class MediaSession {
         if (this.closed) throw new Error(`MediaSession ${this.wacid} is already closed`)
 
         this.legB = createPeerConnection()
+        this.traceIce(this.legB, "agent")
         this.transceiverB = this.legB.addTransceiver("audio", { direction: "sendrecv" })
 
         this.transceiverB.onTrack.subscribe((track) => {
