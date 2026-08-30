@@ -95,6 +95,21 @@ describe("GET /api/call - akun dan pengurutan", () => {
         expect(body.data.map((c: { contact: { name: string } }) => c.contact.name)).toEqual(["Andi", "Zaki"])
     })
 
+    test("dapat disaring berdasarkan kontak", async () => {
+        const { headers } = await createUserAndToken()
+        const repo = getDataSource().getRepository(Contact)
+        const budi = await repo.save({ phoneNumber: "628700000001", name: "Budi" })
+        const dedi = await repo.save({ phoneNumber: "628700000002", name: "Dedi" })
+        await seedCall({ contactId: budi.id })
+        await seedCall({ contactId: budi.id })
+        await seedCall({ contactId: dedi.id })
+
+        const { body } = await request(app, `/api/call?contactId=${budi.id}`, { headers })
+
+        expect(body.meta.total).toBe(2)
+        expect(body.data.every((c: { contact: { id: number } }) => c.contact.id === budi.id)).toBe(true)
+    })
+
     test("dapat diurutkan berdasarkan durasi", async () => {
         const { headers } = await createUserAndToken()
         await seedCall({ durationSeconds: 300 })

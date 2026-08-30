@@ -917,6 +917,10 @@ paths:
         - name: userId
           in: query
           schema: { type: integer }
+        - name: contactId
+          in: query
+          description: Batasi pada panggilan milik satu kontak
+          schema: { type: integer }
         - name: phoneNumberId
           in: query
           schema: { type: string }

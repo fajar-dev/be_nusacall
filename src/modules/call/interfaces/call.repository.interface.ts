@@ -9,6 +9,7 @@ export interface CallListFilter {
     status?: CallStatus[]
     direction?: string
     userId?: number
+    contactId?: number
     phoneNumberId?: string
     from?: string
     to?: string

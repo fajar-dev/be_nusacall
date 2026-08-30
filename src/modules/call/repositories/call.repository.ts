@@ -53,6 +53,9 @@ export class TypeOrmCallRepository extends BaseRepository<Call> implements ICall
         if (filter.userId) {
             query.andWhere("call.userId = :userId", { userId: filter.userId })
         }
+        if (filter.contactId) {
+            query.andWhere("call.contactId = :contactId", { contactId: filter.contactId })
+        }
         if (filter.phoneNumberId) {
             query.andWhere("call.phoneNumberId = :phoneNumberId", { phoneNumberId: filter.phoneNumberId })
         }

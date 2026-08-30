@@ -40,6 +40,7 @@ export class CallController {
                 status: statusParam ? (statusParam.split(",") as CallStatus[]) : undefined,
                 direction: c.req.query("direction") || undefined,
                 userId: c.req.query("userId") ? Number(c.req.query("userId")) : undefined,
+                contactId: c.req.query("contactId") ? Number(c.req.query("contactId")) : undefined,
                 phoneNumberId: c.req.query("phoneNumberId") || undefined,
                 from: c.req.query("from") || undefined,
                 to: c.req.query("to") || undefined,
