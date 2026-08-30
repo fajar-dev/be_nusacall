@@ -25,6 +25,39 @@ export class NusawaClient {
             return false
         }
     }
+
+    async sendCallPermissionRequest(
+        phoneNumberId: string,
+        waId: string,
+        templateName?: string,
+        templateLanguage?: string
+    ): Promise<any> {
+        try {
+            const res = await this.http.post(
+                "/api/messages",
+                {
+                    phone_number_id: phoneNumberId,
+                    messaging_product: "whatsapp",
+                    to: waId,
+                    type: "template",
+                    template: {
+                        name: templateName || config.outbound.permissionTemplateName || "call_permission_request",
+                        language: {
+                            code: templateLanguage || config.outbound.permissionTemplateLanguage || "en_US",
+                        },
+                        components: [],
+                    },
+                },
+                {
+                    params: { phone_number_id: phoneNumberId },
+                }
+            )
+            return res.data
+        } catch (err) {
+            logger.error("nusawa sendCallPermissionRequest failed", { phoneNumberId, waId, err })
+            throw err
+        }
+    }
 }
 
 export const nusawaClient = new NusawaClient()

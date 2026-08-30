@@ -5,15 +5,9 @@ import { nusaworkClient } from "../src/infrastructure/nusawork/nusawork.client"
 import { AuthHelper } from "../src/core/helpers/auth"
 import { Role } from "../src/modules/user/enums/role.enum"
 
-// Lazy require(), not a top-level import: Bun evaluates static imports before any
-// beforeAll runs, which would construct UserRepository's singleton before
-// initTestDatabase() swaps in the test database.
 function getUserService(): { save: (data: unknown) => Promise<any> } {
     return require("../src/modules/user/user.module").userService
 }
-
-// Exercises the real login flow end-to-end except the network hop to Nusawork/Google,
-// both stubbed via spyOn since neither is reachable in this test environment.
 
 let app: Hono
 
@@ -201,8 +195,6 @@ describe("GET /api/auth/me", () => {
     })
 
     test("rejects a token for a user who has since been deactivated (401)", async () => {
-        // Guards against trusting a still-valid JWT after the account is deactivated —
-        // authMiddleware must re-check isActive on every request.
         const { user, headers } = await createUserAndToken({ email: "deactivated@nusa.id" })
         await getUserService().save({ id: user.id, isActive: false })
 

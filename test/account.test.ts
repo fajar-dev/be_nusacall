@@ -8,9 +8,6 @@ import { Account } from "../src/modules/account/entities/account.entity"
 import { CallIconVisibility } from "../src/modules/account/enum/call-icon-visibility.enum"
 import type { MetaClient } from "../src/infrastructure/meta/meta.client"
 
-// GET routes go through the real HTTP app (read-only, no Meta call). update/sync/health
-// call Meta, so those exercise AccountService directly with a mocked MetaClient instead.
-
 let app: Hono
 let repository: TypeOrmAccountRepository
 

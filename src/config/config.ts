@@ -1,7 +1,3 @@
-/**
- * All environment variables, centralized. JWT secrets are required in
- * production; DB_SYNC is force-disabled there to prevent data loss.
- */
 
 const env = process.env.NODE_ENV || 'development'
 const isProduction = env === 'production'

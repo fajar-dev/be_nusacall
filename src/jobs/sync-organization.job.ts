@@ -19,22 +19,17 @@ async function sync() {
             process.exit(0)
         }
 
-        // The API repeats every node both top-level and nested under each ancestor's `childs` —
-        // flatten to unique-by-id rows before touching the database.
         const rows = flattenNusaworkOrganizations(nodes)
         logger.info(`Fetched ${rows.length} unique organizations from Nusawork`)
 
         const repo = AppDataSource.getRepository(Organization)
         const batchSize = 500
 
-        // Pass 1: upsert every row with parentId stripped, so the self-referencing FK never
-        // points at a row that doesn't exist yet — input order isn't guaranteed parent-before-child.
         for (let i = 0; i < rows.length; i += batchSize) {
             const batch = rows.slice(i, i + batchSize).map(r => repo.create({ ...r, parentId: null }))
             await repo.upsert(batch, ["id"])
         }
 
-        // Pass 2: every id now exists, so it's safe to set the real parentId.
         let synced = 0
         for (let i = 0; i < rows.length; i += batchSize) {
             const batch = rows.slice(i, i + batchSize).map(r => repo.create(r))

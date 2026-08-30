@@ -1,4 +1,5 @@
 import { MetaClient } from "../../infrastructure/meta/meta.client"
+import { NusawaClient, nusawaClient as defaultNusawaClient } from "../../infrastructure/nusawa/nusawa.client"
 import { ICallPermissionRepository } from "./interfaces/call-permission.repository.interface"
 import { CallPermission } from "./entities/call-permission.entity"
 import { PermissionStatus } from "./enum/permission-status.enum"
@@ -15,6 +16,7 @@ export class PermissionService {
     constructor(
         private readonly repository: ICallPermissionRepository,
         private readonly metaClient: MetaClient,
+        private readonly nusawaClient: NusawaClient = defaultNusawaClient,
     ) {}
 
     async checkPermission(phoneNumberId: string, waId: string): Promise<PermissionCheckResult> {
@@ -35,7 +37,7 @@ export class PermissionService {
         if (!config.outbound.permissionTemplateName) {
             throw new BadRequestException("CALL_PERMISSION_TEMPLATE_NAME is not configured — create the template in Meta Business Manager first")
         }
-        await this.metaClient.sendCallPermissionRequest(phoneNumberId, waId)
+        await this.nusawaClient.sendCallPermissionRequest(phoneNumberId, waId)
         await this.repository.markRequested(phoneNumberId, waId, new Date())
     }
 }

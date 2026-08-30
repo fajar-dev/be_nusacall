@@ -97,7 +97,6 @@ export class MinioClient {
         })
     }
 
-    /** Falls through with whatever was decoded so far if the encoding turns out malformed. */
     sanitizePath(urlOrPath: string | null | undefined, bucket: string = BUCKET): string | null {
         if (!urlOrPath) return null
 

@@ -8,10 +8,6 @@ interface UserPresence {
     connectedAt: Date
 }
 
-/**
- * In-memory registry of online users — not persisted (WebSocket connections die with the process).
- * "Available" lasts the whole connection lifetime; "busy" is expressed by `currentCallId !== null`, not a separate state.
- */
 class PresenceRegistry {
     private readonly byEmail = new Map<string, UserPresence>()
     private readonly byConnection = new Map<string, string>()

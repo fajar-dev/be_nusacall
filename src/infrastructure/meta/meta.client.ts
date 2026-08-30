@@ -13,10 +13,6 @@ import type {
     MetaSendMessageResponse,
 } from "./meta.types"
 
-/**
- * Thin wrapper around the WhatsApp Business Calling Graph API — knows nothing
- * about Call/CallEvent entities; orchestration lives in the call/media modules.
- */
 export class MetaClient {
     private readonly http: AxiosInstance = axios.create({
         baseURL: `${config.meta.graphBaseUrl}/${config.meta.graphVersion}`,
@@ -60,7 +56,6 @@ export class MetaClient {
         return this.unwrap<T>(path, res)
     }
 
-    /** Pre-accepts an inbound call (UIC), establishing the media connection ahead of the agent actually answering. */
     async preAccept(phoneNumberId: string, callId: string, answerSdp: string): Promise<MetaCallActionResponse> {
         const body: MetaCallActionRequest = {
             messaging_product: "whatsapp",
@@ -71,10 +66,6 @@ export class MetaClient {
         return this.post(`/${phoneNumberId}/calls`, body)
     }
 
-    /**
-     * `answerSdp` MUST be byte-identical to what was sent in preAccept — Meta
-     * rejects a mismatch. Do NOT flow media until this resolves with success.
-     */
     async accept(phoneNumberId: string, callId: string, answerSdp: string): Promise<MetaCallActionResponse> {
         const body: MetaCallActionRequest = {
             messaging_product: "whatsapp",
@@ -86,10 +77,6 @@ export class MetaClient {
         return this.post(`/${phoneNumberId}/calls`, body)
     }
 
-    /**
-     * Both must be requested per-call — Meta has no account-wide toggle. Omitted
-     * entirely when disabled rather than sent as `{status: "DISABLED"}`, since Meta defaults to disabled anyway.
-     */
     private recordingFields(): Pick<MetaCallActionRequest, "recording" | "transcription"> {
         const fields: Pick<MetaCallActionRequest, "recording" | "transcription"> = {}
         if (config.recording.recordingEnabled) {
@@ -118,7 +105,6 @@ export class MetaClient {
         return this.post(`/${phoneNumberId}/calls`, body)
     }
 
-    /** Must be called even if the peer already sent an RTCP BYE — also makes billing more accurate. */
     async terminate(phoneNumberId: string, callId: string): Promise<MetaCallActionResponse> {
         const body: MetaCallActionRequest = {
             messaging_product: "whatsapp",
@@ -138,10 +124,6 @@ export class MetaClient {
         return this.post(`/${phoneNumberId}/calls`, body)
     }
 
-    /**
-     * Messages API (`/messages`), not the Calling API — the one place NusaCall
-     * sends a real outbound WhatsApp message. Requires the template to already exist in Meta Business Manager.
-     */
     async sendCallPermissionRequest(phoneNumberId: string, waId: string): Promise<MetaSendMessageResponse> {
         const body: MetaSendTemplateRequest = {
             messaging_product: "whatsapp",
@@ -156,12 +138,10 @@ export class MetaClient {
         return this.post(`/${phoneNumberId}/messages`, body)
     }
 
-    /** Checks permission status and remaining quota before every outbound call. */
     async getCallPermission(phoneNumberId: string, waId: string): Promise<MetaCallPermissionResponse> {
         return this.get(`/${phoneNumberId}/call_permissions`, { user_wa_id: waId })
     }
 
-    /** Bersifat REPLACE, bukan merge — Meta replaces the full settings object, not a partial merge. */
     async updateCallSettings(phoneNumberId: string, calling: Record<string, unknown>): Promise<{ success: boolean }> {
         return this.post(`/${phoneNumberId}/settings`, { calling })
     }
@@ -174,18 +154,10 @@ export class MetaClient {
         return this.get(`/${phoneNumberId}`, { fields: "health_status" })
     }
 
-    /**
-     * Refetches a fresh download URL by media id when the webhook's own `url`
-     * has expired (recording: 5 min; transcript: short-lived too).
-     */
     async getMediaUrl(mediaId: string): Promise<{ url: string; mime_type: string; sha256: string; file_size?: number }> {
         return this.get(`/${mediaId}`)
     }
 
-    /**
-     * NOT routed through `baseURL`/`post`/`get` — this is a `lookaside.fbsbx.com`
-     * asset URL, not a Graph API path, but still needs the same bearer token.
-     */
     async downloadMedia(url: string): Promise<Buffer> {
         const res = await this.http.get(url, { responseType: "arraybuffer" })
         if (res.status < 200 || res.status >= 300) {

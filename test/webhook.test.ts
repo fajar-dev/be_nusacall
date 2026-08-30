@@ -66,8 +66,6 @@ async function getContact(waId: string): Promise<Contact | null> {
     return await repo.findOneBy({ waId })
 }
 
-// Webhook processing is fire-and-forget (queueMicrotask) — 150ms headroom avoids a
-// leftover query racing the shared TestDataSource teardown in another test file.
 async function flush() {
     await new Promise((r) => setTimeout(r, 150))
 }
@@ -121,7 +119,6 @@ describe("Call Lifecycle - normal flow (connect -> terminate)", () => {
         expect(call!.status).toBe(CallStatus.PENDING)
         expect(call!.statusRank).toBe(10)
 
-        // Status webhook exercised purely to reach ACTIVE before terminating.
         await postWebhook(app, createStatusWebhookPayload({ wacid, status: "ACCEPTED" }))
         await flush()
 
@@ -166,7 +163,6 @@ describe("Contact - auto-saved on inbound calls", () => {
         expect(matches[0]!.profileName).toBe("Budi")
     })
 
-    /** For BUSINESS_INITIATED, handleConnect resolves waId from the payload's fixed `to` field, not the `waId` override (that only sets `from`). */
     test("an outbound connect does not save the dialed number as a contact", async () => {
         const dialedNumber = "62819854321"
         await postWebhook(app, createConnectWebhookPayload({ direction: "BUSINESS_INITIATED" }))
@@ -180,7 +176,6 @@ describe("Call Lifecycle - reversed order (terminate before connect)", () => {
     test("terminate arriving first creates the call as ABANDONED; a later connect does NOT revert it to PENDING", async () => {
         const wacid = "wacid.REVERSED1"
 
-        // terminate arrives FIRST — Meta does not guarantee webhook ordering.
         await postWebhook(app, createTerminateWebhookPayload({ wacid, status: "COMPLETED" }))
         await flush()
 
@@ -257,8 +252,6 @@ describe("Call Lifecycle - duplicate terminate after completion", () => {
         expect(call!.status).toBe(CallStatus.COMPLETED)
         expect(call!.durationSeconds).toBe(60)
 
-        // Different timestamp so this isn't deduped as an identical retry — it's a genuine
-        // second terminate trying to overwrite duration.
         await postWebhook(app, createTerminateWebhookPayload({
             wacid, status: "COMPLETED", duration: 9999, timestamp: Math.floor(Date.now() / 1000) + 5,
         }))
@@ -300,11 +293,9 @@ describe("Webhook - unrelated payloads", () => {
         const { status } = await postWebhook(app, payload)
         expect(status).toBe(204)
         await flush()
-        // No assertion target — just confirms no crash/side effect for the wrong field.
     })
 })
 
-// account_update is a launch-stop criteria signal, scoped per WABA.
 describe("Webhook - account_update", () => {
     test("ACCOUNT_VIOLATION (calling quality) is accepted without crashing the webhook pipeline", async () => {
         const payload = createAccountUpdateWebhookPayload({ event: "ACCOUNT_VIOLATION", violationType: "LOW_USER_INITIATED_CALLING_QUALITY" })
@@ -327,7 +318,6 @@ describe("Webhook - account_update", () => {
     test("account_update alongside a real calls event in the same delivery — both are processed", async () => {
         const wacid = "wacid.ACCTUPD1"
         const payload = createConnectWebhookPayload({ wacid })
-        // Meta can batch multiple `changes` per entry — merge an account_update in.
         payload.entry[0]!.changes.push({
             field: "account_update",
             value: { event: "ACCOUNT_VIOLATION", violation_info: { violation_type: "LOW_BUSINESS_INITIATED_CALLING_QUALITY" } },

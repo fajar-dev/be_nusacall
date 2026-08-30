@@ -12,7 +12,6 @@ export interface NusaCallJwtPayload {
 }
 
 export class AuthHelper {
-    /** Access token expires in 15 minutes, refresh token in 7 days. */
     static async generateTokens(user: any) {
         const accessToken = await sign(
             {
@@ -94,7 +93,6 @@ export class AuthHelper {
         return token
     }
 
-    /** Any fetch failure (network error or non-2xx) falls through to the exception below. */
     static async fetchQrCodeSvg(imageUrl: string): Promise<string> {
         try {
             const response = await fetch(imageUrl)
@@ -108,7 +106,6 @@ export class AuthHelper {
         throw new BadRequestException("Failed to load QR Code image from panel")
     }
 
-    /** Any parse failure (malformed JWT) falls through to the exception below. */
     static decodeEmailFromJwt(token: string): string {
         try {
             const parts = token.split(".")

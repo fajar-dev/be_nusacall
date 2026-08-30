@@ -8,6 +8,7 @@ import { SortOrder } from "../../core/interfaces/base.repository.interface"
 import { BadGatewayException, ForbiddenException } from "../../core/exceptions/base"
 import { PermissionStatus } from "../permission/enum/permission-status.enum"
 import type { User } from "../user/entities/user.entity"
+import { parsePagination } from "../../core/helpers/pagination"
 
 const OUTBOUND_ERROR_MESSAGES: Record<number, string> = {
     138006: "This customer hasn't granted call permission yet — request it first.",
@@ -26,8 +27,7 @@ export class CallController {
     ) {}
 
     async index(c: Context) {
-        const page = Number(c.req.query("page") || 1)
-        const limit = Number(c.req.query("limit") || 10)
+        const { page, limit } = parsePagination(c)
         const statusParam = c.req.query("status")
         const sortBy = c.req.query("sortBy") || undefined
         const order = (c.req.query("order") as SortOrder) || "DESC"
@@ -72,10 +72,6 @@ export class CallController {
         return ApiResponse.success(c, { url })
     }
 
-    /**
-     * Dynamic imports avoid a circular import: call.module.ts is imported by
-     * gateway/signaling.module.ts, so importing callSignalingService at module-load time would cycle.
-     */
     async outbound(c: Context) {
         const user = c.get("user") as User
         const data = c.req.valid("json" as never) as { phoneNumberId: string; waId: string; offerSdp: string }

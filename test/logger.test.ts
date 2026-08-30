@@ -7,7 +7,6 @@ import { logger } from "../src/core/helpers/logger"
 
 const LOG_FILE = join(process.cwd(), "logs", `app-${new Date().toISOString().slice(0, 10)}.log`)
 
-// bun:test's spyOn doesn't reliably intercept console.log/error, so capture manually instead.
 function captureConsole(method: "log" | "error") {
     const calls: string[] = []
     const original = console[method]

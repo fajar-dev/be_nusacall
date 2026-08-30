@@ -22,12 +22,6 @@ export interface ProcessResult {
     call: Call | null
 }
 
-/**
- * The single place that decides how a Meta webhook affects a Call's state. Two rules:
- * transitions to a lower rank are ignored, and terminal states never change again. Enforced by
- * ICallRepository.updateIfRankLower's SQL guard, safe under concurrent webhook delivery — Meta
- * itself does not protect against that.
- */
 export type CallBoardListener = (call: Call) => void | Promise<void>
 
 export class CallStateService {
@@ -38,15 +32,10 @@ export class CallStateService {
         private readonly events: ICallEventRepository,
     ) {}
 
-    /**
-     * Broken out from the constructor to avoid a circular dependency with the gateway
-     * (same pattern as SignalingGateway.attachService) — called once from signaling.module.ts.
-     */
     attachBoardListener(listener: CallBoardListener): void {
         this.boardListener = listener
     }
 
-    /** Redacts session/sdp before persisting — SDP contains DTLS fingerprints and, under SDES, raw SRTP keys. */
     static redactPayload(payload: Record<string, unknown>): Record<string, unknown> {
         const clone = JSON.parse(JSON.stringify(payload))
         const entries = (clone as any)?.entry
@@ -78,10 +67,6 @@ export class CallStateService {
         return ageSeconds > config.call.webhookStaleSeconds
     }
 
-    /**
-     * Idempotency gate — call this first for every webhook event, before any state mutation.
-     * Returns accepted=false for duplicates; the caller must stop processing then.
-     */
     async recordEvent(input: WebhookEventInput): Promise<ProcessResult> {
         const dedupKey = this.computeDedupKey(input)
         const stale = this.isStale(input.metaTimestamp)
@@ -114,18 +99,12 @@ export class CallStateService {
         return { accepted: true, isStale: false, call }
     }
 
-    /** Creates the row on first sight of a wacid — safe against out-of-order webhooks. */
     async findOrCreate(wacid: string, defaults: Partial<Call>): Promise<Call> {
         const call = await this.calls.findOrCreateByWacid(wacid, defaults)
         await this.events.linkToCall(wacid, call.id)
         return call
     }
 
-    /**
-     * Returns true iff the transition was actually applied (nextStatus's rank was higher than
-     * current). A false return is not an error — it means an out-of-order/duplicate webhook was
-     * correctly rejected.
-     */
     async transition(wacid: string, nextStatus: CallStatus, patch: Partial<Call> = {}): Promise<boolean> {
         const nextRank = CALL_STATUS_RANK[nextStatus]
         const affected = await this.calls.updateIfRankLower(wacid, nextStatus, nextRank, patch)

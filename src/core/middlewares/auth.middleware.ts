@@ -5,7 +5,6 @@ import { userRepository } from '../../modules/user/user.module'
 import { UnauthorizedException } from '../exceptions/base'
 import type { NusaCallJwtPayload } from '../helpers/auth'
 
-/** Applied to all authenticated REST endpoints. */
 export const authMiddleware = async (c: Context, next: Next) => {
     const authHeader = c.req.header('Authorization')
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

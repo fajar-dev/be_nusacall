@@ -19,7 +19,6 @@ function packet(type: string, wacid: string, data?: unknown): WsOutboundPacket {
     return { type, wacid, data, ts: Date.now() }
 }
 
-/** Business logic for live-call signaling, kept separate from the gateway (transport) — the gateway never touches the database directly. */
 export class CallSignalingService implements ICallSignalingNotifier {
     constructor(
         private readonly notifier: IAgentNotifier,
@@ -176,11 +175,6 @@ export class CallSignalingService implements ICallSignalingNotifier {
         await this.nusawaLog.enqueue({ callId: call.id, wacid: call.wacid, phoneNumberId: call.phoneNumberId, waId: call.waId, body })
     }
 
-    /**
-     * Handles terminal states Meta/nusawa report themselves (customer hangup, FAILED) — the
-     * agent-initiated hangup/reject paths already notify inline. Without this, the agent's UI
-     * would sit on an active call forever and presence would never free up.
-     */
     notifyCallEnded(call: Call, endReason: EndReason): void {
         const email = call.user?.email
         if (!email) return
@@ -199,12 +193,6 @@ export class CallSignalingService implements ICallSignalingNotifier {
         return Math.max(0, Math.round((Date.now() - start.getTime()) / 1000))
     }
 
-    /**
-     * Reverses the usual offer/answer direction: we offer, and Meta relays the user's answer
-     * back via a later `connect` webhook. Returns the agent-leg answer synchronously so the
-     * frontend needs no separate WS round-trip to complete its own leg. Rethrows Meta connect
-     * errors as-is — the caller maps the error code (138006/138009/138012/...) to a clear message.
-     */
     async initiateOutbound(userId: number, agentEmail: string, phoneNumberId: string, waId: string, offerSdp: string): Promise<{ wacid: string; answerSdp: string }> {
         const tempKey = `pending.${randomUUID()}`
         const session = sessionRegistry.create(tempKey)

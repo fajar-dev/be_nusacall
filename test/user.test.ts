@@ -3,7 +3,6 @@ import { Hono } from "hono"
 import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createTestApp, request, createUserAndToken } from "./setup"
 import { presenceRegistry } from "../src/modules/user/presence.registry"
 
-/** See test/auth.test.ts for why this is lazy-required rather than imported at the top. */
 function getUserService(): { save: (data: unknown) => Promise<any> } {
     return require("../src/modules/user/user.module").userService
 }
@@ -21,7 +20,6 @@ afterAll(async () => {
 
 beforeEach(async () => {
     await cleanTestDatabase()
-    // Drain any leftover presence from other test files sharing this singleton.
     for (const p of presenceRegistry.listAll()) {
         for (const connectionId of p.connectionIds) presenceRegistry.unregister(connectionId)
     }

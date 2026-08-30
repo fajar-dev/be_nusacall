@@ -13,11 +13,6 @@ import { Organization } from "../modules/organization/entities/organization.enti
 import { Contact } from "../modules/contact/entities/contact.entity"
 import { Branch } from "../modules/branch/entities/branch.entity"
 
-/**
- * Access via `AppDataSource` (default) or `getDataSource()`.
- * Use `setDataSource()` to override with a test database.
- */
-
 const defaultDataSource = new DataSource({
     type: "mysql",
     host: config.database.host,
@@ -42,7 +37,6 @@ export function setDataSource(ds: DataSource): void {
     activeDataSource = ds
 }
 
-/** Proxy so existing `AppDataSource` imports keep working after a `setDataSource()` swap — methods are bound to the real DataSource so `this` resolves correctly. */
 export const AppDataSource = new Proxy({} as DataSource, {
     get(_target, prop: string | symbol) {
         const value = (activeDataSource as any)[prop]

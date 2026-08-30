@@ -1,13 +1,12 @@
-import { EntityManager, IsNull, Repository } from "typeorm"
+import { IsNull } from "typeorm"
 import { AppDataSource } from "../../../config/database"
 import { User } from "../entities/user.entity"
 import { IUserRepository, UserListFilters } from "../interfaces/user.repository.interface"
+import { BaseRepository } from "../../../core/repositories/base.repository"
 
-export class UserRepository implements IUserRepository {
-    private readonly repository: Repository<User>
-
+export class UserRepository extends BaseRepository<User> implements IUserRepository {
     constructor() {
-        this.repository = AppDataSource.getRepository(User)
+        super(User)
     }
 
     async findAll(page: number, limit: number, q: string, filters: UserListFilters = {}, sortBy?: string, order?: 'ASC' | 'DESC'): Promise<{ data: User[]; total: number }> {
@@ -92,15 +91,6 @@ export class UserRepository implements IUserRepository {
             .andWhere("user.deleted_at IS NULL")
             .andWhere("user.isActive = :isActive", { isActive: true })
             .getMany()
-    }
-
-    async save(data: Partial<User>, manager?: EntityManager): Promise<User> {
-        const repo = manager ? manager.getRepository(User) : this.repository
-        return await repo.save(data)
-    }
-
-    merge(entity: User, data: Partial<User>): User {
-        return this.repository.merge(entity, data)
     }
 
     async saveInTransaction(data: Partial<User>): Promise<User> {

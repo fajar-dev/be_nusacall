@@ -18,10 +18,6 @@ interface Connection {
     ws: WSContext
 }
 
-/**
- * Pure transport for the softphone — dispatches to CallSignalingService, never touches the DB directly.
- * Token arrives via `?token=` query string since browser WebSocket has no custom-header support.
- */
 class SignalingGateway implements IAgentNotifier {
     private service!: CallSignalingService
     private readonly connections = new Map<string, Connection>() 

@@ -1,7 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto"
 import { config } from "../../config/config"
 
-/** Must be called with the RAW body string before JSON parsing — Meta signs the exact bytes it sent. */
 export function verifyMetaSignature(rawBody: string, header: string | undefined): boolean {
     if (!header) return false
 

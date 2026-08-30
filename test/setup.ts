@@ -20,7 +20,6 @@ import { setDataSource } from "../src/config/database"
 import { languageMiddleware } from "../src/core/middlewares/language.middleware"
 import { requestLogger } from "../src/core/middlewares/logger.middleware"
 
-// Uses a real database with a separate test database name; ensure DB_TEST_NAME exists before running tests.
 const testDbName = process.env.DB_TEST_NAME || "nusacall_test"
 
 const TestDataSource = new DataSource({
@@ -37,8 +36,6 @@ const TestDataSource = new DataSource({
     logging: false,
 })
 
-// Shared in-flight promise guards against two test files both observing isInitialized
-// === false and calling initialize() (synchronize+dropSchema) concurrently.
 let initPromise: Promise<void> | null = null
 
 export async function initTestDatabase() {
@@ -46,12 +43,9 @@ export async function initTestDatabase() {
         initPromise = TestDataSource.isInitialized ? Promise.resolve() : TestDataSource.initialize().then(() => {})
     }
     await initPromise
-    // Override the global AppDataSource so all modules use TestDataSource
     setDataSource(TestDataSource)
 }
 
-// Deliberately a no-op: TestDataSource is shared by every test file, so one file's
-// afterAll destroying it could pull the connection out from under another still mid-run.
 export async function destroyTestDatabase() {
     void TestDataSource
 }
@@ -74,20 +68,14 @@ export async function cleanTestDatabase() {
     }
 }
 
-// Must be called AFTER initTestDatabase().
 export function createTestApp(): Hono {
     const api = require("../src/routes/api").default
     const { buildWebhookController } = require("../src/modules/webhook/webhook.module")
 
-    // No-op media coordinator: state-machine tests must never trigger real WebRTC
-    // negotiation or Meta Graph API calls. See test/media-session.test.ts for the real
-    // MediaSession behavior, tested in isolation with werift.
     const noopMediaCoordinator = {
         establishEarly: async () => ({ ok: true }),
         teardown: async () => {},
     }
-    // No-op signaling: webhook tests exercise the state machine, not routing or
-    // WebSocket delivery. See test/call-signaling.test.ts for that behavior.
     const noopSignaling = { notifyIncoming: async () => {}, logCallOutcome: async () => {}, notifyCallEnded: () => {} }
     const webhookController = buildWebhookController(noopMediaCoordinator, noopSignaling)
 
@@ -102,7 +90,6 @@ export function createTestApp(): Hono {
 
     app.route("/api", api)
 
-    // Global Error Handler (matches production)
     app.onError((err, c) => {
         if (err instanceof ZodError) {
             const valErr = new ValidationException(err)
@@ -151,8 +138,6 @@ export async function request(app: Hono, path: string, options: RequestOptions =
     return { status: res.status, body: json, headers: res.headers }
 }
 
-// Signs the token the same way AuthHelper.generateTokens does in production, bypassing
-// Nusawork/Google entirely — for tests that don't exercise the login flow itself (see test/auth.test.ts).
 export async function createUserAndToken(overrides: Partial<{ email: string; role: string; isActive: boolean; employeeId: number }> = {}) {
     const { UserService } = require("../src/modules/user/user.service")
     const { UserRepository } = require("../src/modules/user/repositories/user.repository")

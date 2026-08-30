@@ -16,8 +16,6 @@ import type { ICallMediaCoordinator } from "../src/modules/call/interfaces/call-
 import type { ICallSignalingNotifier } from "../src/modules/call/interfaces/call-signaling.interface"
 import type { MetaClient } from "../src/infrastructure/meta/meta.client"
 
-// Real DB, fake Meta Media API + object storage.
-
 const noopMedia: ICallMediaCoordinator = {
     establishEarly: async () => ({ ok: true }), teardown: async () => {},
     applyOutboundAnswer: async () => ({ ok: true }), startOutboundForwarding: async () => {},
@@ -126,11 +124,9 @@ describe("Webhook -> CallRecordingService — recording/transcript availability"
         const webhook = new WebhookService(callStateService, noopMedia, noopSignaling, callRepository, recording, contactService)
 
         await webhook.process(JSON.stringify(createRecordingAvailableWebhookPayload({ wacid, mediaId: "media.first" })))
-        // Manually advance state past PENDING, as the download job would.
         const row = (await callRecordingRepository.findByCallId(call.id))!
         await callRecordingRepository.updateRecording(row.id, { status: RecordingArtifactStatus.STORED, s3Key: "some/key" })
 
-        // Meta redelivers the same webhook (no exactly-once guarantee).
         await webhook.process(JSON.stringify(createRecordingAvailableWebhookPayload({ wacid, mediaId: "media.first" })))
 
         const after = (await callRecordingRepository.findByCallId(call.id))!

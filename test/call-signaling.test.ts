@@ -23,9 +23,6 @@ import type { MetaClient } from "../src/infrastructure/meta/meta.client"
 import type { NusawaLogService } from "../src/modules/call/nusawa-log.service"
 import type { IAgentNotifier, WsOutboundPacket } from "../src/modules/call/interfaces/call-signaling.interface"
 
-// Exercises CallSignalingService against a real DB and a real werift MediaSession
-// (same pattern as test/media-session.test.ts), with MetaClient and the WS transport mocked.
-
 function opusCodec() {
     return new RTCRtpCodecParameters({ mimeType: "audio/opus", clockRate: 48000, channels: 2, payloadType: 111 })
 }
@@ -60,9 +57,6 @@ class FakeNotifier implements IAgentNotifier {
     }
 
     broadcast(): void {
-        // Board broadcasts go through CallStateService.attachBoardListener, wired only in
-        // signaling.module.ts — these unit tests construct CallSignalingService directly, so
-        // no listener is attached and this never fires. No-op is correct here.
     }
 
     packetsFor(email: string): WsOutboundPacket[] {
@@ -107,8 +101,6 @@ beforeEach(async () => {
     for (const p of presenceRegistry.listAll()) {
         for (const connectionId of p.connectionIds) presenceRegistry.unregister(connectionId)
     }
-    // Call.userId is now a real FK to users — every test that answers/places a call needs
-    // a matching User row for "agent1@nusa.id"/"agent2@nusa.id" to exist first.
     agent1Id = (await createUserAndToken({ email: "agent1@nusa.id" })).user.id
     agent2Id = (await createUserAndToken({ email: "agent2@nusa.id" })).user.id
 })
@@ -122,7 +114,6 @@ async function createRingingCall(wacid: string) {
         statusRank: 10,
     })
 
-    // Simulate establishEarly() having already run (Meta leg ready for pre_accept).
     const session = sessionRegistry.create(wacid)
     const metaPc = new RTCPeerConnection({ codecs: { audio: [opusCodec()] } })
     metaPc.addTransceiver("audio", { direction: "sendrecv" })
@@ -164,9 +155,6 @@ describe("CallSignalingService.notifyIncoming", () => {
             direction: CallDirection.INBOUND, status: CallStatus.PENDING, statusRank: 10,
         })
 
-        // Regression guard: pre_accept already went out by the time notifyIncoming runs, so
-        // Meta is waiting for accept/reject — tearing down locally without calling Meta's
-        // reject left callers hanging until Meta's own timeout instead of a clean decline.
         const rejectedIds: string[] = []
         const notifier = new FakeNotifier()
         const service = new CallSignalingService(
@@ -228,9 +216,6 @@ describe("CallSignalingService.handleAnswer", () => {
     })
 
     test("stamps the Call row with recordingEnabled/transcriptionEnabled as actually requested on accept", async () => {
-        // Regression guard: these columns existed on the entity but nothing ever wrote to
-        // them, so the frontend's recording/transcript sections never showed even when Meta
-        // genuinely recorded the call.
         const original = { recording: config.recording.recordingEnabled, transcription: config.recording.transcriptionEnabled }
         config.recording.recordingEnabled = true
         config.recording.transcriptionEnabled = false
@@ -375,8 +360,6 @@ describe("CallSignalingService.initiateOutbound", () => {
         const agentOfferSdp = await fakeBrowserOfferSdp()
         const { wacid } = await signaling.initiateOutbound(agent1Id, "agent1@nusa.id", "202063559668129", "628999888777", agentOfferSdp)
 
-        // metaOfferSdp is exposed on MediaSession only for tests like this one —
-        // production code never needs to read the offer back.
         const ourOutboundOfferSdp = sessionRegistry.get(wacid)!.metaOfferSdp!
         const metaAnswerSdp = await fakeMetaAnswerSdp(ourOutboundOfferSdp)
 
@@ -495,8 +478,6 @@ describe("WebhookService + CallSignalingService — terminate logging", () => {
         expect(body).toContain("dijawab agent1@nusa.id")
         expect(body).toContain("42d")
 
-        // Regression guard: without notifyCallEnded, a customer hanging up first left the
-        // agent's UI stuck on an active call forever, with presence never freed up.
         expect(notifier.packetsFor("agent1@nusa.id").some((p) => p.type === "call_ended")).toBe(true)
         expect(presenceRegistry.get("agent1@nusa.id")?.currentCallId).toBeNull()
     })

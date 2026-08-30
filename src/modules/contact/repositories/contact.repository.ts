@@ -1,13 +1,10 @@
-import { EntityManager, Repository } from "typeorm"
-import { AppDataSource } from "../../../config/database"
 import { Contact } from "../entities/contact.entity"
 import { IContactRepository } from "../interfaces/contact.repository.interface"
+import { BaseRepository } from "../../../core/repositories/base.repository"
 
-export class TypeOrmContactRepository implements IContactRepository {
-    private readonly repository: Repository<Contact>
-
+export class TypeOrmContactRepository extends BaseRepository<Contact> implements IContactRepository {
     constructor() {
-        this.repository = AppDataSource.getRepository(Contact)
+        super(Contact)
     }
 
     async findAll(page: number, limit: number, q?: string): Promise<{ data: Contact[]; total: number }> {
@@ -27,24 +24,7 @@ export class TypeOrmContactRepository implements IContactRepository {
         return { data, total }
     }
 
-    async findById(id: number): Promise<Contact | null> {
-        return await this.repository.findOneBy({ id })
-    }
-
     async findByWaId(waId: string): Promise<Contact | null> {
         return await this.repository.findOneBy({ waId })
-    }
-
-    async save(data: Partial<Contact>, manager?: EntityManager): Promise<Contact> {
-        const repo = manager ? manager.getRepository(Contact) : this.repository
-        return await repo.save(data)
-    }
-
-    merge(entity: Contact, data: Partial<Contact>): Contact {
-        return this.repository.merge(entity, data)
-    }
-
-    async delete(id: number): Promise<void> {
-        await this.repository.delete(id)
     }
 }

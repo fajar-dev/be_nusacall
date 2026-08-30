@@ -25,7 +25,6 @@ async function sync() {
 
         const repo = AppDataSource.getRepository(User)
 
-        // Match each employee's `organization_name` against Organization.name to fill organizationId.
         const organizations = await AppDataSource.getRepository(Organization).find()
         const orgIdByName = new Map<string, number>()
         for (const org of organizations) {
@@ -33,8 +32,6 @@ async function sync() {
         }
         let unmatchedOrgCount = 0
 
-        // Match each employee's `branch_id` (Nusawork's branch code, e.g. "020") against
-        // Branch.code — which sync-branch stores verbatim — to fill branchId.
         const branches = await AppDataSource.getRepository(Branch).find()
         const branchIdByCode = new Map<string, number>()
         for (const branch of branches) {
@@ -42,7 +39,6 @@ async function sync() {
         }
         let unmatchedBranchCount = 0
 
-        // Fetch all existing employees to map by ID and by email
         const dbEmployees = await repo.find()
         const existingByIdMap = new Map<number, User>()
         const existingEmailsMap = new Map<string, User>()
@@ -59,7 +55,6 @@ async function sync() {
         for (let i = 0; i < employees.length; i += batchSize) {
             const batch = employees.slice(i, i + batchSize)
 
-            // Resolve email duplicates for ID changes
             for (const emp of batch) {
                 if (!emp.email || !emp.email.trim()) continue
                 const emailLower = emp.email.trim().toLowerCase()
@@ -133,7 +128,6 @@ async function sync() {
             logger.info(`${unmatchedBranchCount} employee(s) had a branch_id with no matching Branch.code (run sync:branch first, or check for a code mismatch).`)
         }
 
-        // Deactivate employees not in Nusawork response
         const nusaworkIds = new Set(employees.map(emp => emp.user_id).filter(Boolean))
         const latestDbEmployees = await repo.find()
         const missingEmployees = latestDbEmployees.filter(emp => !nusaworkIds.has(emp.id) && emp.isActive)

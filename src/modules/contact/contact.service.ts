@@ -21,7 +21,6 @@ export class ContactService {
         return await this.repository.findByWaId(waId)
     }
 
-    /** Saves a new contact on first sight of a waId; an existing contact is left untouched. */
     async findOrCreate(waId: string, profileName: string | null): Promise<Contact> {
         const existing = await this.repository.findByWaId(waId)
         if (existing) return existing

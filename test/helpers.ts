@@ -15,7 +15,6 @@ interface ConnectPayloadOverrides {
     profileName?: string
 }
 
-/** Builds a Meta "calls" webhook payload with event=connect (UIC by default). */
 export function createConnectWebhookPayload(overrides: ConnectPayloadOverrides = {}) {
     const wacid = overrides.wacid || nextWacid()
     const waId = overrides.waId || "628123456789"

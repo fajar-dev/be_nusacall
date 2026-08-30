@@ -3,6 +3,7 @@ import { UserService } from "./user.service"
 import { UserSerializer } from "./serializers/user.serialize"
 import { ApiResponse } from "../../core/helpers/response"
 import type { User } from "./entities/user.entity"
+import { parsePagination } from "../../core/helpers/pagination"
 
 export class UserController {
     constructor(private readonly service: UserService) {}
@@ -30,8 +31,7 @@ export class UserController {
     }
 
     async index(c: Context) {
-        const page = Number(c.req.query("page") || 1)
-        const limit = Number(c.req.query("limit") || 10)
+        const { page, limit } = parsePagination(c)
         const q = c.req.query("q") || ""
         const isActive = c.req.query("isActive")
         const organizationId = c.req.query("organizationId")

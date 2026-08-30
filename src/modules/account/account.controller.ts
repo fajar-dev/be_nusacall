@@ -2,13 +2,13 @@ import { Context } from "hono"
 import { AccountService, UpdateAccountInput } from "./account.service"
 import { AccountSerializer } from "./serializers/account.serialize"
 import { ApiResponse } from "../../core/helpers/response"
+import { parsePagination } from "../../core/helpers/pagination"
 
 export class AccountController {
     constructor(private readonly service: AccountService) {}
 
     async index(c: Context) {
-        const page = Number(c.req.query("page") || 1)
-        const limit = Number(c.req.query("limit") || 10)
+        const { page, limit } = parsePagination(c)
         const { data, total } = await this.service.getAll(page, limit)
         return ApiResponse.paginate(c, AccountSerializer.collection(data), total, page, limit)
     }

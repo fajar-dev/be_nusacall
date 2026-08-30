@@ -19,9 +19,6 @@ beforeEach(async () => {
     await cleanTestDatabase()
 })
 
-// These tests hit /api/user because any authenticated route works — languageMiddleware
-// and the global error handler run regardless of the route's own logic.
-
 describe("Language detection", () => {
     test("defaults to English when Accept-Language header is not sent", async () => {
         const { headers } = await request(app, "/api/user")

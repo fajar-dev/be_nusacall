@@ -31,7 +31,6 @@ export class OrganizationService {
         return await this.getById(saved.id)
     }
 
-    /** Clears the eagerly-loaded `org.parent` before merge/save — otherwise TypeORM prioritizes that stale relation object over the new `parentId` scalar. */
     async update(id: number, data: Partial<Organization>): Promise<Organization> {
         const org = await this.getById(id)
 
@@ -70,7 +69,6 @@ export class OrganizationService {
         }
     }
 
-    /** All ids reachable below `id` in the tree — used to block moving an org under its own descendant. */
     private async getDescendantIds(id: number): Promise<number[]> {
         const flat = await this.repository.findList()
         const childrenMap = new Map<number, number[]>()

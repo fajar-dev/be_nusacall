@@ -10,8 +10,6 @@ import { CallStatus } from "../src/modules/call/enum/call-status.enum"
 import { CallDirection } from "../src/modules/call/enum/call-direction.enum"
 import type { NusawaClient } from "../src/infrastructure/nusawa/nusawa.client"
 
-// Backoff schedule under test: 5s, 30s, 2m, 10m, 1h.
-
 let repository: TypeOrmNusawaLogQueueRepository
 let callId: number
 
@@ -26,8 +24,6 @@ afterAll(async () => {
 
 beforeEach(async () => {
     await cleanTestDatabase()
-    // NusawaLogQueue.callId is a real FK now — cleanTestDatabase() uses DELETE, not TRUNCATE,
-    // so AUTO_INCREMENT keeps climbing across tests and can't be assumed to be 1.
     const call = await getDataSource().getRepository(Call).save({
         wacid: "wacid.NUSAWALOGFIXTURE", phoneNumberId: "202063559668129", waId: "628123456789",
         direction: CallDirection.INBOUND, status: CallStatus.COMPLETED, statusRank: 90,

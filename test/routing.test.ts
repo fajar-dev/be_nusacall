@@ -6,8 +6,6 @@ import { CallDirection } from "../src/modules/call/enum/call-direction.enum"
 import { CallStatus } from "../src/modules/call/enum/call-status.enum"
 import type { Call } from "../src/modules/call/entities/call.entity"
 
-// Broadcast policy: every available agent gets rung, first answer wins.
-
 function fakeCall(overrides: Partial<Call> = {}): Call {
     return {
         id: 1,
@@ -27,7 +25,6 @@ function fakeCall(overrides: Partial<Call> = {}): Call {
 
 describe("RoutingService", () => {
     beforeEach(() => {
-        // Drain any leftover presence from other tests sharing the singleton.
         for (const p of presenceRegistry.listAll()) {
             for (const connectionId of p.connectionIds) presenceRegistry.unregister(connectionId)
         }

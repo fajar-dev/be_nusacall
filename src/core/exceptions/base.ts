@@ -60,9 +60,6 @@ export class ValidationException extends BaseException {
     }
 }
 
-/**
- * NusaCall-specific additions (not in base boilerplate)
- */
 export class GoneException extends BaseException {
     constructor(message: string = "Resource is no longer available") {
         super(message, 410)

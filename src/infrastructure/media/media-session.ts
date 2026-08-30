@@ -11,10 +11,6 @@ export interface MediaStats {
     lastPacketToAgentAt: Date | null
 }
 
-/**
- * One MediaSession = one call = two WebRTC legs bridged together (legA/Meta <-> NusaCall <-> legB/Agent browser).
- * Lifecycle: acceptMetaOffer() → attachAgent() → startForwarding() (only after Meta's `accept` returns 200) → close().
- */
 export class MediaSession {
     wacid: string
     readonly createdAt: Date = new Date()
@@ -46,17 +42,12 @@ export class MediaSession {
         )
     }
 
-    /**
-     * Without this, a leg that never completes ICE looks identical in the logs to
-     * one that works — both just report zero packets when the session closes.
-     */
     private traceIce(pc: RTCPeerConnection, leg: "meta" | "agent"): void {
         pc.iceConnectionStateChange.subscribe((state) => {
             logger.info("ICE state changed", { wacid: this.wacid, leg, state })
         })
     }
 
-    /** The c= and a=candidate lines actually offered to the peer, so a wrong advertised IP is visible. */
     private logCandidates(sdp: string, leg: "meta" | "agent" | "meta-remote"): void {
         const lines = sdp.split(/\r?\n/).filter((l) => l.startsWith("a=candidate:") || l.startsWith("c="))
         logger.info("Local ICE candidates", { wacid: this.wacid, leg, lines })
@@ -88,10 +79,6 @@ export class MediaSession {
         return finalSdp
     }
 
-    /**
-     * Business-initiated calls: WE create the offer here; Meta relays the WhatsApp
-     * user's answer back via a `connect` webhook, applied via applyMetaAnswer().
-     */
     async createMetaOffer(): Promise<string> {
         if (this.closed) throw new Error(`MediaSession ${this.wacid} is already closed`)
 
@@ -112,14 +99,12 @@ export class MediaSession {
         return finalSdp
     }
 
-    /** Completes the BIC negotiation once Meta relays the user's SDP answer. */
     async applyMetaAnswer(answerSdp: string): Promise<void> {
         if (this.closed) throw new Error(`MediaSession ${this.wacid} is already closed`)
         if (!this.legA) throw new Error(`MediaSession ${this.wacid} has no Meta leg to apply an answer to`)
         await this.legA.setRemoteDescription({ type: "answer", sdp: answerSdp })
     }
 
-    /** Can be called concurrently with / after acceptMetaOffer — the two legs are independent until startForwarding() wires them together. */
     async attachAgent(offerSdp: string): Promise<string> {
         if (this.closed) throw new Error(`MediaSession ${this.wacid} is already closed`)
 
@@ -139,7 +124,6 @@ export class MediaSession {
         return ensurePtime20(this.legB.localDescription!.sdp)
     }
 
-    /** Must only be called AFTER Meta's `accept` succeeds — earlier risks audio clipping. */
     startForwarding(): void {
         if (this.closed) return
         this.forwardingStarted = true

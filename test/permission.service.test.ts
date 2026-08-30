@@ -6,9 +6,6 @@ import { PermissionStatus } from "../src/modules/permission/enum/permission-stat
 import { config } from "../src/config/config"
 import type { MetaClient } from "../src/infrastructure/meta/meta.client"
 
-// Real DB, fake Meta — a live call_permissions check hits the Graph API with its
-// own rate limit, so we never call it from tests.
-
 function fakeMetaClient(overrides: Partial<MetaClient> = {}): MetaClient {
     return {
         getCallPermission: async () => ({
@@ -74,7 +71,6 @@ describe("PermissionService.checkPermission", () => {
         const service = new PermissionService(repository, meta)
         await service.checkPermission("202063559668129", "628123456789")
 
-        // Simulate the TTL having passed by backdating checkedAt directly.
         const row = await repository.findByContact("202063559668129", "628123456789")
         await repository.upsertStatus("202063559668129", "628123456789", row!.status, row!.expiresAt ?? null, new Date(Date.now() - (config.outbound.permissionCacheTtlSeconds + 5) * 1000))
 
@@ -83,12 +79,21 @@ describe("PermissionService.checkPermission", () => {
     })
 })
 
+import type { NusawaClient } from "../src/infrastructure/nusawa/nusawa.client"
+
+function fakeNusawaClient(overrides: Partial<NusawaClient> = {}): NusawaClient {
+    return {
+        sendCallPermissionRequest: async () => ({ success: true }),
+        ...overrides,
+    } as unknown as NusawaClient
+}
+
 describe("PermissionService.requestPermission", () => {
     test("throws when no template is configured rather than silently failing", async () => {
         const original = config.outbound.permissionTemplateName
         config.outbound.permissionTemplateName = ""
         try {
-            const service = new PermissionService(repository, fakeMetaClient())
+            const service = new PermissionService(repository, fakeMetaClient(), fakeNusawaClient())
             await expect(service.requestPermission("202063559668129", "628123456789")).rejects.toThrow()
         } finally {
             config.outbound.permissionTemplateName = original
@@ -100,10 +105,10 @@ describe("PermissionService.requestPermission", () => {
         config.outbound.permissionTemplateName = "call_permission_request"
         try {
             const captured: { waId?: string } = {}
-            const meta = fakeMetaClient({
-                sendCallPermissionRequest: async (_pn: string, waId: string) => { captured.waId = waId; return { messaging_product: "whatsapp", contacts: [], messages: [{ id: "wamid.1" }] } },
+            const nusawa = fakeNusawaClient({
+                sendCallPermissionRequest: async (_pn: string, waId: string) => { captured.waId = waId; return { success: true } },
             })
-            const service = new PermissionService(repository, meta)
+            const service = new PermissionService(repository, fakeMetaClient(), nusawa)
 
             await service.requestPermission("202063559668129", "628123456789")
 

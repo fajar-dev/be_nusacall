@@ -2,10 +2,6 @@ import { describe, test, expect, beforeAll, afterAll, beforeEach } from "bun:tes
 import { Hono } from "hono"
 import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createTestApp, request, createUserAndToken } from "./setup"
 
-// HTTP-layer wiring only (auth, validation) — createTestApp() mounts real routes with a
-// live MetaClient, so permission-gating/Meta-error logic is covered in permission.service.test.ts
-// and call-signaling.test.ts instead.
-
 let app: Hono
 
 beforeAll(async () => {

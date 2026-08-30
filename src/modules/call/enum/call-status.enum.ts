@@ -10,10 +10,6 @@ export enum CallStatus {
     ABANDONED = "abandoned",
 }
 
-/**
- * Monotonic rank per state. A transition to a lower rank must be rejected — this guards
- * against Meta's out-of-order webhook delivery.
- */
 export const CALL_STATUS_RANK: Record<CallStatus, number> = {
     [CallStatus.PENDING]: 10,
     [CallStatus.RINGING]: 20,

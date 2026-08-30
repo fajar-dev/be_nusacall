@@ -7,7 +7,6 @@ import { config } from "../../config/config"
 import { logger } from "../../core/helpers/logger"
 import { NotFoundException, GoneException } from "../../core/exceptions/base"
 
-/** The MinioClient methods this service needs — injected so tests don't hit a real bucket. */
 export interface IObjectStorage {
     upload(objectName: string, buffer: Buffer, contentType: string): Promise<string>
     getPresignedUrl(objectName: string, expirySeconds?: number): Promise<string>
@@ -23,11 +22,6 @@ export interface RecordingAvailablePayload {
     url: string
 }
 
-/**
- * Downloads, verifies, and stores call recordings/transcripts Meta makes
- * available via webhook. Meta deletes the media 7 days after the
- * *_available webhook fires — this exists to win that race before it's gone.
- */
 export class CallRecordingService {
     constructor(
         private readonly repository: ICallRecordingRepository,
@@ -75,10 +69,6 @@ export class CallRecordingService {
         return this.storage.getPresignedUrl(s3Key)
     }
 
-    /**
-     * Returns parsed JSON, not a URL: MinIO presigned URLs may not have CORS
-     * enabled for direct browser fetch, so this goes through an authenticated endpoint instead.
-     */
     async getTranscriptContent(callId: number): Promise<unknown> {
         const row = await this.repository.findByCallId(callId)
         const s3Key = this.readyS3Key(row, "transcript", row?.transcriptStatus, row?.transcriptS3Key)
@@ -101,7 +91,6 @@ export class CallRecordingService {
         return s3Key
     }
 
-    /** Fetches whatever's PENDING, soonest-expiring first; a failure here just waits for the next tick, since Meta gives 7 days, not one shot. */
     async processDueDownloads(limit = 20): Promise<void> {
         const rows = await this.repository.findDuePendingDownloads(limit)
         for (const row of rows) {
@@ -114,7 +103,6 @@ export class CallRecordingService {
         }
     }
 
-    /** Safety net: processDueDownloads should always win this race, so a row landing here means something got stuck (Meta down, MinIO down, a bug). */
     async markExpired(): Promise<void> {
         const rows = await this.repository.findExpiredPending(new Date())
         for (const row of rows) {
@@ -129,11 +117,6 @@ export class CallRecordingService {
         }
     }
 
-    /**
-     * Always refetches the download URL fresh from the Media API — the webhook's own `url` has
-     * a ~5-minute validity that the job interval plus queueing can outlast. Meta's sha256 comes
-     * back as lowercase hex, not base64, despite what the docs say.
-     */
     private async downloadOne(row: CallRecording, kind: "recording" | "transcript"): Promise<void> {
         const mediaId = kind === "recording" ? row.recordingMediaId! : row.transcriptMediaId!
         const expectedSha256 = kind === "recording" ? row.recordingSha256 : row.transcriptSha256
@@ -165,7 +148,6 @@ export class CallRecordingService {
         }
     }
 
-    /** `recordings/{y}/{m}/{d}/{wacid}-{kind}.{ext}` */
     private objectKey(row: CallRecording, kind: "recording" | "transcript", mimeType: string): string {
         const date = row.createdAt ?? new Date()
         const y = date.getUTCFullYear()

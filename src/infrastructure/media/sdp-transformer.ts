@@ -1,7 +1,3 @@
-/**
- * Validates/normalizes SDP against Meta's mandatory requirements before sending —
- * a safety net catching malformed SDP locally instead of a cryptic Meta rejection.
- */
 
 class SdpValidationError extends Error {}
 

@@ -1,9 +1,9 @@
-import { EntityManager, Repository } from "typeorm"
-import { AppDataSource } from "../../../config/database"
+import { EntityManager } from "typeorm"
 import { Call } from "../entities/call.entity"
 import { CallStatus, TERMINAL_CALL_STATUSES } from "../enum/call-status.enum"
 import { ICallRepository, CallListFilter } from "../interfaces/call.repository.interface"
 import { SortOrder } from "../../../core/interfaces/base.repository.interface"
+import { BaseRepository } from "../../../core/repositories/base.repository"
 
 const SORTABLE_COLUMNS: Record<string, string> = {
     createdAt: "call.createdAt",
@@ -12,11 +12,9 @@ const SORTABLE_COLUMNS: Record<string, string> = {
     durationSeconds: "call.durationSeconds",
 }
 
-export class TypeOrmCallRepository implements ICallRepository {
-    private readonly repository: Repository<Call>
-
+export class TypeOrmCallRepository extends BaseRepository<Call> implements ICallRepository {
     constructor() {
-        this.repository = AppDataSource.getRepository(Call)
+        super(Call)
     }
 
     async findAll(
@@ -153,18 +151,5 @@ export class TypeOrmCallRepository implements ICallRepository {
             avgDurationSeconds: avg(durations),
             avgSetupMs: avg(setups),
         }
-    }
-
-    async save(data: Partial<Call>, manager?: EntityManager): Promise<Call> {
-        const repo = manager ? manager.getRepository(Call) : this.repository
-        return await repo.save(data)
-    }
-
-    merge(entity: Call, data: Partial<Call>): Call {
-        return this.repository.merge(entity, data)
-    }
-
-    async delete(id: number): Promise<void> {
-        await this.repository.delete(id)
     }
 }

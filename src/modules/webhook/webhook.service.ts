@@ -122,7 +122,6 @@ export class WebhookService {
         }
     }
 
-
     private async handleConnect(
         callObj: MetaCallObject,
         metadata: MetaMetadata | undefined,
@@ -240,7 +239,6 @@ export class WebhookService {
         }
     }
 
-
     private async handleTerminate(
         callObj: MetaCallObject,
         metadata: MetaMetadata | undefined,
@@ -331,7 +329,6 @@ export class WebhookService {
         })
     }
 
-    /** Creates a contact on first sight of an inbound waId; for outbound, only links an existing one — never creates. */
     private async resolveContactId(direction: CallDirection, waId: string, profileName: string | null): Promise<number | null> {
         if (!waId) return null
         if (direction === CallDirection.INBOUND) {

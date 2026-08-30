@@ -2,13 +2,13 @@ import { Context } from "hono"
 import { OrganizationService } from "./organization.service"
 import { OrganizationSerializer } from "./serializers/organization.serialize"
 import { ApiResponse } from "../../core/helpers/response"
+import { parsePagination } from "../../core/helpers/pagination"
 
 export class OrganizationController {
     constructor(private readonly service: OrganizationService) {}
 
     async index(c: Context) {
-        const page = Number(c.req.query("page") || 1)
-        const limit = Number(c.req.query("limit") || 10)
+        const { page, limit } = parsePagination(c)
         const q = c.req.query("q") || ""
         const sortBy = c.req.query("sortBy") || undefined
         const order = (c.req.query("order") || "DESC").toUpperCase() as 'ASC' | 'DESC'

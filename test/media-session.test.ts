@@ -3,10 +3,6 @@ import { RTCPeerConnection, RTCRtpCodecParameters } from "werift"
 import { MediaSession } from "../src/infrastructure/media/media-session"
 import { validateOutboundSdp, ensurePtime20 } from "../src/infrastructure/media/sdp-transformer"
 
-// Exercises MediaSession against a REAL werift RTCPeerConnection standing in for "Meta"
-// and another for "the agent's browser" — deliberately separate from webhook.test.ts,
-// which uses a no-op media coordinator so state-machine assertions aren't coupled to WebRTC timing.
-
 function opusCodec() {
     return new RTCRtpCodecParameters({ mimeType: "audio/opus", clockRate: 48000, channels: 2, payloadType: 111 })
 }
@@ -20,9 +16,6 @@ async function waitIceComplete(pc: RTCPeerConnection) {
     })
 }
 
-// Subscribes onReceiveRtp BEFORE SDP negotiation, on purpose: werift fires `onTrack`
-// during negotiation, not lazily on first packet, so subscribing after negotiation
-// silently misses all packets (regression guard for that exact bug).
 async function createFakePeer(onRtp: () => void) {
     const pc = new RTCPeerConnection({ codecs: { audio: [opusCodec()] } })
     const transceiver = pc.addTransceiver("audio", { direction: "sendrecv" })
@@ -46,7 +39,6 @@ describe("MediaSession - acceptMetaOffer", () => {
         expect(result.errors).toEqual([])
         expect(result.valid).toBe(true)
 
-        // Must be retrievable later for the `accept` call — Meta rejects a pre_accept/accept mismatch.
         expect(session.metaAnswerSdp).toBe(answerSdp)
 
         fakeMeta.close()
@@ -85,7 +77,6 @@ describe("MediaSession - full bridge (Meta leg <-> Agent leg)", () => {
         expect(fakeMeta.connectionState).toBe("connected")
         expect(fakeAgent.connectionState).toBe("connected")
 
-        // Mirrors the real constraint: RTP must not flow before Meta's `accept` succeeds.
         session.startForwarding()
 
         const { RtpPacket, RtpHeader } = await import("werift")

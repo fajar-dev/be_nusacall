@@ -30,7 +30,6 @@ export class NusaworkAuthService {
         }
     }
 
-    /** Returns the raw user — the controller+serializer strip sensitive fields before the response. */
     async passwordLogin(data: LoginValidator) {
         const user = await this.userService.getByEmail(data.email)
         if (!user) {

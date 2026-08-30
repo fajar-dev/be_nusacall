@@ -4,7 +4,6 @@ import { presenceRegistry } from "../presence.registry"
 
 export class UserSerializer {
 
-    /** Lean shape for embedding a user inside another resource's response (e.g. Call.user). */
     static async summary(user: User) {
         return {
             id: user.id,

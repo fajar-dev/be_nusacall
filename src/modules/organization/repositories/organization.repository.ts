@@ -1,13 +1,10 @@
-import { EntityManager, Repository } from "typeorm"
-import { AppDataSource } from "../../../config/database"
 import { Organization } from "../entities/organization.entity"
 import { IOrganizationRepository } from "../interfaces/organization.repository.interface"
+import { BaseRepository } from "../../../core/repositories/base.repository"
 
-export class OrganizationRepository implements IOrganizationRepository {
-    private readonly repository: Repository<Organization>
-
+export class OrganizationRepository extends BaseRepository<Organization> implements IOrganizationRepository {
     constructor() {
-        this.repository = AppDataSource.getRepository(Organization)
+        super(Organization)
     }
 
     async findAll(page: number, limit: number, q: string, sortBy?: string, order?: 'ASC' | 'DESC'): Promise<{ data: Organization[]; total: number }> {
@@ -53,18 +50,5 @@ export class OrganizationRepository implements IOrganizationRepository {
 
     async countChildren(id: number): Promise<number> {
         return await this.repository.count({ where: { parentId: id } })
-    }
-
-    async save(data: Partial<Organization>, manager?: EntityManager): Promise<Organization> {
-        const repo = manager ? manager.getRepository(Organization) : this.repository
-        return await repo.save(data)
-    }
-
-    merge(entity: Organization, data: Partial<Organization>): Organization {
-        return this.repository.merge(entity, data)
-    }
-
-    async delete(id: number): Promise<void> {
-        await this.repository.delete(id)
     }
 }

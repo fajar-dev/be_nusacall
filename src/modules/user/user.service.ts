@@ -12,7 +12,6 @@ export class UserService {
         return await this.repository.findAll(page, limit, q, filters, sortBy, order)
     }
 
-    /** Lightweight picker search — no relation population, active users only, capped result count. */
     async searchOptions(q: string, limit: number): Promise<User[]> {
         return await this.repository.searchOptions(q, limit)
     }
@@ -29,7 +28,6 @@ export class UserService {
         return await this.repository.findByEmail(email)
     }
 
-    /** Users currently online (live WebSocket connection) and free to take a call. */
     async getAvailable(): Promise<User[]> {
         const emails = presenceRegistry.listAvailable().map((p) => p.email)
         return await this.repository.findByEmails(emails)
@@ -43,7 +41,6 @@ export class UserService {
         return await this.repository.saveInTransaction(data)
     }
 
-    /** Reloads via getById() so the response includes the joined organization. */
     async create(data: Partial<User>): Promise<User> {
         if (data.email) {
             const existing = await this.repository.findByEmail(data.email)

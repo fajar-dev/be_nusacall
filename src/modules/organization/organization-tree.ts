@@ -1,7 +1,6 @@
 import { Organization } from "./entities/organization.entity"
 import { Type } from "./enums/type"
 
-/** Shape of one node in the Nusawork `GET /emp/api/organization` response tree. */
 export interface NusaworkOrganizationNode {
     id: number
     pid: number
@@ -12,11 +11,6 @@ export interface NusaworkOrganizationNode {
     childs?: NusaworkOrganizationNode[]
 }
 
-/**
- * Flatten the Nusawork response into unique-by-id rows ready to upsert. The API repeats every
- * node both as a top-level array entry and nested under each ancestor's `childs`, so later
- * visits of the same id simply overwrite earlier (identical) ones in the map.
- */
 export function flattenNusaworkOrganizations(nodes: NusaworkOrganizationNode[]): Partial<Organization>[] {
     const seen = new Map<number, Partial<Organization>>()
 

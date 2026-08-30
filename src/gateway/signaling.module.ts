@@ -16,7 +16,6 @@ export const callSignalingService = new CallSignalingService(
 
 signalingGateway.attachService(callSignalingService)
 
-/** Every status transition fans out to every connected client, keeping the shared call board live. */
 callStateService.attachBoardListener(async (call) => {
     signalingGateway.broadcast({ type: "call_board", wacid: call.wacid, data: await CallSerializer.single(call), ts: Date.now() })
 })
