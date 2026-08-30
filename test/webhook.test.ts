@@ -138,6 +138,40 @@ describe("Call Lifecycle - normal flow (connect -> terminate)", () => {
     })
 })
 
+describe("Call Lifecycle - durasi ketika Meta tidak mengirimkannya", () => {
+    test("durasi dihitung dari answeredAt sampai endedAt", async () => {
+        const wacid = "wacid.NODURATION1"
+
+        await postWebhook(app, createConnectWebhookPayload({ wacid }))
+        await flush()
+        await postWebhook(app, createStatusWebhookPayload({ wacid, status: "ACCEPTED" }))
+        await flush()
+
+        const answeredAt = new Date(Date.now() - 30_000)
+        await getDataSource().getRepository(Call).update({ wacid }, { answeredAt })
+
+        await postWebhook(app, createTerminateWebhookPayload({ wacid, status: "COMPLETED" }))
+        await flush()
+
+        const call = await getCall(wacid)
+        expect(call!.durationSeconds).not.toBeNull()
+        expect(call!.durationSeconds).toBeGreaterThanOrEqual(29)
+        expect(call!.durationSeconds).toBeLessThanOrEqual(32)
+    })
+
+    test("durasi tetap nol ketika panggilan tidak pernah dijawab", async () => {
+        const wacid = "wacid.NODURATION2"
+
+        await postWebhook(app, createConnectWebhookPayload({ wacid }))
+        await flush()
+        await postWebhook(app, createTerminateWebhookPayload({ wacid, status: "FAILED" }))
+        await flush()
+
+        const call = await getCall(wacid)
+        expect(call!.durationSeconds ?? 0).toBe(0)
+    })
+})
+
 describe("Contact - auto-saved on inbound calls", () => {
     test("an inbound connect from a new number saves a contact", async () => {
         const waId = "628111000001"

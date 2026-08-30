@@ -129,6 +129,25 @@ async function createRingingCall(wacid: string) {
 }
 
 describe("CallSignalingService.notifyIncoming", () => {
+    test("menyertakan nama dan nomor kontak pada notifikasi panggilan masuk", async () => {
+        presenceRegistry.register("agent1@nusa.id", "conn-1")
+        const contact = await contactService.findOrCreate("628111222333", "Budi Santoso")
+        const call = await callStateService.findOrCreate("wacid.SIGCONTACT1", {
+            phoneNumberId: "202063559668129",
+            contactId: contact.id,
+            direction: CallDirection.INBOUND, status: CallStatus.PENDING, statusRank: 10,
+        })
+
+        const notifier = new FakeNotifier()
+        const service = new CallSignalingService(notifier, callRepository, callStateService, fakeMetaClient(), new RoutingService(), fakeNusawaLog().service, contactService)
+        await service.notifyIncoming(call)
+
+        const incoming = notifier.packetsFor("agent1@nusa.id")[0]
+        const data = incoming?.data as { name: string | null; phoneNumber: string | null }
+        expect(data.name).toBe("Budi Santoso")
+        expect(data.phoneNumber).toBe("628111222333")
+    })
+
     test("rings every available agent and transitions the call to RINGING", async () => {
         presenceRegistry.register("agent1@nusa.id", "conn-1")
         const call = await callStateService.findOrCreate("wacid.SIGRING1", {

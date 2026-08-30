@@ -260,11 +260,14 @@ export class WebhookService {
 
         const terminalStatus = this.resolveTerminalState(callObj, call.status)
 
+        const endedAt = new Date()
         const patch: Partial<Call> = {
-            endedAt: new Date(),
+            endedAt,
             endReason: this.mapEndReason(terminalStatus, callObj),
         }
-        if (callObj.duration !== undefined) patch.durationSeconds = Number(callObj.duration)
+        patch.durationSeconds = callObj.duration !== undefined
+            ? Number(callObj.duration)
+            : this.elapsedSeconds(call.answeredAt, endedAt)
         if (callObj.errors?.length) {
             patch.errorCode = callObj.errors[0]!.code
             patch.errorMessage = callObj.errors[0]!.message || callObj.errors[0]!.error_data?.details || null
@@ -284,6 +287,12 @@ export class WebhookService {
     }
 
 
+
+    /** Meta tidak selalu menyertakan durasi, jadi dihitung sendiri dari saat panggilan dijawab. */
+    private elapsedSeconds(answeredAt: Date | null | undefined, endedAt: Date): number {
+        if (!answeredAt) return 0
+        return Math.max(0, Math.round((endedAt.getTime() - answeredAt.getTime()) / 1000))
+    }
 
     private async resolveContactId(_direction: CallDirection, phoneNumber: string, name: string | null): Promise<number | null> {
         if (!phoneNumber) return null

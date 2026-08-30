@@ -101,14 +101,16 @@ export class TypeOrmCallRepository extends BaseRepository<Call> implements ICall
 
     async findOrCreateByWacid(wacid: string, defaults: Partial<Call>, manager?: EntityManager): Promise<Call> {
         const runner = manager ? manager.getRepository(Call) : this.repository
+        const relations = { user: { organization: true }, contact: true }
 
-        const existing = await runner.findOne({ where: { wacid }, relations: { user: { organization: true }, contact: true } })
+        const existing = await runner.findOne({ where: { wacid }, relations })
         if (existing) return existing
 
         try {
-            return await runner.save({ wacid, ...defaults })
+            const saved = await runner.save({ wacid, ...defaults })
+            return await runner.findOne({ where: { id: saved.id }, relations }) ?? saved
         } catch (err) {
-            const raced = await runner.findOneBy({ wacid })
+            const raced = await runner.findOne({ where: { wacid }, relations })
             if (raced) return raced
             throw err
         }
