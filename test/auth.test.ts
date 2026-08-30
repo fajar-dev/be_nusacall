@@ -4,6 +4,8 @@ import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createTestApp
 import { nusaworkClient } from "../src/infrastructure/nusawork/nusawork.client"
 import { AuthHelper } from "../src/core/helpers/auth"
 import { Role } from "../src/modules/user/enums/role.enum"
+import { getDataSource } from "../src/config/database"
+import { Organization } from "../src/modules/organization/entities/organization.entity"
 
 function getUserService(): { save: (data: unknown) => Promise<any> } {
     return require("../src/modules/user/user.module").userService
@@ -58,6 +60,27 @@ describe("POST /api/auth/login", () => {
         expect(body.data.accessToken).toBeTruthy()
         expect(body.data.user.email).toBe("agent@nusa.id")
         expect(body.data.user.name).toBe("Budi Santoso")
+    })
+
+    test("menyertakan organisasi pengguna pada respons login, bukan null", async () => {
+        const organization = await getDataSource().getRepository(Organization).save({ name: "Nusanet" })
+        await getUserService().save({
+            email: "berorganisasi@nusa.id",
+            name: "Citra Dewi",
+            employeeId: Math.floor(Math.random() * 1_000_000),
+            role: Role.AGENT,
+            isActive: true,
+            organizationId: organization.id,
+        })
+        spyOn(nusaworkClient, "authLogin").mockResolvedValue(true)
+
+        const { body } = await request(app, "/api/auth/login", {
+            method: "POST",
+            body: { email: "berorganisasi@nusa.id", password: "secret" },
+        })
+
+        expect(body.data.user.organization).not.toBeNull()
+        expect(body.data.user.organization.name).toBe("Nusanet")
     })
 
     test("rejects a user not registered locally (401)", async () => {

@@ -126,6 +126,19 @@ describe("GET /api/user/online", () => {
         expect(body.data).toEqual([])
     })
 
+    test("menyertakan cabang agent, bukan null", async () => {
+        const { headers } = await createUserAndToken()
+        const medan = await seedBranch("020", "Nusanet Medan")
+        const agent = await seedUser({ email: "bercabang@nusa.id", branchId: medan })
+        presenceRegistry.register(agent.email, "conn-online-branch")
+
+        const { body } = await request(app, "/api/user/online", { headers })
+
+        expect(body.data[0].branch).not.toBeNull()
+        expect(body.data[0].branch.name).toBe("Nusanet Medan")
+        expect(body.data[0].branch.code).toBe("020")
+    })
+
     test("tetap menyertakan agent yang sedang menelepon, tidak seperti available", async () => {
         const { headers } = await createUserAndToken()
         const busy = await seedUser({ email: "sibuk@nusa.id" })

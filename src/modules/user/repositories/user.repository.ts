@@ -1,4 +1,3 @@
-import { IsNull } from "typeorm"
 import { AppDataSource } from "../../../config/database"
 import { User } from "../entities/user.entity"
 import { IUserRepository, UserListFilters } from "../interfaces/user.repository.interface"
@@ -95,12 +94,19 @@ export class UserRepository extends BaseRepository<User> implements IUserReposit
     }
 
     async findByEmail(email: string): Promise<User | null> {
-        return await this.repository.findOneBy({ email, deletedAt: IsNull() })
+        return await this.repository.createQueryBuilder("user")
+            .leftJoinAndSelect("user.organization", "organization")
+            .leftJoinAndSelect("user.branch", "branch")
+            .where("user.email = :email", { email })
+            .andWhere("user.deleted_at IS NULL")
+            .getOne()
     }
 
     async findByEmails(emails: string[]): Promise<User[]> {
         if (emails.length === 0) return []
         return await this.repository.createQueryBuilder("user")
+            .leftJoinAndSelect("user.organization", "organization")
+            .leftJoinAndSelect("user.branch", "branch")
             .where("user.email IN (:...emails)", { emails })
             .andWhere("user.deleted_at IS NULL")
             .andWhere("user.isActive = :isActive", { isActive: true })
