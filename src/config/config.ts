@@ -76,6 +76,7 @@ export const config = {
 
     recording: {
         recordingEnabled: process.env.CALL_RECORDING_ENABLED === 'true',
+        ffmpegPath: process.env.FFMPEG_PATH || 'ffmpeg',
     },
 
     outbound: {

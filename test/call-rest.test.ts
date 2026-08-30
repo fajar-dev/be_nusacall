@@ -156,32 +156,27 @@ describe("GET /api/call/:id/recording", () => {
         expect(status).toBe(404)
     })
 
-    test("returns a presigned URL per track once stored", async () => {
+    test("mengembalikan satu URL bertanda tangan untuk rekaman gabungan", async () => {
         const { headers } = await createUserAndToken()
         const call = await seedCall()
         await getDataSource().getRepository(CallRecording).save({
             callId: call.id, wacid: call.wacid, durationSeconds: 42,
-            customerS3Key: `recordings/2026/08/24/${call.wacid}-customer.opus`,
-            agentS3Key: `recordings/2026/08/24/${call.wacid}-agent.opus`,
+            s3Key: `recordings/2026/08/24/${call.wacid}.opus`,
         })
         const { status, body } = await request(app, `/api/call/${call.id}/recording`, { headers })
         expect(status).toBe(200)
-        expect(typeof body.data.customer).toBe("string")
-        expect(typeof body.data.agent).toBe("string")
+        expect(typeof body.data.url).toBe("string")
         expect(body.data.durationSeconds).toBe(42)
     })
 
-    test("still returns the available track when only one side was captured", async () => {
+    test("404 ketika baris rekaman ada tetapi berkasnya tidak tersimpan", async () => {
         const { headers } = await createUserAndToken()
         const call = await seedCall()
         await getDataSource().getRepository(CallRecording).save({
-            callId: call.id, wacid: call.wacid, durationSeconds: 10,
-            agentS3Key: `recordings/2026/08/24/${call.wacid}-agent.opus`,
+            callId: call.id, wacid: call.wacid, durationSeconds: 0, s3Key: null,
         })
-        const { status, body } = await request(app, `/api/call/${call.id}/recording`, { headers })
-        expect(status).toBe(200)
-        expect(body.data.customer).toBeNull()
-        expect(typeof body.data.agent).toBe("string")
+        const { status } = await request(app, `/api/call/${call.id}/recording`, { headers })
+        expect(status).toBe(404)
     })
 })
 

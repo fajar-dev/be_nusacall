@@ -2,7 +2,7 @@ import { describe, test, expect, beforeAll, afterAll, beforeEach } from "bun:tes
 import { initTestDatabase, destroyTestDatabase, cleanTestDatabase } from "./setup"
 import { getDataSource } from "../src/config/database"
 import { TypeOrmCallRecordingRepository } from "../src/modules/call/repositories/call-recording.repository"
-import { CallRecordingService, type IObjectStorage } from "../src/modules/call/call-recording.service"
+import { CallRecordingService, type IObjectStorage, type RecordingMixer } from "../src/modules/call/call-recording.service"
 import { OggOpusWriter, OPUS_FRAME_SAMPLES_20MS } from "../src/infrastructure/media/ogg-opus-writer"
 import { Call } from "../src/modules/call/entities/call.entity"
 import { Contact } from "../src/modules/contact/entities/contact.entity"
@@ -131,47 +131,57 @@ describe("OggOpusWriter", () => {
 
 describe("CallRecordingService.storeRecordings", () => {
     const tracks = (): RecordedTrack[] => [
-        { track: "customer", path: "/tmp/customer.opus", durationSeconds: 12.4 },
-        { track: "agent", path: "/tmp/agent.opus", durationSeconds: 12.1 },
+        { track: "customer", path: "/tmp/nusacall-test/customer.opus", durationSeconds: 12.4, startedAt: new Date(1000) },
+        { track: "agent", path: "/tmp/nusacall-test/agent.opus", durationSeconds: 12.1, startedAt: new Date(3000) },
     ]
 
-    test("uploads both tracks and records their keys", async () => {
+    const fakeMixer = (durationSeconds = 14.1): RecordingMixer =>
+        async (_tracks, outputPath) => ({ path: outputPath, durationSeconds })
+
+    test("menyimpan satu berkas gabungan, bukan satu per arah", async () => {
         const call = await seedCall()
         const uploaded: string[] = []
         const service = new CallRecordingService(repository, fakeStorage({
             upload: async (objectName) => { uploaded.push(objectName); return objectName },
-        }))
+        }), fakeMixer())
 
         await service.storeRecordings(call.id, call.wacid, tracks(), async () => Buffer.from("fake-ogg"))
 
-        expect(uploaded).toHaveLength(2)
+        expect(uploaded).toHaveLength(1)
+        expect(uploaded[0]).not.toContain("-customer")
+        expect(uploaded[0]).not.toContain("-agent")
         const row = await repository.findByCallId(call.id)
-        expect(row!.customerS3Key).toContain("-customer.opus")
-        expect(row!.agentS3Key).toContain("-agent.opus")
-        expect(row!.durationSeconds).toBe(12)
+        expect(row!.s3Key).toBe(uploaded[0]!)
+        expect(row!.durationSeconds).toBe(14)
     })
 
-    test("keeps the surviving track when one upload fails", async () => {
+    test("berkas gabungan ditulis berdampingan dengan trek sumbernya", async () => {
         const call = await seedCall()
-        const service = new CallRecordingService(repository, fakeStorage({
-            upload: async (objectName) => {
-                if (objectName.includes("customer")) throw new Error("storage is down")
-                return objectName
-            },
-        }))
+        let mixedTo = ""
+        const service = new CallRecordingService(repository, fakeStorage(), async (_t, outputPath) => {
+            mixedTo = outputPath
+            return { path: outputPath, durationSeconds: 5 }
+        })
 
         await service.storeRecordings(call.id, call.wacid, tracks(), async () => Buffer.from("fake-ogg"))
 
-        const row = await repository.findByCallId(call.id)
-        expect(row!.customerS3Key).toBeNull()
-        expect(row!.agentS3Key).toContain("-agent.opus")
+        expect(mixedTo).toBe("/tmp/nusacall-test/mixed.opus")
     })
 
-    test("writes no row at all when every upload fails", async () => {
+    test("tidak menyimpan apa pun ketika penggabungan gagal", async () => {
+        const call = await seedCall()
+        const service = new CallRecordingService(repository, fakeStorage(), async () => null)
+
+        await service.storeRecordings(call.id, call.wacid, tracks(), async () => Buffer.from("fake-ogg"))
+
+        expect(await repository.findByCallId(call.id)).toBeNull()
+    })
+
+    test("tidak menyimpan apa pun ketika unggahan gagal", async () => {
         const call = await seedCall()
         const service = new CallRecordingService(repository, fakeStorage({
             upload: async () => { throw new Error("storage is down") },
-        }))
+        }), fakeMixer())
 
         await service.storeRecordings(call.id, call.wacid, tracks(), async () => Buffer.from("fake-ogg"))
 
@@ -180,22 +190,18 @@ describe("CallRecordingService.storeRecordings", () => {
 })
 
 describe("CallRecordingService.getRecordingUrls", () => {
-    test("returns a presigned URL for each stored track", async () => {
+    test("mengembalikan satu URL bertanda tangan", async () => {
         const call = await seedCall()
         const service = new CallRecordingService(repository, fakeStorage())
-        await repository.store({
-            callId: call.id, wacid: call.wacid, durationSeconds: 30,
-            customerS3Key: "recordings/a-customer.opus", agentS3Key: "recordings/a-agent.opus",
-        })
+        await repository.store({ callId: call.id, wacid: call.wacid, durationSeconds: 30, s3Key: "recordings/a.opus" })
 
         const urls = await service.getRecordingUrls(call.id)
 
-        expect(urls.customer).toContain("a-customer.opus")
-        expect(urls.agent).toContain("a-agent.opus")
+        expect(urls.url).toContain("recordings/a.opus")
         expect(urls.durationSeconds).toBe(30)
     })
 
-    test("throws NotFound when the call has no recording", async () => {
+    test("melempar NotFound ketika panggilan tidak punya rekaman", async () => {
         const call = await seedCall()
         const service = new CallRecordingService(repository, fakeStorage())
 

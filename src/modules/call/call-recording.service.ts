@@ -3,6 +3,10 @@ import { CallRecording } from "./entities/call-recording.entity"
 import { logger } from "../../core/helpers/logger"
 import { NotFoundException } from "../../core/exceptions/base"
 import type { RecordedTrack } from "../../infrastructure/media/call-recorder"
+import { mixToStereo, type MixedRecording } from "../../infrastructure/media/recording-mixer"
+import { dirname, join } from "node:path"
+
+export type RecordingMixer = (tracks: RecordedTrack[], outputPath: string) => Promise<MixedRecording | null>
 
 export interface IObjectStorage {
     upload(objectName: string, buffer: Buffer, contentType: string): Promise<string>
@@ -10,57 +14,60 @@ export interface IObjectStorage {
 }
 
 export interface RecordingUrls {
-    customer: string | null
-    agent: string | null
+    url: string
     durationSeconds: number
 }
 
 const OPUS_MIME_TYPE = "audio/ogg"
 
 /**
- * Persists the Ogg Opus files captured by the media bridge. Nothing is fetched
- * from Meta — the audio is produced locally while the call is in progress.
+ * Menyimpan rekaman yang dihasilkan jembatan media. Kedua arah digabung lebih
+ * dulu menjadi satu berkas stereo, pelanggan di kiri dan agen di kanan.
  */
 export class CallRecordingService {
     constructor(
         private readonly repository: ICallRecordingRepository,
         private readonly storage: IObjectStorage,
+        private readonly mix: RecordingMixer = mixToStereo,
     ) {}
 
-    async storeRecordings(callId: number, wacid: string, tracks: RecordedTrack[], readFile: (path: string) => Promise<Buffer>): Promise<void> {
-        const keys: { customerS3Key: string | null; agentS3Key: string | null } = { customerS3Key: null, agentS3Key: null }
-        let durationSeconds = 0
+    async storeRecordings(
+        callId: number,
+        wacid: string,
+        tracks: RecordedTrack[],
+        readFile: (path: string) => Promise<Buffer>,
+    ): Promise<void> {
+        if (!tracks.length) return
 
-        for (const track of tracks) {
-            durationSeconds = Math.max(durationSeconds, Math.round(track.durationSeconds))
-            try {
-                const bytes = await readFile(track.path)
-                const key = this.objectKey(wacid, track.track)
-                await this.storage.upload(key, bytes, OPUS_MIME_TYPE)
-                if (track.track === "customer") keys.customerS3Key = key
-                else keys.agentS3Key = key
-            } catch (err) {
-                logger.error("Failed uploading call recording track", { wacid, track: track.track, err })
-            }
-        }
-
-        if (!keys.customerS3Key && !keys.agentS3Key) {
-            logger.error("No recording track could be stored", { wacid })
+        const mixedPath = join(dirname(tracks[0]!.path), "mixed.opus")
+        const mixed = await this.mix(tracks, mixedPath)
+        if (!mixed) {
+            logger.error("Call recording could not be mixed — nothing stored", { wacid })
             return
         }
 
-        await this.repository.store({ callId, wacid, ...keys, durationSeconds })
-        logger.info("Call recording stored", { wacid, durationSeconds, ...keys })
+        const durationSeconds = Math.round(mixed.durationSeconds)
+        const key = this.objectKey(wacid)
+
+        try {
+            const bytes = await readFile(mixed.path)
+            await this.storage.upload(key, bytes, OPUS_MIME_TYPE)
+        } catch (err) {
+            logger.error("Failed uploading call recording", { wacid, err })
+            return
+        }
+
+        await this.repository.store({ callId, wacid, s3Key: key, durationSeconds })
+        logger.info("Call recording stored", { wacid, durationSeconds, key })
     }
 
     async getRecordingUrls(callId: number): Promise<RecordingUrls> {
         const row = await this.repository.findByCallId(callId)
-        if (!row || (!row.customerS3Key && !row.agentS3Key)) {
+        if (!row || !row.s3Key) {
             throw new NotFoundException("No recording for this call")
         }
         return {
-            customer: row.customerS3Key ? await this.storage.getPresignedUrl(row.customerS3Key) : null,
-            agent: row.agentS3Key ? await this.storage.getPresignedUrl(row.agentS3Key) : null,
+            url: await this.storage.getPresignedUrl(row.s3Key),
             durationSeconds: row.durationSeconds,
         }
     }
@@ -69,12 +76,12 @@ export class CallRecordingService {
         return await this.repository.findByCallId(callId)
     }
 
-    private objectKey(wacid: string, track: string): string {
+    private objectKey(wacid: string): string {
         const now = new Date()
         const y = now.getUTCFullYear()
         const m = String(now.getUTCMonth() + 1).padStart(2, "0")
         const d = String(now.getUTCDate()).padStart(2, "0")
         const safeWacid = wacid.replace(/[^A-Za-z0-9._-]/g, "_")
-        return `recordings/${y}/${m}/${d}/${safeWacid}-${track}.opus`
+        return `recordings/${y}/${m}/${d}/${safeWacid}.opus`
     }
 }

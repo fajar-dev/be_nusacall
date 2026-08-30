@@ -19,11 +19,8 @@ export class CallRecording {
     @Column({ length: 128 })
     wacid!: string
 
-    @Column({ name: "customer_s3_key", length: 255, nullable: true })
-    customerS3Key?: string | null
-
-    @Column({ name: "agent_s3_key", length: 255, nullable: true })
-    agentS3Key?: string | null
+    @Column({ name: "s3_key", length: 255, nullable: true })
+    s3Key?: string | null
 
     @Column({ name: "duration_seconds", type: "int", default: 0 })
     durationSeconds!: number

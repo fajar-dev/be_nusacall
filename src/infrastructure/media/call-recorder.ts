@@ -12,6 +12,7 @@ export interface RecordedTrack {
     track: RecordingTrack
     path: string
     durationSeconds: number
+    startedAt: Date
 }
 
 const REORDER_WINDOW = 16
@@ -26,6 +27,7 @@ class TrackRecorder {
     private readonly stream: WriteStream
     private readonly buffered = new Map<number, Buffer>()
     private nextSequence: number | null = null
+    private firstPacketAt: Date | null = null
     private closed = false
 
     constructor(readonly track: RecordingTrack, readonly path: string) {
@@ -40,6 +42,7 @@ class TrackRecorder {
 
         const sequence = rtp.header.sequenceNumber
         if (this.nextSequence === null) this.nextSequence = sequence
+        if (this.firstPacketAt === null) this.firstPacketAt = new Date()
 
         this.buffered.set(sequence, Buffer.from(rtp.payload))
         this.drainInOrder()
@@ -86,7 +89,7 @@ class TrackRecorder {
             await rm(this.path, { force: true })
             return null
         }
-        return { track: this.track, path: this.path, durationSeconds: duration }
+        return { track: this.track, path: this.path, durationSeconds: duration, startedAt: this.firstPacketAt ?? new Date() }
     }
 }
 

@@ -78,12 +78,8 @@ ALTER TABLE call_permissions MODIFY COLUMN contact_id int NOT NULL;
 
 -- 1.6 call_recordings: kolom rekaman milik backend ------------------------
 
-SET @sql = IF(NOT EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='call_recordings' AND COLUMN_NAME='customer_s3_key'),
-    'ALTER TABLE call_recordings ADD COLUMN customer_s3_key varchar(255) NULL', 'DO 0');
-PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-
-SET @sql = IF(NOT EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='call_recordings' AND COLUMN_NAME='agent_s3_key'),
-    'ALTER TABLE call_recordings ADD COLUMN agent_s3_key varchar(255) NULL', 'DO 0');
+SET @sql = IF(NOT EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='call_recordings' AND COLUMN_NAME='s3_key'),
+    'ALTER TABLE call_recordings ADD COLUMN s3_key varchar(255) NULL', 'DO 0');
 PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
 SET @sql = IF(NOT EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='call_recordings' AND COLUMN_NAME='duration_seconds'),

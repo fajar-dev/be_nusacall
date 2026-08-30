@@ -3,8 +3,7 @@ import { CallRecording } from "../entities/call-recording.entity"
 export interface StoreRecordingInput {
     callId: number
     wacid: string
-    customerS3Key: string | null
-    agentS3Key: string | null
+    s3Key: string
     durationSeconds: number
     error?: string | null
 }

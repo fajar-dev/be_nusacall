@@ -1026,17 +1026,17 @@ paths:
         schema: { type: integer }
     get:
       tags: [Call]
-      summary: Get presigned download URLs for this call's recording
+      summary: Get a presigned download URL for this call's recording
       description: >-
-        Recording is captured by this service while it bridges the media, one
-        Ogg Opus track per direction, and uploaded to MinIO when the call ends.
-        Either track may be null when that side produced no audio or its upload
-        failed; 404 when the call has no recording at all.
+        Recording is captured by this service while it bridges the media. Both
+        directions are merged into one stereo Ogg Opus file when the call ends
+        — customer on the left channel, agent on the right — and uploaded to
+        MinIO. 404 when the call has no stored recording.
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: Presigned URLs retrieved
+          description: Presigned URL retrieved
           content:
             application/json:
               schema:
@@ -1047,8 +1047,7 @@ paths:
                       data:
                         type: object
                         properties:
-                          customer: { type: string, nullable: true, description: "Audio received from the customer" }
-                          agent: { type: string, nullable: true, description: "Audio sent by the agent" }
+                          url: { type: string, description: "Stereo recording — customer left, agent right" }
                           durationSeconds: { type: integer, example: 135 }
         "401":
           description: Unauthorized
