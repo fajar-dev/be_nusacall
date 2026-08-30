@@ -10,7 +10,8 @@ export class UserService {
     constructor(private readonly repository: IUserRepository) {}
 
     async getAll(page: number, limit: number, q: string, filters: UserListFilters = {}, sortBy?: string, order?: SortOrder): Promise<{ data: User[]; total: number }> {
-        return await this.repository.findAll(page, limit, q, filters, sortBy, order)
+        const onlineEmails = sortBy === "availability" ? presenceRegistry.listAll().map(p => p.email) : []
+        return await this.repository.findAll(page, limit, q, filters, sortBy, order, onlineEmails)
     }
 
     async searchOptions(q: string, limit: number): Promise<User[]> {

@@ -36,10 +36,11 @@ export class UserController {
         const q = c.req.query("q") || ""
         const isActive = c.req.query("isActive")
         const organizationId = c.req.query("organizationId")
+        const branchId = c.req.query("branchId")
         const sortBy = c.req.query("sortBy") || undefined
         const order = (c.req.query("order") || "DESC").toUpperCase() as SortOrder
 
-        const filters = { isActive, organizationId }
+        const filters = { isActive, organizationId, branchId }
         const { data, total } = await this.service.getAll(page, limit, q, filters, sortBy, order)
 
         const serialized = await UserSerializer.collection(data)

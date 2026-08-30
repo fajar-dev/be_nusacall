@@ -10,7 +10,7 @@ export class UserRepository extends BaseRepository<User> implements IUserReposit
         super(User)
     }
 
-    async findAll(page: number, limit: number, q: string, filters: UserListFilters = {}, sortBy?: string, order?: SortOrder): Promise<{ data: User[]; total: number }> {
+    async findAll(page: number, limit: number, q: string, filters: UserListFilters = {}, sortBy?: string, order?: SortOrder, onlineEmails: string[] = []): Promise<{ data: User[]; total: number }> {
         const offset = (page - 1) * limit
 
         const query = this.repository.createQueryBuilder("user")
@@ -33,6 +33,10 @@ export class UserRepository extends BaseRepository<User> implements IUserReposit
             query.andWhere("user.organizationId = :organizationId", { organizationId: Number(filters.organizationId) })
         }
 
+        if (filters.branchId !== undefined && filters.branchId !== "") {
+            query.andWhere("user.branchId = :branchId", { branchId: Number(filters.branchId) })
+        }
+
         const total = await query.getCount()
 
         const sortColumnMap: Record<string, string> = {
@@ -40,15 +44,24 @@ export class UserRepository extends BaseRepository<User> implements IUserReposit
             email: "user.email",
             role: "user.role",
             organization: "organization.name",
+            branch: "branch.name",
             isActive: "user.isActive",
             createdAt: "user.createdAt",
         }
 
-        const sortColumn = sortColumnMap[sortBy || ''] || "user.id"
         const sortOrder = order === SortOrder.ASC ? SortOrder.ASC : SortOrder.DESC
 
+        if (sortBy === "availability" && onlineEmails.length) {
+            query
+                .addSelect("CASE WHEN user.email IN (:...onlineEmails) THEN 0 ELSE 1 END", "online_rank")
+                .setParameter("onlineEmails", onlineEmails)
+                .orderBy("online_rank", sortOrder)
+                .addOrderBy("user.id", SortOrder.ASC)
+        } else {
+            query.orderBy(sortColumnMap[sortBy || ''] || "user.id", sortOrder)
+        }
+
         const data = await query
-            .orderBy(sortColumn, sortOrder)
             .skip(offset)
             .take(limit)
             .getMany()
