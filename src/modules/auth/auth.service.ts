@@ -31,19 +31,6 @@ export class AuthService {
         return { user, accessToken, refreshToken }
     }
 
-    async nusaworklogin(data: LoginValidator) {
-        const user = await this.userService.getByEmail(data.email)
-        if (!user) {
-            throw new UnauthorizedException("User not registered")
-        }
-
-        if (!user.isActive) {
-            throw new UnauthorizedException("Account is inactive")
-        }
-
-        const { accessToken, refreshToken } = await AuthHelper.generateTokens(user)
-        return { user, accessToken, refreshToken }
-    }
 
     async refreshToken(data: RefreshTokenValidator) {
         try {

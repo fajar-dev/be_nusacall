@@ -40,11 +40,6 @@ export class CallEvent {
     @Column({ name: "is_stale", default: false })
     isStale!: boolean
 
-    @Column({ default: false })
-    processed!: boolean
-
-    @Column({ name: "processing_error", type: "text", nullable: true })
-    processingError?: string | null
 
     @CreateDateColumn({ name: "received_at" })
     receivedAt!: Date

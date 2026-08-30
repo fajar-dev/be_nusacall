@@ -21,9 +21,6 @@ export class CallRecording {
     @Column({ name: "duration_seconds", type: "int", default: 0 })
     durationSeconds!: number
 
-    @Column({ name: "recording_error", type: "text", nullable: true })
-    recordingError?: string | null
-
     @CreateDateColumn({ name: "created_at" })
     createdAt!: Date
 

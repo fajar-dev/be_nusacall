@@ -29,12 +29,6 @@ export class TypeOrmCallEventRepository implements ICallEventRepository {
         }
     }
 
-    async markProcessed(dedupKey: string, error?: string): Promise<void> {
-        await this.repository.update(
-            { dedupKey },
-            { processed: !error, processingError: error ?? null }
-        )
-    }
 
     async linkToCall(wacid: string, callId: number): Promise<void> {
         await this.repository

@@ -178,7 +178,32 @@ SET @sql = IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA
     'ALTER TABLE call_recordings DROP COLUMN wacid', 'DO 0');
 PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
--- 3.6 Kolom rekaman Meta. Objek lama di MinIO tidak ikut terhapus dan perlu
+-- 3.6 Kolom yang tidak pernah dibaca maupun ditulis oleh aplikasi.
+
+-- Indeks status tunggal tercakup oleh indeks gabungan (status, created_at).
+SET @sql = IFNULL((SELECT CONCAT('ALTER TABLE calls DROP INDEX ', INDEX_NAME)
+    FROM information_schema.STATISTICS
+   WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='calls' AND INDEX_NAME <> 'PRIMARY'
+   GROUP BY INDEX_NAME
+  HAVING COUNT(*) = 1 AND MAX(COLUMN_NAME) = 'status'
+   LIMIT 1), 'DO 0');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @sql = IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='last_seen_at'),
+    'ALTER TABLE users DROP COLUMN last_seen_at', 'DO 0');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @sql = IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='call_recordings' AND COLUMN_NAME='recording_error'),
+    'ALTER TABLE call_recordings DROP COLUMN recording_error', 'DO 0');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @sql = (SELECT IFNULL(CONCAT('ALTER TABLE call_events ', GROUP_CONCAT(CONCAT('DROP COLUMN ', COLUMN_NAME))), 'DO 0')
+    FROM information_schema.COLUMNS
+   WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='call_events'
+     AND COLUMN_NAME IN ('processed','processing_error'));
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+-- 3.7 Kolom rekaman Meta. Objek lama di MinIO tidak ikut terhapus dan perlu
 --     dibersihkan tersendiri bila memang tidak lagi diperlukan.
 
 SET @sql = IFNULL((SELECT CONCAT('ALTER TABLE call_recordings ', GROUP_CONCAT(CONCAT('DROP COLUMN ', COLUMN_NAME)))

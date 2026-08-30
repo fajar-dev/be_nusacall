@@ -39,7 +39,6 @@ export class Call {
     @Column({ type: "enum", enum: CallDirection })
     direction!: CallDirection
 
-    @Index()
     @Column({ type: "enum", enum: CallStatus, default: CallStatus.PENDING })
     status!: CallStatus
 

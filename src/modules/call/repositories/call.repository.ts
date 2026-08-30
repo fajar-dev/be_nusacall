@@ -132,31 +132,42 @@ export class TypeOrmCallRepository extends BaseRepository<Call> implements ICall
         if (filter.from) query.andWhere("call.createdAt >= :from", { from: filter.from })
         if (filter.to) query.andWhere("call.createdAt <= :to", { to: filter.to })
 
-        const rows = await query.getMany()
+        const countIf = (column: string, parameter: string) =>
+            `SUM(CASE WHEN call.${column} = :${parameter} THEN 1 ELSE 0 END)`
 
-        const total = rows.length
-        const answered = rows.filter((r) => r.status === CallStatus.COMPLETED).length
-        const missed = rows.filter((r) => r.status === CallStatus.MISSED).length
-        const rejected = rows.filter((r) => r.status === CallStatus.REJECTED).length
-        const failed = rows.filter((r) => r.status === CallStatus.FAILED).length
-        const inbound = rows.filter((r) => r.direction === CallDirection.INBOUND).length
-        const outbound = rows.filter((r) => r.direction === CallDirection.OUTBOUND).length
+        const row = await query
+            .select("COUNT(*)", "total")
+            .addSelect(countIf("status", "completed"), "answered")
+            .addSelect(countIf("status", "missed"), "missed")
+            .addSelect(countIf("status", "rejected"), "rejected")
+            .addSelect(countIf("status", "failed"), "failed")
+            .addSelect(countIf("direction", "inbound"), "inbound")
+            .addSelect(countIf("direction", "outbound"), "outbound")
+            .addSelect("AVG(call.durationSeconds)", "avgDurationSeconds")
+            .addSelect("AVG(call.setupDurationMs)", "avgSetupMs")
+            .setParameters({
+                completed: CallStatus.COMPLETED,
+                missed: CallStatus.MISSED,
+                rejected: CallStatus.REJECTED,
+                failed: CallStatus.FAILED,
+                inbound: CallDirection.INBOUND,
+                outbound: CallDirection.OUTBOUND,
+            })
+            .getRawOne<Record<string, string | null>>()
 
-        const durations = rows.map((r) => r.durationSeconds).filter((v): v is number => v != null)
-        const setups = rows.map((r) => r.setupDurationMs).filter((v): v is number => v != null)
-
-        const avg = (arr: number[]) => (arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : null)
+        const count = (key: string) => Number(row?.[key] ?? 0)
+        const average = (key: string) => (row?.[key] == null ? null : Number(row[key]))
 
         return {
-            total,
-            answered,
-            missed,
-            rejected,
-            failed,
-            inbound,
-            outbound,
-            avgDurationSeconds: avg(durations),
-            avgSetupMs: avg(setups),
+            total: count("total"),
+            answered: count("answered"),
+            missed: count("missed"),
+            rejected: count("rejected"),
+            failed: count("failed"),
+            inbound: count("inbound"),
+            outbound: count("outbound"),
+            avgDurationSeconds: average("avgDurationSeconds"),
+            avgSetupMs: average("avgSetupMs"),
         }
     }
 }

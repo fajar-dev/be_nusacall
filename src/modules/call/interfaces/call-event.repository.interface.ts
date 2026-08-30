@@ -15,6 +15,5 @@ export interface RecordEventInput {
 
 export interface ICallEventRepository {
     tryInsert(input: RecordEventInput): Promise<boolean>
-    markProcessed(dedupKey: string, error?: string): Promise<void>
     linkToCall(wacid: string, callId: number): Promise<void>
 }

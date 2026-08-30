@@ -26,13 +26,6 @@ export class CallService {
         return call
     }
 
-    async getByWacid(wacid: string): Promise<Call> {
-        const call = await this.repository.findByWacid(wacid)
-        if (!call) {
-            throw new NotFoundException("Call not found")
-        }
-        return call
-    }
 
     async getStats(filter: { phoneNumberId?: string; from?: string; to?: string }) {
         const stats = await this.repository.getStats(filter)
@@ -40,21 +33,7 @@ export class CallService {
         return { ...stats, answerRate }
     }
 
-    async rejectByAgent(id: number, reason?: string): Promise<Call> {
-        const call = await this.getById(id)
-        if (![CallStatus.RINGING, CallStatus.CONNECTING].includes(call.status)) {
-            throw new ConflictException(`Cannot reject a call in status "${call.status}"`)
-        }
-        return call
-    }
 
-    async hangupByAgent(id: number): Promise<Call> {
-        const call = await this.getById(id)
-        if (call.status !== CallStatus.ACTIVE) {
-            throw new ConflictException(`Cannot hang up a call in status "${call.status}"`)
-        }
-        return call
-    }
 
     async findStaleActive(olderThanMinutes: number): Promise<Call[]> {
         return await this.repository.findStaleActive(olderThanMinutes)

@@ -46,9 +46,6 @@ export class User {
     @Column({ name: "is_active", default: true })
     isActive!: boolean
 
-    @Column({ name: "last_seen_at", type: "datetime", nullable: true })
-    lastSeenAt?: Date | null
-
     @CreateDateColumn({ name: "created_at" })
     createdAt!: Date
 

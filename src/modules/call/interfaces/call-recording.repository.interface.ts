@@ -4,7 +4,6 @@ export interface StoreRecordingInput {
     callId: number
     s3Key: string
     durationSeconds: number
-    error?: string | null
 }
 
 export interface ICallRecordingRepository {
