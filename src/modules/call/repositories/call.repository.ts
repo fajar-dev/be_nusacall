@@ -2,7 +2,7 @@ import { EntityManager } from "typeorm"
 import { Call } from "../entities/call.entity"
 import { CallStatus, TERMINAL_CALL_STATUSES } from "../enums/call-status.enum"
 import { ICallRepository, CallListFilter } from "../interfaces/call.repository.interface"
-import { SortOrder } from "../../../core/interfaces/base.repository.interface"
+import { SortOrder } from "../../../core/enums/sort-order.enum"
 import { BaseRepository } from "../../../core/repositories/base.repository"
 
 const SORTABLE_COLUMNS: Record<string, string> = {
@@ -22,7 +22,7 @@ export class TypeOrmCallRepository extends BaseRepository<Call> implements ICall
         limit: number,
         filter: CallListFilter,
         sortBy?: string,
-        order: SortOrder = "DESC"
+        order: SortOrder = SortOrder.DESC
     ): Promise<{ data: Call[]; total: number }> {
         const offset = (page - 1) * limit
         const query = this.repository.createQueryBuilder("call")

@@ -2,7 +2,7 @@ import { Context } from "hono"
 import en from "../i18n/en.json"
 import id from "../i18n/id.json"
 
-type SupportedLanguage = "en" | "id"
+import { SupportedLanguage } from "../enums/supported-language.enum"
 type MessageGroup = Record<string, string>
 type LocaleFile = Record<string, MessageGroup>
 
@@ -16,6 +16,6 @@ const locales: Record<SupportedLanguage, MessageGroup> = {
 }
 
 export function translate(c: Context, message: string): string {
-    const lang = (c.get("language") as SupportedLanguage | undefined) ?? "en"
+    const lang = (c.get("language") as SupportedLanguage | undefined) ?? SupportedLanguage.EN
     return locales[lang]?.[message] ?? message
 }

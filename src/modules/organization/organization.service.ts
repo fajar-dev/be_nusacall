@@ -3,11 +3,12 @@ import { Organization } from "./entities/organization.entity"
 import { NotFoundException, ConflictException, BadRequestException } from "../../core/exceptions/base"
 import { IOrganizationRepository } from "./interfaces/organization.repository.interface"
 import { AppDataSource } from "../../config/database"
+import { SortOrder } from "../../core/enums/sort-order.enum"
 
 export class OrganizationService {
     constructor(private readonly repository: IOrganizationRepository) {}
 
-    async getAll(page: number, limit: number, q: string, sortBy?: string, order?: 'ASC' | 'DESC'): Promise<{ data: Organization[]; total: number }> {
+    async getAll(page: number, limit: number, q: string, sortBy?: string, order?: SortOrder): Promise<{ data: Organization[]; total: number }> {
         return await this.repository.findAll(page, limit, q, sortBy, order)
     }
 

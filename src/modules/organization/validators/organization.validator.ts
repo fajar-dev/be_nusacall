@@ -1,9 +1,9 @@
 import { z } from "zod"
-import { Type } from "../enums/organization-type.enum"
+import { OrganizationType } from "../enums/organization-type.enum"
 
 export const CreateOrganizationValidator = z.object({
     name: z.string().trim().min(1, "Name is required"),
-    type: z.enum(Type),
+    type: z.nativeEnum(OrganizationType),
     description: z.string().trim().optional().nullable(),
     parentId: z.number().int().positive().optional().nullable(),
     isActive: z.boolean().optional(),
@@ -13,7 +13,7 @@ export type CreateOrganizationValidator = z.infer<typeof CreateOrganizationValid
 
 export const UpdateOrganizationValidator = z.object({
     name: z.string().trim().min(1, "Name is required").optional(),
-    type: z.enum(Type).optional(),
+    type: z.nativeEnum(OrganizationType).optional(),
     description: z.string().trim().optional().nullable(),
     parentId: z.number().int().positive().optional().nullable(),
     isActive: z.boolean().optional(),

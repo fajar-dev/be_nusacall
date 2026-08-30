@@ -3,11 +3,12 @@ import { NotFoundException, ConflictException } from "../../core/exceptions/base
 import { EntityManager } from "typeorm"
 import { AppDataSource } from "../../config/database"
 import { IBranchRepository } from "./interfaces/branch.repository.interface"
+import { SortOrder } from "../../core/enums/sort-order.enum"
 
 export class BranchService {
     constructor(private readonly repository: IBranchRepository) {}
 
-    async getAll(page: number, limit: number, q: string, sortBy?: string, order?: 'ASC' | 'DESC'): Promise<{ data: Branch[]; total: number }> {
+    async getAll(page: number, limit: number, q: string, sortBy?: string, order?: SortOrder): Promise<{ data: Branch[]; total: number }> {
         return await this.repository.findAll(page, limit, q, sortBy, order)
     }
 

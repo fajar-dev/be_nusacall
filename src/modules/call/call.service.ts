@@ -2,7 +2,7 @@ import { Call } from "./entities/call.entity"
 import { CallStatus } from "./enums/call-status.enum"
 import { ICallRepository, CallListFilter } from "./interfaces/call.repository.interface"
 import { NotFoundException, ConflictException } from "../../core/exceptions/base"
-import { SortOrder } from "../../core/interfaces/base.repository.interface"
+import { SortOrder } from "../../core/enums/sort-order.enum"
 import { EndReason } from "./enums/end-reason.enum"
 
 export class CallService {

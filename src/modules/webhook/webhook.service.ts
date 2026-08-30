@@ -11,6 +11,7 @@ import { ICallRepository } from "../call/interfaces/call.repository.interface"
 import { CallRecordingService } from "../call/call-recording.service"
 import { ContactService } from "../contact/contact.service"
 import { logger } from "../../core/helpers/logger"
+import { CallLogOutcome } from "../call/enums/call-log-outcome.enum"
 
 interface MetaCallObject {
     id: string
@@ -286,9 +287,9 @@ export class WebhookService {
         await this.media.teardown(callObj.id, `terminate_webhook_${terminalStatus}`)
 
         if (transitioned) {
-            const outcome = terminalStatus === CallStatus.COMPLETED ? "completed"
-                : terminalStatus === CallStatus.REJECTED ? "rejected"
-                : "missed"
+            const outcome = terminalStatus === CallStatus.COMPLETED ? CallLogOutcome.COMPLETED
+                : terminalStatus === CallStatus.REJECTED ? CallLogOutcome.REJECTED
+                : CallLogOutcome.MISSED
             const updatedCall = { ...call, ...patch }
             await this.signaling.logCallOutcome(updatedCall, outcome, patch.durationSeconds ?? null)
             this.signaling.notifyCallEnded(updatedCall, patch.endReason ?? EndReason.MEDIA_FAILURE)

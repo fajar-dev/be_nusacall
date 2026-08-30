@@ -4,11 +4,12 @@ import { EntityManager } from "typeorm"
 import { IUserRepository, UserListFilters } from "./interfaces/user.repository.interface"
 import { minioClient } from "../../infrastructure/minio/minio.client"
 import { presenceRegistry } from "./presence.registry"
+import { SortOrder } from "../../core/enums/sort-order.enum"
 
 export class UserService {
     constructor(private readonly repository: IUserRepository) {}
 
-    async getAll(page: number, limit: number, q: string, filters: UserListFilters = {}, sortBy?: string, order?: 'ASC' | 'DESC'): Promise<{ data: User[]; total: number }> {
+    async getAll(page: number, limit: number, q: string, filters: UserListFilters = {}, sortBy?: string, order?: SortOrder): Promise<{ data: User[]; total: number }> {
         return await this.repository.findAll(page, limit, q, filters, sortBy, order)
     }
 

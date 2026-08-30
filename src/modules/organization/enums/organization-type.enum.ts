@@ -1,4 +1,4 @@
-export enum Type {
+export enum OrganizationType {
     DIVISION = "DIVISION",
     DEPARTMENT = "DEPARTMENT",
 }

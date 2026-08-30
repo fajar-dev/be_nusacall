@@ -1,5 +1,5 @@
 import { Call } from "../entities/call.entity"
-import { CallLogOutcome } from "../call-log-message"
+import { CallLogOutcome } from "../enums/call-log-outcome.enum"
 import { EndReason } from "../enums/end-reason.enum"
 
 export interface WsOutboundPacket {

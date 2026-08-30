@@ -3,6 +3,7 @@ import { OrganizationService } from "./organization.service"
 import { OrganizationSerializer } from "./serializers/organization.serialize"
 import { ApiResponse } from "../../core/helpers/response"
 import { parsePagination } from "../../core/helpers/pagination"
+import { SortOrder } from "../../core/enums/sort-order.enum"
 
 export class OrganizationController {
     constructor(private readonly service: OrganizationService) {}
@@ -11,7 +12,7 @@ export class OrganizationController {
         const { page, limit } = parsePagination(c)
         const q = c.req.query("q") || ""
         const sortBy = c.req.query("sortBy") || undefined
-        const order = (c.req.query("order") || "DESC").toUpperCase() as 'ASC' | 'DESC'
+        const order = (c.req.query("order") || "DESC").toUpperCase() as SortOrder
 
         const { data, total } = await this.service.getAll(page, limit, q, sortBy, order)
 

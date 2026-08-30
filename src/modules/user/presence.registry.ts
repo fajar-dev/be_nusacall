@@ -1,4 +1,4 @@
-type UserAvailability = "available" | "offline"
+import { UserAvailability } from "./enums/user-availability.enum"
 
 interface UserPresence {
     email: string
@@ -17,7 +17,7 @@ class PresenceRegistry {
         if (!presence) {
             presence = {
                 email,
-                availability: "available",
+                availability: UserAvailability.AVAILABLE,
                 currentCallId: null,
                 connectionIds: new Set(),
                 connectedAt: new Date(),
@@ -56,12 +56,12 @@ class PresenceRegistry {
 
     isAvailable(email: string): boolean {
         const presence = this.byEmail.get(email)
-        return presence?.availability === "available" && presence.currentCallId === null
+        return presence?.availability === UserAvailability.AVAILABLE && presence.currentCallId === null
     }
 
     listAvailable(): UserPresence[] {
         return [...this.byEmail.values()].filter(
-            (p) => p.availability === "available" && p.currentCallId === null
+            (p) => p.availability === UserAvailability.AVAILABLE && p.currentCallId === null
         )
     }
 

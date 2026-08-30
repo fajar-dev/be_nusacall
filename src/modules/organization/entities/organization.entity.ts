@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn, CreateDateColumn, UpdateDateColumn, Index } from "typeorm"
 import type { Relation } from "typeorm"
-import { Type } from "../enums/organization-type.enum"
+import { OrganizationType } from "../enums/organization-type.enum"
 
 @Entity("organizations")
 export class Organization {
@@ -22,8 +22,8 @@ export class Organization {
     @Column()
     name!: string
 
-    @Column({ type: "enum", enum: Type, default: Type.DIVISION })
-    type!: Type
+    @Column({ type: "enum", enum: OrganizationType, default: OrganizationType.DIVISION })
+    type!: OrganizationType
 
     @Column({ type: "text", nullable: true })
     description!: string | null

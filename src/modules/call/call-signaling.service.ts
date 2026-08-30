@@ -9,11 +9,12 @@ import { sessionRegistry } from "../../infrastructure/media/session-registry"
 import { presenceRegistry } from "../user/presence.registry"
 import { RoutingService } from "../routing/routing.service"
 import { NusawaLogService } from "./nusawa-log.service"
-import { formatCallLogMessage, CallLogOutcome } from "./call-log-message"
+import { formatCallLogMessage } from "./call-log-message"
 import { config } from "../../config/config"
 import { logger } from "../../core/helpers/logger"
 import type { IAgentNotifier, ICallSignalingNotifier, WsOutboundPacket } from "./interfaces/call-signaling.interface"
 import type { Call } from "./entities/call.entity"
+import { CallLogOutcome } from "./enums/call-log-outcome.enum"
 
 function packet(type: string, wacid: string, data?: unknown): WsOutboundPacket {
     return { type, wacid, data, ts: Date.now() }
@@ -80,7 +81,7 @@ export class CallSignalingService implements ICallSignalingNotifier {
         if (!transitioned) return
 
         await sessionRegistry.remove(wacid, "answer_timeout")
-        await this.logCallOutcome(call, "missed")
+        await this.logCallOutcome(call, CallLogOutcome.MISSED)
 
         const stillRinging = presenceRegistry.listAll().filter((p) => p.currentCallId === call.id)
         for (const presence of stillRinging) {
@@ -145,7 +146,7 @@ export class CallSignalingService implements ICallSignalingNotifier {
             errorMessage: reason ?? null,
         })
         await sessionRegistry.remove(wacid, "agent_rejected")
-        await this.logCallOutcome(call, "rejected")
+        await this.logCallOutcome(call, CallLogOutcome.REJECTED)
         this.releaseOtherRingingAgents(call, agentEmail)
         presenceRegistry.setCurrentCall(agentEmail, null)
     }
@@ -165,7 +166,7 @@ export class CallSignalingService implements ICallSignalingNotifier {
             endedAt: new Date(),
         })
         await sessionRegistry.remove(wacid, "agent_hangup")
-        await this.logCallOutcome(call, "completed", this.durationSince(call.answeredAt))
+        await this.logCallOutcome(call, CallLogOutcome.COMPLETED, this.durationSince(call.answeredAt))
         presenceRegistry.setCurrentCall(agentEmail, null)
         this.notifier.send(agentEmail, packet("call_ended", wacid, { endReason: EndReason.AGENT_HANGUP }))
     }

@@ -1,13 +1,14 @@
 import { Branch } from "../entities/branch.entity"
 import { IBranchRepository } from "../interfaces/branch.repository.interface"
 import { BaseRepository } from "../../../core/repositories/base.repository"
+import { SortOrder } from "../../../core/enums/sort-order.enum"
 
 export class BranchRepository extends BaseRepository<Branch> implements IBranchRepository {
     constructor() {
         super(Branch)
     }
 
-    async findAll(page: number, limit: number, q: string, sortBy?: string, order?: 'ASC' | 'DESC'): Promise<{ data: Branch[]; total: number }> {
+    async findAll(page: number, limit: number, q: string, sortBy?: string, order?: SortOrder): Promise<{ data: Branch[]; total: number }> {
         const offset = (page - 1) * limit
 
         const query = this.repository.createQueryBuilder("branch")
@@ -28,7 +29,7 @@ export class BranchRepository extends BaseRepository<Branch> implements IBranchR
         }
 
         const sortColumn = sortColumnMap[sortBy || ''] || "branch.id"
-        const sortOrder = order === 'ASC' ? 'ASC' : 'DESC'
+        const sortOrder = order === SortOrder.ASC ? SortOrder.ASC : SortOrder.DESC
 
         const data = await query
             .orderBy(sortColumn, sortOrder)

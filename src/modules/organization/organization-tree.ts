@@ -1,11 +1,11 @@
 import { Organization } from "./entities/organization.entity"
-import { Type } from "./enums/organization-type.enum"
+import { OrganizationType } from "./enums/organization-type.enum"
 
 export interface NusaworkOrganizationNode {
     id: number
     pid: number
     name: string
-    type: Type
+    type: OrganizationType
     description: string | null
     is_active: boolean
     childs?: NusaworkOrganizationNode[]

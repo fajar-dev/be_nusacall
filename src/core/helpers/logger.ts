@@ -9,7 +9,7 @@ function logFile(): string {
     return join(LOG_DIR, `app-${date}.log`)
 }
 
-type LogLevel = "debug" | "info" | "warn" | "error"
+import { LogLevel } from "../enums/log-level.enum"
 
 interface LogFields {
     [key: string]: unknown
@@ -44,7 +44,7 @@ function write(level: LogLevel, message: string, fields: LogFields = {}) {
 
     const line = JSON.stringify(entry)
 
-    if (level === "error") {
+    if (level === LogLevel.ERROR) {
         console.error(line)
     } else {
         console.log(line)
@@ -55,8 +55,8 @@ function write(level: LogLevel, message: string, fields: LogFields = {}) {
 }
 
 export const logger = {
-    debug: (message: string, fields?: LogFields) => write("debug", message, fields),
-    info: (message: string, fields?: LogFields) => write("info", message, fields),
-    warn: (message: string, fields?: LogFields) => write("warn", message, fields),
-    error: (message: string, fields?: LogFields) => write("error", message, fields),
+    debug: (message: string, fields?: LogFields) => write(LogLevel.DEBUG, message, fields),
+    info: (message: string, fields?: LogFields) => write(LogLevel.INFO, message, fields),
+    warn: (message: string, fields?: LogFields) => write(LogLevel.WARN, message, fields),
+    error: (message: string, fields?: LogFields) => write(LogLevel.ERROR, message, fields),
 }

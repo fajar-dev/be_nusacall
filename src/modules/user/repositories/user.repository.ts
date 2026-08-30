@@ -3,13 +3,14 @@ import { AppDataSource } from "../../../config/database"
 import { User } from "../entities/user.entity"
 import { IUserRepository, UserListFilters } from "../interfaces/user.repository.interface"
 import { BaseRepository } from "../../../core/repositories/base.repository"
+import { SortOrder } from "../../../core/enums/sort-order.enum"
 
 export class UserRepository extends BaseRepository<User> implements IUserRepository {
     constructor() {
         super(User)
     }
 
-    async findAll(page: number, limit: number, q: string, filters: UserListFilters = {}, sortBy?: string, order?: 'ASC' | 'DESC'): Promise<{ data: User[]; total: number }> {
+    async findAll(page: number, limit: number, q: string, filters: UserListFilters = {}, sortBy?: string, order?: SortOrder): Promise<{ data: User[]; total: number }> {
         const offset = (page - 1) * limit
 
         const query = this.repository.createQueryBuilder("user")
@@ -44,7 +45,7 @@ export class UserRepository extends BaseRepository<User> implements IUserReposit
         }
 
         const sortColumn = sortColumnMap[sortBy || ''] || "user.id"
-        const sortOrder = order === 'ASC' ? 'ASC' : 'DESC'
+        const sortOrder = order === SortOrder.ASC ? SortOrder.ASC : SortOrder.DESC
 
         const data = await query
             .orderBy(sortColumn, sortOrder)

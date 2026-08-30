@@ -3,6 +3,7 @@ import { BranchService } from "./branch.service"
 import { BranchSerializer } from "./serializers/branch.serialize"
 import { ApiResponse } from "../../core/helpers/response"
 import { parsePagination } from "../../core/helpers/pagination"
+import { SortOrder } from "../../core/enums/sort-order.enum"
 
 export class BranchController {
     constructor(private readonly service: BranchService) {}
@@ -11,7 +12,7 @@ export class BranchController {
         const { page, limit } = parsePagination(c)
         const q = c.req.query("q") || ""
         const sortBy = c.req.query("sortBy") || undefined
-        const order = (c.req.query("order") || "DESC").toUpperCase() as 'ASC' | 'DESC'
+        const order = (c.req.query("order") || "DESC").toUpperCase() as SortOrder
 
         const { data, total } = await this.service.getAll(page, limit, q, sortBy, order)
 

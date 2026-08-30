@@ -1,12 +1,12 @@
-export type CallLogOutcome = "completed" | "rejected" | "missed"
+import { CallLogOutcome } from "./enums/call-log-outcome.enum"
 
 export function formatCallLogMessage(outcome: CallLogOutcome, opts: { durationSeconds?: number | null; agentEmail?: string | null }): string {
     switch (outcome) {
-        case "completed":
+        case CallLogOutcome.COMPLETED:
             return `📞 Panggilan masuk · ${formatDuration(opts.durationSeconds ?? 0)} · dijawab ${opts.agentEmail ?? "agent"}`
-        case "rejected":
+        case CallLogOutcome.REJECTED:
             return "📞 Panggilan masuk ditolak"
-        case "missed": {
+        case CallLogOutcome.MISSED: {
             const time = new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date())
             return `📞 Panggilan masuk tidak terjawab · ${time}`
         }

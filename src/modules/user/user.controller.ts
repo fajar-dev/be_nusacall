@@ -4,6 +4,7 @@ import { UserSerializer } from "./serializers/user.serialize"
 import { ApiResponse } from "../../core/helpers/response"
 import type { User } from "./entities/user.entity"
 import { parsePagination } from "../../core/helpers/pagination"
+import { SortOrder } from "../../core/enums/sort-order.enum"
 
 export class UserController {
     constructor(private readonly service: UserService) {}
@@ -36,7 +37,7 @@ export class UserController {
         const isActive = c.req.query("isActive")
         const organizationId = c.req.query("organizationId")
         const sortBy = c.req.query("sortBy") || undefined
-        const order = (c.req.query("order") || "DESC").toUpperCase() as 'ASC' | 'DESC'
+        const order = (c.req.query("order") || "DESC").toUpperCase() as SortOrder
 
         const filters = { isActive, organizationId }
         const { data, total } = await this.service.getAll(page, limit, q, filters, sortBy, order)

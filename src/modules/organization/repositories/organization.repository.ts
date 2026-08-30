@@ -1,13 +1,14 @@
 import { Organization } from "../entities/organization.entity"
 import { IOrganizationRepository } from "../interfaces/organization.repository.interface"
 import { BaseRepository } from "../../../core/repositories/base.repository"
+import { SortOrder } from "../../../core/enums/sort-order.enum"
 
 export class OrganizationRepository extends BaseRepository<Organization> implements IOrganizationRepository {
     constructor() {
         super(Organization)
     }
 
-    async findAll(page: number, limit: number, q: string, sortBy?: string, order?: 'ASC' | 'DESC'): Promise<{ data: Organization[]; total: number }> {
+    async findAll(page: number, limit: number, q: string, sortBy?: string, order?: SortOrder): Promise<{ data: Organization[]; total: number }> {
         const offset = (page - 1) * limit
 
         const query = this.repository.createQueryBuilder("organization")
@@ -29,7 +30,7 @@ export class OrganizationRepository extends BaseRepository<Organization> impleme
             isActive: "organization.isActive",
         }
         const sortColumn = sortColumnMap[sortBy || ''] || "organization.id"
-        const sortOrder = order === 'ASC' ? 'ASC' : 'DESC'
+        const sortOrder = order === SortOrder.ASC ? SortOrder.ASC : SortOrder.DESC
 
         const data = await query
             .orderBy(sortColumn, sortOrder)

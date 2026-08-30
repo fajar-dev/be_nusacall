@@ -4,7 +4,7 @@ import { CallRecordingService } from "./call-recording.service"
 import { CallSerializer } from "./serializers/call.serialize"
 import { ApiResponse } from "../../core/helpers/response"
 import { CallStatus } from "./enums/call-status.enum"
-import { SortOrder } from "../../core/interfaces/base.repository.interface"
+import { SortOrder } from "../../core/enums/sort-order.enum"
 import { BadGatewayException, ForbiddenException } from "../../core/exceptions/base"
 import { PermissionStatus } from "../permission/enums/permission-status.enum"
 import type { User } from "../user/entities/user.entity"
@@ -30,7 +30,7 @@ export class CallController {
         const { page, limit } = parsePagination(c)
         const statusParam = c.req.query("status")
         const sortBy = c.req.query("sortBy") || undefined
-        const order = (c.req.query("order") as SortOrder) || "DESC"
+        const order = (c.req.query("order") as SortOrder) || SortOrder.DESC
 
         const { data, total } = await this.service.getAll(
             page,
