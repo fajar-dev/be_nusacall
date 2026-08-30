@@ -537,9 +537,18 @@ paths:
           in: query
           description: Filter by organization id
           schema: { type: integer }
+        - name: branchId
+          in: query
+          description: Filter by branch id
+          schema: { type: integer }
         - name: sortBy
           in: query
-          schema: { type: string, enum: [name, email, role, organization, isActive, createdAt] }
+          description: >-
+            `availability` is not a database column — it is live WebSocket
+            presence. Sorting by it ranks users who are currently connected
+            first (ASC), falling back to the default order when nobody is
+            online.
+          schema: { type: string, enum: [name, email, role, organization, branch, isActive, availability, createdAt] }
         - name: order
           in: query
           schema: { type: string, enum: [ASC, DESC], default: DESC }

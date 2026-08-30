@@ -2,6 +2,8 @@ import { describe, test, expect, beforeAll, afterAll, beforeEach } from "bun:tes
 import { Hono } from "hono"
 import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createTestApp, request, createUserAndToken } from "./setup"
 import { presenceRegistry } from "../src/modules/user/presence.registry"
+import { getDataSource } from "../src/config/database"
+import { Branch } from "../src/modules/branch/entities/branch.entity"
 
 function getUserService(): { save: (data: unknown) => Promise<any> } {
     return require("../src/modules/user/user.module").userService
@@ -25,14 +27,20 @@ beforeEach(async () => {
     }
 })
 
-async function seedUser(overrides: Partial<{ email: string; name: string; isActive: boolean; role: string }> = {}) {
+async function seedUser(overrides: Partial<{ email: string; name: string; isActive: boolean; role: string; branchId: number }> = {}) {
     return await getUserService().save({
         email: overrides.email ?? `seed${Date.now()}${Math.floor(Math.random() * 1000)}@nusa.id`,
         name: overrides.name ?? "Seeded User",
         employeeId: Math.floor(Math.random() * 1_000_000),
         role: overrides.role ?? "agent",
         isActive: overrides.isActive ?? true,
+        ...(overrides.branchId !== undefined ? { branchId: overrides.branchId } : {}),
     })
+}
+
+async function seedBranch(code: string, name: string): Promise<number> {
+    const saved = await getDataSource().getRepository(Branch).save({ code, name })
+    return saved.id
 }
 
 describe("GET /api/user", () => {
@@ -241,5 +249,77 @@ describe("DELETE /api/user/:id", () => {
 
         const { status: showStatus } = await request(app, `/api/user/${seeded.id}`, { headers })
         expect(showStatus).toBe(404)
+    })
+})
+
+describe("GET /api/user — filter cabang", () => {
+    test("branchId hanya mengembalikan agent pada cabang tersebut", async () => {
+        const { headers } = await createUserAndToken()
+        const bali = await seedBranch("062", "Bali")
+        const medan = await seedBranch("020", "Medan")
+        await seedUser({ email: "bali1@nusa.id", branchId: bali })
+        await seedUser({ email: "bali2@nusa.id", branchId: bali })
+        await seedUser({ email: "medan1@nusa.id", branchId: medan })
+
+        const { status, body } = await request(app, `/api/user?branchId=${bali}`, { headers })
+
+        expect(status).toBe(200)
+        expect(body.meta.total).toBe(2)
+        expect(body.data.every((u: { branch: { id: number } }) => u.branch.id === bali)).toBe(true)
+    })
+
+    test("tanpa branchId seluruh agent ikut terambil", async () => {
+        const { headers } = await createUserAndToken()
+        const bali = await seedBranch("062", "Bali")
+        await seedUser({ email: "bali1@nusa.id", branchId: bali })
+        await seedUser({ email: "tanpa-cabang@nusa.id" })
+
+        const { body } = await request(app, "/api/user", { headers })
+
+        expect(body.meta.total).toBeGreaterThanOrEqual(2)
+    })
+})
+
+describe("GET /api/user — pengurutan cabang", () => {
+    test("sortBy=branch mengurutkan berdasarkan nama cabang", async () => {
+        const { headers } = await createUserAndToken()
+        const zulu = await seedBranch("099", "Zulu")
+        const alpha = await seedBranch("001", "Alpha")
+        await seedUser({ email: "z@nusa.id", branchId: zulu })
+        await seedUser({ email: "a@nusa.id", branchId: alpha })
+
+        const asc = await request(app, "/api/user?sortBy=branch&order=ASC&branchId=", { headers })
+        const names = asc.body.data
+            .map((u: { branch: { name: string } | null }) => u.branch?.name)
+            .filter(Boolean)
+
+        expect(names[0]).toBe("Alpha")
+        expect(names[names.length - 1]).toBe("Zulu")
+    })
+})
+
+describe("GET /api/user — pengurutan status", () => {
+    test("sortBy=availability menaruh yang online di atas", async () => {
+        const { headers } = await createUserAndToken()
+        await seedUser({ email: "offline1@nusa.id" })
+        const online = await seedUser({ email: "online1@nusa.id" })
+        await seedUser({ email: "offline2@nusa.id" })
+        presenceRegistry.register(online.email, "conn-sort-1")
+
+        const { status, body } = await request(app, "/api/user?sortBy=availability&order=ASC", { headers })
+
+        expect(status).toBe(200)
+        expect(body.data[0].email).toBe("online1@nusa.id")
+        expect(body.data[0].availability).toBe("available")
+    })
+
+    test("sortBy=availability tetap 200 ketika tidak ada yang online", async () => {
+        const { headers } = await createUserAndToken()
+        await seedUser({ email: "offline3@nusa.id" })
+
+        const { status, body } = await request(app, "/api/user?sortBy=availability&order=ASC", { headers })
+
+        expect(status).toBe(200)
+        expect(body.data.length).toBeGreaterThan(0)
     })
 })
