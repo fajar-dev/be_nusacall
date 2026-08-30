@@ -3,6 +3,7 @@ import { Contact } from "./entities/contact.entity"
 import { NotFoundException, BadRequestException } from "../../core/exceptions/base"
 import { SortOrder } from "../../core/enums/sort-order.enum"
 import { CreateContactValidator, UpdateContactValidator } from "./validators/contact.validator"
+import { normalizePhoneNumber } from "../../core/helpers/phone-number"
 
 export class ContactService {
     constructor(private readonly repository: IContactRepository) {}
@@ -23,7 +24,7 @@ export class ContactService {
     }
 
     async findByPhoneNumber(phoneNumber: string): Promise<Contact | null> {
-        return await this.repository.findByPhoneNumber(phoneNumber)
+        return await this.repository.findByPhoneNumber(normalizePhoneNumber(phoneNumber))
     }
 
     async create(data: CreateContactValidator): Promise<Contact> {
@@ -55,7 +56,9 @@ export class ContactService {
         await this.repository.delete(id)
     }
 
-    async findOrCreate(phoneNumber: string, name: string | null): Promise<Contact> {
+    async findOrCreate(rawPhoneNumber: string, name: string | null): Promise<Contact> {
+        const phoneNumber = normalizePhoneNumber(rawPhoneNumber)
+
         const existing = await this.repository.findByPhoneNumber(phoneNumber)
         if (existing) return existing
 

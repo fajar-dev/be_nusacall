@@ -102,7 +102,14 @@ SELECT 'izin tanpa kontak', COUNT(*) FROM call_permissions WHERE contact_id IS N
 UNION ALL
 SELECT 'kontak ganda', COUNT(*) FROM (
     SELECT phone_number FROM contacts GROUP BY phone_number HAVING COUNT(*) > 1
-) AS ganda;
+) AS ganda
+UNION ALL
+SELECT 'kontak format lama', COUNT(*) FROM contacts WHERE phone_number LIKE '0%';
+
+-- Nomor kini diseragamkan ke format internasional tanpa plus. Kontak berawalan 0
+-- berasal dari input manual sebelum penyeragaman berlaku dan bisa kembar dengan
+-- nomor 62 yang sama, jadi gabungkan lebih dulu agar panggilan tidak menunjuk ke
+-- kontak yang keliru.
 
 -- ════════════════════════════════════════════════════════════════════
 -- FASE 3 — setelah deploy, HANYA bila DB_SYNC=false

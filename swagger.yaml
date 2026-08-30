@@ -369,7 +369,7 @@ components:
       type: object
       required: [phoneNumber]
       properties:
-        phoneNumber: { type: string, example: "628123456789", description: "6-20 digit, angka saja tanpa tanda plus" }
+        phoneNumber: { type: string, example: "628123456789", description: "Tanda plus, spasi, dan tanda hubung boleh disertakan. Nomor diseragamkan ke format internasional tanpa plus, dan awalan 0 diganti kode negara 62, sehingga satu nomor selalu menunjuk ke satu kontak." }
         name: { type: string, nullable: true, example: "Budi" }
         timeZone: { type: string, example: "Asia/Jakarta", description: "IANA timezone identifier; UTC bila dikosongkan" }
         branchId: { type: integer, nullable: true, example: 2 }
@@ -377,7 +377,7 @@ components:
     UpdateContactRequest:
       type: object
       properties:
-        phoneNumber: { type: string, example: "628123456789" }
+        phoneNumber: { type: string, example: "628123456789", description: "Diseragamkan sama seperti pada pembuatan kontak" }
         name: { type: string, nullable: true }
         timeZone: { type: string, example: "Asia/Jakarta" }
         branchId: { type: integer, nullable: true }

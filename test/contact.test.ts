@@ -4,6 +4,9 @@ import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createTestApp
 import { getDataSource } from "../src/config/database"
 import { Contact } from "../src/modules/contact/entities/contact.entity"
 import { Branch } from "../src/modules/branch/entities/branch.entity"
+import { ContactService } from "../src/modules/contact/contact.service"
+import { TypeOrmContactRepository } from "../src/modules/contact/repositories/contact.repository"
+import { normalizePhoneNumber } from "../src/core/helpers/phone-number"
 
 let app: Hono
 
@@ -232,5 +235,68 @@ describe("DELETE /api/contact/:id", () => {
 
         const after = await request(app, `/api/contact/${contact.id}`, { headers })
         expect(after.status).toBe(404)
+    })
+})
+
+describe("normalizePhoneNumber", () => {
+    test("mengubah awalan nol menjadi kode negara", () => {
+        expect(normalizePhoneNumber("08123456789")).toBe("628123456789")
+    })
+
+    test("membuang tanda plus, spasi, dan tanda hubung", () => {
+        expect(normalizePhoneNumber("+62 812-3456-789")).toBe("628123456789")
+    })
+
+    test("membuang awalan panggilan internasional nol nol", () => {
+        expect(normalizePhoneNumber("00628123456789")).toBe("628123456789")
+    })
+
+    test("membiarkan nomor yang sudah berformat internasional", () => {
+        expect(normalizePhoneNumber("628123456789")).toBe("628123456789")
+    })
+})
+
+describe("ContactService.findOrCreate", () => {
+    let contacts: ContactService
+
+    beforeEach(() => {
+        contacts = new ContactService(new TypeOrmContactRepository())
+    })
+
+    test("memakai kontak yang sudah ada, bukan membuat yang baru", async () => {
+        const existing = await seedContact({ phoneNumber: "628123456789", name: "Budi" })
+
+        const resolved = await contacts.findOrCreate("628123456789", "Nama Dari Meta")
+
+        expect(resolved.id).toBe(existing.id)
+        expect(resolved.name).toBe("Budi")
+        expect(await getDataSource().getRepository(Contact).count()).toBe(1)
+    })
+
+    test("kontak yang ditambahkan manual dengan awalan nol tetap dipakai saat ada panggilan", async () => {
+        const { headers } = await createUserAndToken()
+        const { body } = await request(app, "/api/contact", {
+            method: "POST", headers, body: { phoneNumber: "08123456789", name: "Budi" },
+        })
+
+        const resolved = await contacts.findOrCreate("628123456789", "Nama Dari Meta")
+
+        expect(resolved.id).toBe(body.data.id)
+        expect(await getDataSource().getRepository(Contact).count()).toBe(1)
+    })
+
+    test("membuat kontak baru ketika nomornya memang belum terdaftar", async () => {
+        const resolved = await contacts.findOrCreate("628999999999", "Dedi")
+
+        expect(resolved.phoneNumber).toBe("628999999999")
+        expect(await getDataSource().getRepository(Contact).count()).toBe(1)
+    })
+
+    test("panggilan berulang dari nomor yang sama tidak menambah kontak", async () => {
+        const first = await contacts.findOrCreate("628999999999", "Dedi")
+        const second = await contacts.findOrCreate("628999999999", "Dedi Berubah")
+
+        expect(second.id).toBe(first.id)
+        expect(await getDataSource().getRepository(Contact).count()).toBe(1)
     })
 })
