@@ -4,6 +4,8 @@ import { TypeOrmCallPermissionRepository } from "../src/modules/permission/repos
 import { PermissionService } from "../src/modules/permission/permission.service"
 import { PermissionStatus } from "../src/modules/permission/enums/permission-status.enum"
 import { config } from "../src/config/config"
+import { ContactService } from "../src/modules/contact/contact.service"
+import { TypeOrmContactRepository } from "../src/modules/contact/repositories/contact.repository"
 import type { MetaClient } from "../src/infrastructure/meta/meta.client"
 
 function fakeMetaClient(overrides: Partial<MetaClient> = {}): MetaClient {
@@ -19,10 +21,12 @@ function fakeMetaClient(overrides: Partial<MetaClient> = {}): MetaClient {
 }
 
 let repository: TypeOrmCallPermissionRepository
+let contacts: ContactService
 
 beforeAll(async () => {
     await initTestDatabase()
     repository = new TypeOrmCallPermissionRepository()
+    contacts = new ContactService(new TypeOrmContactRepository())
 })
 
 afterAll(async () => {
@@ -39,9 +43,9 @@ describe("PermissionService.checkPermission", () => {
         const meta = fakeMetaClient({
             getCallPermission: async () => { calls++; return { messaging_product: "whatsapp", permission: { status: "permanent" }, actions: [] } },
         })
-        const service = new PermissionService(repository, meta)
+        const service = new PermissionService(repository, meta, contacts)
 
-        const result = await service.checkPermission("202063559668129", "628123456789")
+        const result = await service.checkPermission("202063559668129", (await contacts.findOrCreate("628123456789", null)).id)
 
         expect(calls).toBe(1)
         expect(result.permission.status).toBe(PermissionStatus.PERMANENT)
@@ -53,10 +57,10 @@ describe("PermissionService.checkPermission", () => {
         const meta = fakeMetaClient({
             getCallPermission: async () => { calls++; return { messaging_product: "whatsapp", permission: { status: "temporary", expiration_time: Math.floor(Date.now() / 1000) + 3600 }, actions: [] } },
         })
-        const service = new PermissionService(repository, meta)
+        const service = new PermissionService(repository, meta, contacts)
 
-        await service.checkPermission("202063559668129", "628123456789")
-        const second = await service.checkPermission("202063559668129", "628123456789")
+        await service.checkPermission("202063559668129", (await contacts.findOrCreate("628123456789", null)).id)
+        const second = await service.checkPermission("202063559668129", (await contacts.findOrCreate("628123456789", null)).id)
 
         expect(calls).toBe(1)
         expect(second.permission.status).toBe(PermissionStatus.TEMPORARY)
@@ -68,13 +72,13 @@ describe("PermissionService.checkPermission", () => {
         const meta = fakeMetaClient({
             getCallPermission: async () => { calls++; return { messaging_product: "whatsapp", permission: { status: "permanent" }, actions: [] } },
         })
-        const service = new PermissionService(repository, meta)
-        await service.checkPermission("202063559668129", "628123456789")
+        const service = new PermissionService(repository, meta, contacts)
+        await service.checkPermission("202063559668129", (await contacts.findOrCreate("628123456789", null)).id)
 
-        const row = await repository.findByContact("202063559668129", "628123456789")
-        await repository.upsertStatus("202063559668129", "628123456789", row!.status, row!.expiresAt ?? null, new Date(Date.now() - (config.outbound.permissionCacheTtlSeconds + 5) * 1000))
+        const row = await repository.findByContact("202063559668129", (await contacts.findOrCreate("628123456789", null)).id)
+        await repository.upsertStatus("202063559668129", (await contacts.findOrCreate("628123456789", null)).id, row!.status, row!.expiresAt ?? null, new Date(Date.now() - (config.outbound.permissionCacheTtlSeconds + 5) * 1000))
 
-        await service.checkPermission("202063559668129", "628123456789")
+        await service.checkPermission("202063559668129", (await contacts.findOrCreate("628123456789", null)).id)
         expect(calls).toBe(2)
     })
 })
@@ -93,8 +97,9 @@ describe("PermissionService.requestPermission", () => {
         const original = config.outbound.permissionTemplateName
         config.outbound.permissionTemplateName = ""
         try {
-            const service = new PermissionService(repository, fakeMetaClient(), fakeNusawaClient())
-            await expect(service.requestPermission("202063559668129", "628123456789")).rejects.toThrow()
+            const service = new PermissionService(repository, fakeMetaClient(), contacts, fakeNusawaClient())
+            const c1 = await contacts.findOrCreate("628123456789", null)
+            await expect(service.requestPermission("202063559668129", c1.id)).rejects.toThrow()
         } finally {
             config.outbound.permissionTemplateName = original
         }
@@ -108,12 +113,12 @@ describe("PermissionService.requestPermission", () => {
             const nusawa = fakeNusawaClient({
                 sendCallPermissionRequest: async (_pn: string, waId: string) => { captured.waId = waId; return { success: true } },
             })
-            const service = new PermissionService(repository, fakeMetaClient(), nusawa)
+            const service = new PermissionService(repository, fakeMetaClient(), contacts, nusawa)
 
-            await service.requestPermission("202063559668129", "628123456789")
+            await service.requestPermission("202063559668129", (await contacts.findOrCreate("628123456789", null)).id)
 
             expect(captured.waId).toBe("628123456789")
-            const row = await repository.findByContact("202063559668129", "628123456789")
+            const row = await repository.findByContact("202063559668129", (await contacts.findOrCreate("628123456789", null)).id)
             expect(row!.lastRequestedAt).not.toBeNull()
         } finally {
             config.outbound.permissionTemplateName = original

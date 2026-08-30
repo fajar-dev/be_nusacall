@@ -11,12 +11,12 @@ export class TypeOrmCallPermissionRepository implements ICallPermissionRepositor
         this.repository = AppDataSource.getRepository(CallPermission)
     }
 
-    async findByContact(phoneNumberId: string, waId: string): Promise<CallPermission | null> {
-        return this.repository.findOne({ where: { phoneNumberId, waId } })
+    async findByContact(phoneNumberId: string, contactId: number): Promise<CallPermission | null> {
+        return this.repository.findOne({ where: { phoneNumberId, contactId } })
     }
 
-    async upsertStatus(phoneNumberId: string, waId: string, status: PermissionStatus, expiresAt: Date | null, checkedAt: Date): Promise<CallPermission> {
-        const existing = await this.findByContact(phoneNumberId, waId)
+    async upsertStatus(phoneNumberId: string, contactId: number, status: PermissionStatus, expiresAt: Date | null, checkedAt: Date): Promise<CallPermission> {
+        const existing = await this.findByContact(phoneNumberId, contactId)
         if (existing) {
             existing.status = status
             existing.expiresAt = expiresAt
@@ -24,10 +24,10 @@ export class TypeOrmCallPermissionRepository implements ICallPermissionRepositor
             return this.repository.save(existing)
         }
         try {
-            return await this.repository.save(this.repository.create({ phoneNumberId, waId, status, expiresAt, checkedAt }))
+            return await this.repository.save(this.repository.create({ phoneNumberId, contactId, status, expiresAt, checkedAt }))
         } catch (err) {
             if (this.isUniqueViolation(err)) {
-                const winner = await this.findByContact(phoneNumberId, waId)
+                const winner = await this.findByContact(phoneNumberId, contactId)
                 if (winner) {
                     winner.status = status
                     winner.expiresAt = expiresAt
@@ -39,14 +39,14 @@ export class TypeOrmCallPermissionRepository implements ICallPermissionRepositor
         }
     }
 
-    async markRequested(phoneNumberId: string, waId: string, requestedAt: Date): Promise<void> {
-        const existing = await this.findByContact(phoneNumberId, waId)
+    async markRequested(phoneNumberId: string, contactId: number, requestedAt: Date): Promise<void> {
+        const existing = await this.findByContact(phoneNumberId, contactId)
         if (existing) {
             await this.repository.update(existing.id, { lastRequestedAt: requestedAt })
             return
         }
         await this.repository.save(this.repository.create({
-            phoneNumberId, waId, status: PermissionStatus.NO_PERMISSION,
+            phoneNumberId, contactId, status: PermissionStatus.NO_PERMISSION,
             checkedAt: requestedAt, lastRequestedAt: requestedAt,
         }))
     }

@@ -8,8 +8,6 @@ export class CallSerializer {
             id: call.id,
             wacid: call.wacid,
             phoneNumberId: call.phoneNumberId,
-            displayPhoneNumber: call.displayPhoneNumber,
-            waId: call.waId,
             contact: call.contact ? ContactSerializer.single(call.contact) : null,
             user: call.user ? await UserSerializer.summary(call.user) : null,
             direction: call.direction,

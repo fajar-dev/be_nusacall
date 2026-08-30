@@ -7,8 +7,8 @@ export class PermissionController {
 
     async check(c: Context) {
         const phoneNumberId = c.req.query("phoneNumberId") ?? ""
-        const waId = c.req.query("waId") ?? ""
-        const { permission, quota } = await this.service.checkPermission(phoneNumberId, waId)
+        const contactId = Number(c.req.query("contactId"))
+        const { permission, quota } = await this.service.checkPermission(phoneNumberId, contactId)
         return ApiResponse.success(c, {
             status: permission.status,
             expiresAt: permission.expiresAt,
@@ -18,8 +18,8 @@ export class PermissionController {
     }
 
     async request(c: Context) {
-        const data = c.req.valid("json" as never) as { phoneNumberId: string; waId: string }
-        await this.service.requestPermission(data.phoneNumberId, data.waId)
+        const data = c.req.valid("json" as never) as { phoneNumberId: string; contactId: number }
+        await this.service.requestPermission(data.phoneNumberId, data.contactId)
         return ApiResponse.success(c, null, "Permission request sent")
     }
 }

@@ -143,9 +143,6 @@ export class WebhookService {
 
         const defaults: Partial<Call> = {
             phoneNumberId: metadata?.phone_number_id ?? "",
-            displayPhoneNumber: metadata?.display_phone_number ?? null,
-            waId: waId ?? "",
-            profileName,
             contactId,
             direction,
             status: CallStatus.PENDING,
@@ -208,7 +205,6 @@ export class WebhookService {
 
         await this.callState.findOrCreate(statusObj.id, {
             phoneNumberId: metadata?.phone_number_id ?? "",
-            waId: statusWaId,
             contactId,
             direction: CallDirection.OUTBOUND,
             status: CallStatus.PENDING,
@@ -259,9 +255,6 @@ export class WebhookService {
         const contactId = await this.resolveContactId(direction, waId ?? "", profileName)
         const call = await this.callState.findOrCreate(callObj.id, {
             phoneNumberId: metadata?.phone_number_id ?? "",
-            displayPhoneNumber: metadata?.display_phone_number ?? null,
-            waId: waId ?? "",
-            profileName,
             contactId,
             direction,
             status: CallStatus.PENDING,
@@ -311,14 +304,10 @@ export class WebhookService {
     }
 
 
-    private async resolveContactId(direction: CallDirection, waId: string, profileName: string | null): Promise<number | null> {
-        if (!waId) return null
-        if (direction === CallDirection.INBOUND) {
-            const contact = await this.contacts.findOrCreate(waId, profileName)
-            return contact.id
-        }
-        const contact = await this.contacts.findByPhoneNumber(waId)
-        return contact?.id ?? null
+    private async resolveContactId(_direction: CallDirection, phoneNumber: string, name: string | null): Promise<number | null> {
+        if (!phoneNumber) return null
+        const contact = await this.contacts.findOrCreate(phoneNumber, name)
+        return contact.id
     }
 
     private handleAccountUpdate(value: MetaAccountUpdateValue, businessAccountId: string): void {
@@ -376,9 +365,6 @@ export class WebhookService {
 
         await this.callState.findOrCreate(callObj.id, {
             phoneNumberId: metadata?.phone_number_id ?? "",
-            displayPhoneNumber: metadata?.display_phone_number ?? null,
-            waId: waId ?? "",
-            profileName,
             contactId,
             direction,
             status: CallStatus.PENDING,

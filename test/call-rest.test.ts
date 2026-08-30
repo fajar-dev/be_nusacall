@@ -8,6 +8,7 @@ import { CallStatus } from "../src/modules/call/enums/call-status.enum"
 import { CallDirection } from "../src/modules/call/enums/call-direction.enum"
 import { EndReason } from "../src/modules/call/enums/end-reason.enum"
 import { RecordingArtifactStatus } from "../src/modules/call/enums/recording-artifact-status.enum"
+import { Contact } from "../src/modules/contact/entities/contact.entity"
 
 let app: Hono
 
@@ -24,11 +25,15 @@ beforeEach(async () => {
     await cleanTestDatabase()
 })
 
+async function seedContact(phoneNumber: string, name: string): Promise<number> {
+    const saved = await getDataSource().getRepository(Contact).save({ phoneNumber, name })
+    return saved.id
+}
+
 async function seedCall(overrides: Partial<Call> = {}): Promise<Call> {
     return await getDataSource().getRepository(Call).save({
         wacid: `wacid.REST${Date.now()}${Math.random()}`,
         phoneNumberId: "202063559668129",
-        waId: "628123456789",
         direction: CallDirection.INBOUND,
         status: CallStatus.COMPLETED,
         statusRank: 90,
@@ -67,15 +72,17 @@ describe("GET /api/call", () => {
         expect(body.data[0].status).toBe("missed")
     })
 
-    test("searches by waId/contactName/wacid", async () => {
+    test("searches by contact phone number/name/wacid", async () => {
         const { headers } = await createUserAndToken()
-        await seedCall({ waId: "628111111111" })
-        await seedCall({ waId: "628222222222" })
+        const a = await seedContact("628111111111", "Satu")
+        const b = await seedContact("628222222222", "Dua")
+        await seedCall({ contactId: a })
+        await seedCall({ contactId: b })
 
         const { body } = await request(app, "/api/call?q=628111111111", { headers })
 
         expect(body.data).toHaveLength(1)
-        expect(body.data[0].waId).toBe("628111111111")
+        expect(body.data[0].contact.phoneNumber).toBe("628111111111")
     })
 })
 

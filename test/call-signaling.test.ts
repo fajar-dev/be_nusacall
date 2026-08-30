@@ -108,7 +108,6 @@ beforeEach(async () => {
 async function createRingingCall(wacid: string) {
     const call = await callStateService.findOrCreate(wacid, {
         phoneNumberId: "202063559668129",
-        waId: "628123456789",
         direction: CallDirection.INBOUND,
         status: CallStatus.PENDING,
         statusRank: 10,
@@ -133,12 +132,12 @@ describe("CallSignalingService.notifyIncoming", () => {
     test("rings every available agent and transitions the call to RINGING", async () => {
         presenceRegistry.register("agent1@nusa.id", "conn-1")
         const call = await callStateService.findOrCreate("wacid.SIGRING1", {
-            phoneNumberId: "202063559668129", waId: "628123456789",
+            phoneNumberId: "202063559668129",
             direction: CallDirection.INBOUND, status: CallStatus.PENDING, statusRank: 10,
         })
 
         const notifier = new FakeNotifier()
-        const service = new CallSignalingService(notifier, callRepository, callStateService, fakeMetaClient(), new RoutingService(), fakeNusawaLog().service)
+        const service = new CallSignalingService(notifier, callRepository, callStateService, fakeMetaClient(), new RoutingService(), fakeNusawaLog().service, contactService)
         await service.notifyIncoming(call)
 
         const updated = await callRepository.findByWacid("wacid.SIGRING1")
@@ -151,7 +150,7 @@ describe("CallSignalingService.notifyIncoming", () => {
 
     test("marks the call MISSED when no agent is available, and tells Meta reject (not just local cleanup)", async () => {
         const call = await callStateService.findOrCreate("wacid.SIGMISSED1", {
-            phoneNumberId: "202063559668129", waId: "628123456789",
+            phoneNumberId: "202063559668129",
             direction: CallDirection.INBOUND, status: CallStatus.PENDING, statusRank: 10,
         })
 
@@ -160,7 +159,7 @@ describe("CallSignalingService.notifyIncoming", () => {
         const service = new CallSignalingService(
             notifier, callRepository, callStateService,
             fakeMetaClient({ reject: async (_pn, id) => { rejectedIds.push(id); return { success: true } } }),
-            new RoutingService(), fakeNusawaLog().service,
+            new RoutingService(), fakeNusawaLog().service, contactService,
         )
         await service.notifyIncoming(call)
 
@@ -171,7 +170,7 @@ describe("CallSignalingService.notifyIncoming", () => {
 
     test("still marks the call MISSED even if Meta's reject call itself fails", async () => {
         const call = await callStateService.findOrCreate("wacid.SIGMISSED2", {
-            phoneNumberId: "202063559668129", waId: "628123456789",
+            phoneNumberId: "202063559668129",
             direction: CallDirection.INBOUND, status: CallStatus.PENDING, statusRank: 10,
         })
 
@@ -179,7 +178,7 @@ describe("CallSignalingService.notifyIncoming", () => {
         const service = new CallSignalingService(
             notifier, callRepository, callStateService,
             fakeMetaClient({ reject: async () => { throw new Error("Meta is down") } }),
-            new RoutingService(), fakeNusawaLog().service,
+            new RoutingService(), fakeNusawaLog().service, contactService,
         )
         await service.notifyIncoming(call)
 
@@ -199,7 +198,7 @@ describe("CallSignalingService.handleAnswer", () => {
         const service = new CallSignalingService(
             notifier, callRepository, callStateService,
             fakeMetaClient({ accept: async (pn, id, sdp) => { acceptedWith = [pn, id, sdp]; return { success: true } } }),
-            new RoutingService(), fakeNusawaLog().service,
+            new RoutingService(), fakeNusawaLog().service, contactService,
         )
 
         const offerSdp = await fakeBrowserOfferSdp()
@@ -223,7 +222,7 @@ describe("CallSignalingService.handleAnswer", () => {
             await createRingingCall(wacid)
             const service = new CallSignalingService(
                 new FakeNotifier(), callRepository, callStateService, fakeMetaClient(),
-                new RoutingService(), fakeNusawaLog().service,
+                new RoutingService(), fakeNusawaLog().service, contactService,
             )
 
             await service.handleAnswer(agent1Id, "agent1@nusa.id", wacid, await fakeBrowserOfferSdp())
@@ -242,7 +241,7 @@ describe("CallSignalingService.handleAnswer", () => {
         presenceRegistry.setCurrentCall("agent2@nusa.id", (await callRepository.findByWacid(wacid))!.id)
 
         const notifier = new FakeNotifier()
-        const service = new CallSignalingService(notifier, callRepository, callStateService, fakeMetaClient(), new RoutingService(), fakeNusawaLog().service)
+        const service = new CallSignalingService(notifier, callRepository, callStateService, fakeMetaClient(), new RoutingService(), fakeNusawaLog().service, contactService)
 
         const offer1 = await fakeBrowserOfferSdp()
         const offer2 = await fakeBrowserOfferSdp()
@@ -264,7 +263,7 @@ describe("CallSignalingService.handleAnswer", () => {
         presenceRegistry.setCurrentCall("agent2@nusa.id", call.id)
 
         const notifier = new FakeNotifier()
-        const service = new CallSignalingService(notifier, callRepository, callStateService, fakeMetaClient(), new RoutingService(), fakeNusawaLog().service)
+        const service = new CallSignalingService(notifier, callRepository, callStateService, fakeMetaClient(), new RoutingService(), fakeNusawaLog().service, contactService)
 
         const offerSdp = await fakeBrowserOfferSdp()
         await service.handleAnswer(agent1Id, "agent1@nusa.id", wacid, offerSdp)
@@ -282,7 +281,7 @@ describe("CallSignalingService.handleAnswer", () => {
         const service = new CallSignalingService(
             notifier, callRepository, callStateService,
             fakeMetaClient({ accept: async () => { throw new Error("Meta rejected the SDP") } }),
-            new RoutingService(), fakeNusawaLog().service,
+            new RoutingService(), fakeNusawaLog().service, contactService,
         )
 
         const offerSdp = await fakeBrowserOfferSdp()
@@ -310,11 +309,12 @@ describe("CallSignalingService.initiateOutbound", () => {
         const service = new CallSignalingService(
             new FakeNotifier(), callRepository, callStateService,
             fakeMetaClient({ connect: async () => ({ success: true, calls: [{ id: "wacid.OUT1" }] }) }),
-            new RoutingService(), fakeNusawaLog().service,
+            new RoutingService(), fakeNusawaLog().service, contactService,
         )
 
         const offerSdp = await fakeBrowserOfferSdp()
-        const result = await service.initiateOutbound(agent1Id, "agent1@nusa.id", "202063559668129", "628999888777", offerSdp)
+        const outContact = await contactService.findOrCreate("628999888777", null)
+        const result = await service.initiateOutbound(agent1Id, "agent1@nusa.id", "202063559668129", outContact.id, offerSdp)
 
         expect(result.wacid).toBe("wacid.OUT1")
         expect(result.answerSdp).toContain("v=0")
@@ -330,11 +330,12 @@ describe("CallSignalingService.initiateOutbound", () => {
         const service = new CallSignalingService(
             new FakeNotifier(), callRepository, callStateService,
             fakeMetaClient({ connect: async () => { throw new Error("138006: No approved call permission found") } }),
-            new RoutingService(), fakeNusawaLog().service,
+            new RoutingService(), fakeNusawaLog().service, contactService,
         )
 
         const offerSdp = await fakeBrowserOfferSdp()
-        await expect(service.initiateOutbound(agent1Id, "agent1@nusa.id", "202063559668129", "628999888777", offerSdp)).rejects.toThrow()
+        const failContact = await contactService.findOrCreate("628999888777", null)
+        await expect(service.initiateOutbound(agent1Id, "agent1@nusa.id", "202063559668129", failContact.id, offerSdp)).rejects.toThrow()
 
         const call = await callRepository.findByWacid("628999888777")
         expect(call).toBeNull()
@@ -345,7 +346,7 @@ describe("CallSignalingService.initiateOutbound", () => {
         const notifier = new FakeNotifier()
         const signaling = new CallSignalingService(
             notifier, callRepository, callStateService, fakeMetaClient({ connect: async () => ({ success: true, calls: [{ id: "wacid.OUT2" }] }) }),
-            new RoutingService(), fakeNusawaLog().service,
+            new RoutingService(), fakeNusawaLog().service, contactService,
         )
         const media = new CallMediaCoordinator(fakeMetaClient())
         const webhook = new WebhookService(
@@ -355,7 +356,8 @@ describe("CallSignalingService.initiateOutbound", () => {
         )
 
         const agentOfferSdp = await fakeBrowserOfferSdp()
-        const { wacid } = await signaling.initiateOutbound(agent1Id, "agent1@nusa.id", "202063559668129", "628999888777", agentOfferSdp)
+        const outContact = await contactService.findOrCreate("628999888777", null)
+        const { wacid } = await signaling.initiateOutbound(agent1Id, "agent1@nusa.id", "202063559668129", outContact.id, agentOfferSdp)
 
         const ourOutboundOfferSdp = sessionRegistry.get(wacid)!.metaOfferSdp!
         const metaAnswerSdp = await fakeMetaAnswerSdp(ourOutboundOfferSdp)
@@ -398,7 +400,7 @@ describe("CallSignalingService.handleReject / handleHangup", () => {
         const service = new CallSignalingService(
             notifier, callRepository, callStateService,
             fakeMetaClient({ reject: async (_pn, id) => { rejectedIds.push(id); return { success: true } } }),
-            new RoutingService(), nusawaLog.service,
+            new RoutingService(), nusawaLog.service, contactService,
         )
 
         await service.handleReject("agent1@nusa.id", wacid, "busy")
@@ -422,7 +424,7 @@ describe("CallSignalingService.handleReject / handleHangup", () => {
         const service = new CallSignalingService(
             notifier, callRepository, callStateService,
             fakeMetaClient({ terminate: async (_pn, id) => { terminatedIds.push(id); return { success: true } } }),
-            new RoutingService(), nusawaLog.service,
+            new RoutingService(), nusawaLog.service, contactService,
         )
 
         await service.handleHangup("agent1@nusa.id", wacid)
@@ -447,7 +449,7 @@ describe("WebhookService + CallSignalingService — terminate logging", () => {
     test("a customer-initiated terminate after ANSWERED logs a completed message and tells the agent it's over", async () => {
         const wacid = "wacid.WHSIGLOG1"
         const call = await callStateService.findOrCreate(wacid, {
-            phoneNumberId: "202063559668129", waId: "628123456789",
+            phoneNumberId: "202063559668129",
             direction: CallDirection.INBOUND, status: CallStatus.PENDING, statusRank: 10,
         })
         await callStateService.transition(wacid, CallStatus.CONNECTING, { userId: agent1Id })
@@ -459,7 +461,7 @@ describe("WebhookService + CallSignalingService — terminate logging", () => {
         const notifier = new FakeNotifier()
         const signaling = new CallSignalingService(
             notifier, callRepository, callStateService, fakeMetaClient(),
-            new RoutingService(), nusawaLog.service,
+            new RoutingService(), nusawaLog.service, contactService,
         )
         const webhook = new WebhookService(
             callStateService, noopMedia, signaling, callRepository,
@@ -482,7 +484,7 @@ describe("WebhookService + CallSignalingService — terminate logging", () => {
     test("does not double-log when a terminate webhook arrives after the agent already hung up", async () => {
         const wacid = "wacid.WHSIGLOG2"
         await callStateService.findOrCreate(wacid, {
-            phoneNumberId: "202063559668129", waId: "628123456789",
+            phoneNumberId: "202063559668129",
             direction: CallDirection.INBOUND, status: CallStatus.PENDING, statusRank: 10,
         })
         await callStateService.transition(wacid, CallStatus.CONNECTING, { userId: agent1Id })
@@ -491,7 +493,7 @@ describe("WebhookService + CallSignalingService — terminate logging", () => {
         const nusawaLog = fakeNusawaLog()
         const signaling = new CallSignalingService(
             new FakeNotifier(), callRepository, callStateService, fakeMetaClient(),
-            new RoutingService(), nusawaLog.service,
+            new RoutingService(), nusawaLog.service, contactService,
         )
         const webhook = new WebhookService(
             callStateService, noopMedia, signaling, callRepository,

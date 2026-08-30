@@ -1,8 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, UpdateDateColumn } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from "typeorm"
+import type { Relation } from "typeorm"
+import { Contact } from "../../contact/entities/contact.entity"
 import { PermissionStatus } from "../enums/permission-status.enum"
 
 @Entity("call_permissions")
-@Index(["phoneNumberId", "waId"], { unique: true })
+@Index(["phoneNumberId", "contactId"], { unique: true })
 export class CallPermission {
     @PrimaryGeneratedColumn()
     id!: number
@@ -10,8 +12,13 @@ export class CallPermission {
     @Column({ name: "phone_number_id", length: 32 })
     phoneNumberId!: string
 
-    @Column({ name: "wa_id", length: 32 })
-    waId!: string
+    @Index()
+    @Column({ name: "contact_id" })
+    contactId!: number
+
+    @ManyToOne(() => Contact, { onDelete: "CASCADE" })
+    @JoinColumn({ name: "contact_id" })
+    contact?: Relation<Contact>
 
     @Column({ type: "enum", enum: PermissionStatus, default: PermissionStatus.NO_PERMISSION })
     status!: PermissionStatus

@@ -248,9 +248,6 @@ components:
         id: { type: integer, example: 4821 }
         wacid: { type: string, example: "wacid.ABGGFjFVU2AfAgo6V" }
         phoneNumberId: { type: string, example: "202063559668129" }
-        displayPhoneNumber:
-          { type: string, nullable: true, example: "+62 819-8543-21" }
-        waId: { type: string, example: "628123456789" }
         contact:
           nullable: true
           allOf: [{ $ref: "#/components/schemas/Contact" }]

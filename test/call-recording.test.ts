@@ -69,7 +69,7 @@ beforeEach(async () => {
 
 async function seedAnsweredCall(wacid: string) {
     const call = await callStateService.findOrCreate(wacid, {
-        phoneNumberId: "202063559668129", waId: "628123456789",
+        phoneNumberId: "202063559668129",
         direction: CallDirection.INBOUND, status: CallStatus.PENDING, statusRank: 10,
     })
     await callStateService.transition(wacid, CallStatus.CONNECTING, {})

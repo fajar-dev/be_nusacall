@@ -15,6 +15,7 @@ import { logger } from "../../core/helpers/logger"
 import type { IAgentNotifier, ICallSignalingNotifier, WsOutboundPacket } from "./interfaces/call-signaling.interface"
 import type { Call } from "./entities/call.entity"
 import { CallLogOutcome } from "./enums/call-log-outcome.enum"
+import { ContactService } from "../contact/contact.service"
 
 function packet(type: string, wacid: string, data?: unknown): WsOutboundPacket {
     return { type, wacid, data, ts: Date.now() }
@@ -28,6 +29,7 @@ export class CallSignalingService implements ICallSignalingNotifier {
         private readonly metaClient: MetaClient,
         private readonly routing: RoutingService,
         private readonly nusawaLog: NusawaLogService,
+        private readonly contacts: ContactService,
     ) {}
 
     async notifyIncoming(call: Call): Promise<void> {
@@ -58,11 +60,9 @@ export class CallSignalingService implements ICallSignalingNotifier {
         this.notifier.sendToAgents(
             decision.targets,
             packet("incoming_call", call.wacid, {
-                waId: call.waId,
-                contactName: call.contactName,
-                profileName: call.profileName,
+                phoneNumber: call.contact?.phoneNumber ?? null,
+                name: call.contact?.name ?? null,
                 phoneNumberId: call.phoneNumberId,
-                displayPhoneNumber: call.displayPhoneNumber,
                 expiresAt,
             })
         )
@@ -172,7 +172,7 @@ export class CallSignalingService implements ICallSignalingNotifier {
 
     async logCallOutcome(call: Call, outcome: CallLogOutcome, durationSeconds?: number | null): Promise<void> {
         const body = formatCallLogMessage(outcome, { durationSeconds, agentEmail: call.user?.email })
-        await this.nusawaLog.enqueue({ callId: call.id, wacid: call.wacid, phoneNumberId: call.phoneNumberId, waId: call.waId, body })
+        await this.nusawaLog.enqueue({ callId: call.id, wacid: call.wacid, phoneNumberId: call.phoneNumberId, waId: call.contact?.phoneNumber ?? "", body })
     }
 
     notifyCallEnded(call: Call, endReason: EndReason): void {
@@ -193,7 +193,8 @@ export class CallSignalingService implements ICallSignalingNotifier {
         return Math.max(0, Math.round((Date.now() - start.getTime()) / 1000))
     }
 
-    async initiateOutbound(userId: number, agentEmail: string, phoneNumberId: string, waId: string, offerSdp: string): Promise<{ wacid: string; answerSdp: string }> {
+    async initiateOutbound(userId: number, agentEmail: string, phoneNumberId: string, contactId: number, offerSdp: string): Promise<{ wacid: string; answerSdp: string }> {
+        const contact = await this.contacts.getById(contactId)
         const tempKey = `pending.${randomUUID()}`
         const session = sessionRegistry.create(tempKey)
 
@@ -209,7 +210,7 @@ export class CallSignalingService implements ICallSignalingNotifier {
 
         let wacid: string
         try {
-            const response = await this.metaClient.connect(phoneNumberId, waId, metaOfferSdp)
+            const response = await this.metaClient.connect(phoneNumberId, contact.phoneNumber, metaOfferSdp)
             wacid = response.calls?.[0]?.id ?? tempKey
         } catch (err) {
             await sessionRegistry.remove(tempKey, "outbound_connect_failed")
@@ -219,7 +220,7 @@ export class CallSignalingService implements ICallSignalingNotifier {
         sessionRegistry.rekey(tempKey, wacid)
 
         const call = await this.callRepository.save({
-            wacid, phoneNumberId, waId,
+            wacid, phoneNumberId, contactId,
             direction: CallDirection.OUTBOUND,
             status: CallStatus.PENDING,
             statusRank: 10,

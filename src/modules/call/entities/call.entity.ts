@@ -20,19 +20,6 @@ export class Call {
     @Column({ name: "phone_number_id", length: 32 })
     phoneNumberId!: string
 
-    @Column({ name: "display_phone_number", length: 32, nullable: true })
-    displayPhoneNumber?: string | null
-
-    @Index()
-    @Column({ name: "wa_id", length: 32 })
-    waId!: string
-
-    @Column({ name: "profile_name", length: 128, nullable: true })
-    profileName?: string | null
-
-    @Column({ name: "contact_name", length: 128, nullable: true })
-    contactName?: string | null
-
     @Index()
     @Column({ name: "contact_id", nullable: true })
     contactId?: number | null

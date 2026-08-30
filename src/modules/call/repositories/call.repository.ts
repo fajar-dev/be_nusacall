@@ -32,7 +32,7 @@ export class TypeOrmCallRepository extends BaseRepository<Call> implements ICall
 
         if (filter.q) {
             query.andWhere(
-                "(call.waId LIKE :q OR call.contactName LIKE :q OR call.profileName LIKE :q OR call.wacid LIKE :q)",
+                "(contact.phoneNumber LIKE :q OR contact.name LIKE :q OR call.wacid LIKE :q)",
                 { q: `%${filter.q}%` }
             )
         }

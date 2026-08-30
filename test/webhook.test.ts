@@ -163,12 +163,14 @@ describe("Contact - auto-saved on inbound calls", () => {
         expect(matches[0]!.name).toBe("Budi")
     })
 
-    test("an outbound connect does not save the dialed number as a contact", async () => {
+    test("an outbound connect also saves the dialed number as a contact", async () => {
         const dialedNumber = "62819854321"
         await postWebhook(app, createConnectWebhookPayload({ direction: "BUSINESS_INITIATED" }))
         await flush()
 
-        expect(await getContact(dialedNumber)).toBeNull()
+        const contact = await getContact(dialedNumber)
+        expect(contact).not.toBeNull()
+        expect(contact!.phoneNumber).toBe(dialedNumber)
     })
 })
 
