@@ -15,10 +15,6 @@ export class CallRecording {
     @JoinColumn({ name: "call_id" })
     call!: Relation<Call>
 
-    @Index({ unique: true })
-    @Column({ length: 128 })
-    wacid!: string
-
     @Column({ name: "s3_key", length: 255, nullable: true })
     s3Key?: string | null
 

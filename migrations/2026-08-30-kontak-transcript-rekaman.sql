@@ -45,7 +45,12 @@ PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 -- 1.3 Buat kontak untuk setiap nomor yang belum punya ---------------------
 -- Nama diambil dari profile_name panggilan terakhir yang mengisinya.
 
-INSERT INTO contacts (phone_number, name, time_zone, created_at, updated_at)
+-- Seluruh langkah pemindahan data dilewati bila kolom wa_id sudah tidak ada,
+-- yaitu ketika FASE 3 pernah dijalankan, agar skrip tetap aman diulang.
+SET @ada_wa_id = EXISTS(SELECT 1 FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='calls' AND COLUMN_NAME='wa_id');
+
+SET @sql = IF(@ada_wa_id, "INSERT INTO contacts (phone_number, name, time_zone, created_at, updated_at)
 SELECT sumber.wa_id,
        (SELECT c.profile_name FROM calls c
          WHERE c.wa_id = sumber.wa_id AND c.profile_name IS NOT NULL
@@ -56,19 +61,22 @@ FROM (
     UNION
     SELECT wa_id FROM call_permissions WHERE wa_id IS NOT NULL
 ) AS sumber
-WHERE NOT EXISTS (SELECT 1 FROM contacts k WHERE k.phone_number = sumber.wa_id);
+WHERE NOT EXISTS (SELECT 1 FROM contacts k WHERE k.phone_number = sumber.wa_id)", 'DO 0');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
 -- 1.4 Isi calls.contact_id ------------------------------------------------
 
-UPDATE calls c JOIN contacts k ON k.phone_number = c.wa_id
+SET @sql = IF(@ada_wa_id, "UPDATE calls c JOIN contacts k ON k.phone_number = c.wa_id
    SET c.contact_id = k.id
- WHERE c.contact_id IS NULL;
+ WHERE c.contact_id IS NULL", 'DO 0');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
 -- 1.5 Isi call_permissions.contact_id -------------------------------------
 
-UPDATE call_permissions p JOIN contacts k ON k.phone_number = p.wa_id
+SET @sql = IF(@ada_wa_id, "UPDATE call_permissions p JOIN contacts k ON k.phone_number = p.wa_id
    SET p.contact_id = k.id
- WHERE p.contact_id IS NULL;
+ WHERE p.contact_id IS NULL", 'DO 0');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
 -- Baris izin tanpa kontak tidak dapat dipertahankan karena kolomnya wajib.
 -- Ini hanya cache izin dari Meta dan akan terbentuk lagi dengan sendirinya.
@@ -114,17 +122,17 @@ SELECT 'kontak format lama', COUNT(*) FROM contacts WHERE phone_number LIKE '0%'
 
 -- 3.1 Indeks unik lama menahan kolom wa_id, jadi dilepas lebih dulu.
 
-SET @sql = (SELECT IFNULL(CONCAT('ALTER TABLE call_permissions DROP INDEX ', INDEX_NAME), 'DO 0')
+SET @sql = IFNULL((SELECT CONCAT('ALTER TABLE call_permissions DROP INDEX ', INDEX_NAME)
     FROM information_schema.STATISTICS
-   WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='call_permissions' AND COLUMN_NAME='wa_id' LIMIT 1);
+   WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='call_permissions' AND COLUMN_NAME='wa_id' LIMIT 1), 'DO 0');
 PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
 -- 3.2 Kolom identitas yang kini diambil dari relasi contact.
 
-SET @sql = (SELECT IFNULL(CONCAT('ALTER TABLE calls ', GROUP_CONCAT(CONCAT('DROP COLUMN ', COLUMN_NAME))), 'DO 0')
+SET @sql = IFNULL((SELECT CONCAT('ALTER TABLE calls ', GROUP_CONCAT(CONCAT('DROP COLUMN ', COLUMN_NAME)))
     FROM information_schema.COLUMNS
    WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='calls'
-     AND COLUMN_NAME IN ('display_phone_number','wa_id','profile_name','contact_name'));
+     AND COLUMN_NAME IN ('display_phone_number','wa_id','profile_name','contact_name')), 'DO 0');
 PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
 SET @sql = IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='call_permissions' AND COLUMN_NAME='wa_id'),
@@ -137,18 +145,45 @@ SET @sql = IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA
     'ALTER TABLE calls DROP COLUMN transcription_enabled', 'DO 0');
 PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
-SET @sql = (SELECT IFNULL(CONCAT('ALTER TABLE call_recordings ', GROUP_CONCAT(CONCAT('DROP COLUMN ', COLUMN_NAME))), 'DO 0')
+SET @sql = IFNULL((SELECT CONCAT('ALTER TABLE call_recordings ', GROUP_CONCAT(CONCAT('DROP COLUMN ', COLUMN_NAME)))
     FROM information_schema.COLUMNS
    WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='call_recordings'
-     AND COLUMN_NAME LIKE 'transcript\_%');
+     AND COLUMN_NAME LIKE 'transcript\_%'), 'DO 0');
 PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
--- 3.4 Kolom rekaman Meta. Objek lama di MinIO tidak ikut terhapus dan perlu
+-- 3.4 nusawa_log_queue: wa_id diseragamkan menjadi phone_number.
+
+SET @sql = IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='nusawa_log_queue' AND COLUMN_NAME='wa_id'),
+    'ALTER TABLE nusawa_log_queue RENAME COLUMN wa_id TO phone_number', 'DO 0');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+-- 3.5 Kolom wacid yang mubazir. Nilainya sudah dapat ditelusuri lewat relasi
+--     call_id, dan pada call_recordings juga tersimpan di dalam s3_key.
+
+SET @sql = IFNULL((SELECT CONCAT('ALTER TABLE nusawa_log_queue DROP INDEX ', INDEX_NAME)
+    FROM information_schema.STATISTICS
+   WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='nusawa_log_queue' AND COLUMN_NAME='wacid' LIMIT 1), 'DO 0');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @sql = IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='nusawa_log_queue' AND COLUMN_NAME='wacid'),
+    'ALTER TABLE nusawa_log_queue DROP COLUMN wacid', 'DO 0');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @sql = IFNULL((SELECT CONCAT('ALTER TABLE call_recordings DROP INDEX ', INDEX_NAME)
+    FROM information_schema.STATISTICS
+   WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='call_recordings' AND COLUMN_NAME='wacid' LIMIT 1), 'DO 0');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @sql = IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='call_recordings' AND COLUMN_NAME='wacid'),
+    'ALTER TABLE call_recordings DROP COLUMN wacid', 'DO 0');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+-- 3.6 Kolom rekaman Meta. Objek lama di MinIO tidak ikut terhapus dan perlu
 --     dibersihkan tersendiri bila memang tidak lagi diperlukan.
 
-SET @sql = (SELECT IFNULL(CONCAT('ALTER TABLE call_recordings ', GROUP_CONCAT(CONCAT('DROP COLUMN ', COLUMN_NAME))), 'DO 0')
+SET @sql = IFNULL((SELECT CONCAT('ALTER TABLE call_recordings ', GROUP_CONCAT(CONCAT('DROP COLUMN ', COLUMN_NAME)))
     FROM information_schema.COLUMNS
    WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='call_recordings'
      AND COLUMN_NAME IN ('recording_status','recording_media_id','recording_sha256',
-                         'recording_mime_type','recording_s3_key','recording_available_at','recording_expires_at'));
+                         'recording_mime_type','recording_s3_key','recording_available_at','recording_expires_at')), 'DO 0');
 PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;

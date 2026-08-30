@@ -9,10 +9,6 @@ export class TypeOrmCallRecordingRepository implements ICallRecordingRepository 
         return await this.repository.findOne({ where: { callId } })
     }
 
-    async findByWacid(wacid: string): Promise<CallRecording | null> {
-        return await this.repository.findOne({ where: { wacid } })
-    }
-
     async store(input: StoreRecordingInput): Promise<CallRecording> {
         const existing = await this.findByCallId(input.callId)
         if (existing) {

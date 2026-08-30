@@ -2,9 +2,8 @@ import { NusawaLogQueue } from "../entities/nusawa-log-queue.entity"
 
 export interface EnqueueLogInput {
     callId: number
-    wacid: string
     phoneNumberId: string
-    waId: string
+    phoneNumber: string
     body: string
 }
 

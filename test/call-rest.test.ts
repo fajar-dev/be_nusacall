@@ -150,7 +150,7 @@ describe("GET /api/call/:id/recording", () => {
         const { headers } = await createUserAndToken()
         const call = await seedCall()
         await getDataSource().getRepository(CallRecording).save({
-            callId: call.id, wacid: call.wacid, durationSeconds: 0,
+            callId: call.id, durationSeconds: 0,
         })
         const { status } = await request(app, `/api/call/${call.id}/recording`, { headers })
         expect(status).toBe(404)
@@ -160,7 +160,7 @@ describe("GET /api/call/:id/recording", () => {
         const { headers } = await createUserAndToken()
         const call = await seedCall()
         await getDataSource().getRepository(CallRecording).save({
-            callId: call.id, wacid: call.wacid, durationSeconds: 42,
+            callId: call.id, durationSeconds: 42,
             s3Key: `recordings/2026/08/24/${call.wacid}.opus`,
         })
         const { status, body } = await request(app, `/api/call/${call.id}/recording`, { headers })
@@ -173,7 +173,7 @@ describe("GET /api/call/:id/recording", () => {
         const { headers } = await createUserAndToken()
         const call = await seedCall()
         await getDataSource().getRepository(CallRecording).save({
-            callId: call.id, wacid: call.wacid, durationSeconds: 0, s3Key: null,
+            callId: call.id, durationSeconds: 0, s3Key: null,
         })
         const { status } = await request(app, `/api/call/${call.id}/recording`, { headers })
         expect(status).toBe(404)

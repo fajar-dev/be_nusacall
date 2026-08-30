@@ -57,7 +57,7 @@ export class CallRecordingService {
             return
         }
 
-        await this.repository.store({ callId, wacid, s3Key: key, durationSeconds })
+        await this.repository.store({ callId, s3Key: key, durationSeconds })
         logger.info("Call recording stored", { wacid, durationSeconds, key })
     }
 

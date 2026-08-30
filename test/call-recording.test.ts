@@ -193,7 +193,7 @@ describe("CallRecordingService.getRecordingUrls", () => {
     test("mengembalikan satu URL bertanda tangan", async () => {
         const call = await seedCall()
         const service = new CallRecordingService(repository, fakeStorage())
-        await repository.store({ callId: call.id, wacid: call.wacid, durationSeconds: 30, s3Key: "recordings/a.opus" })
+        await repository.store({ callId: call.id, durationSeconds: 30, s3Key: "recordings/a.opus" })
 
         const urls = await service.getRecordingUrls(call.id)
 

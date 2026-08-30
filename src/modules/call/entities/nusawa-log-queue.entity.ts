@@ -17,14 +17,11 @@ export class NusawaLogQueue {
     @JoinColumn({ name: "call_id" })
     call!: Relation<Call>
 
-    @Column({ length: 128 })
-    wacid!: string
-
     @Column({ name: "phone_number_id", length: 32 })
     phoneNumberId!: string
 
-    @Column({ name: "wa_id", length: 32 })
-    waId!: string
+    @Column({ name: "phone_number", length: 32 })
+    phoneNumber!: string
 
     @Column({ type: "text" })
     body!: string

@@ -14,9 +14,8 @@ export class TypeOrmNusawaLogQueueRepository implements INusawaLogQueueRepositor
     async enqueue(input: EnqueueLogInput): Promise<NusawaLogQueue> {
         return await this.repository.save({
             callId: input.callId,
-            wacid: input.wacid,
             phoneNumberId: input.phoneNumberId,
-            waId: input.waId,
+            phoneNumber: input.phoneNumber,
             body: input.body,
             status: QueueStatus.PENDING,
             attempts: 0,
@@ -28,6 +27,7 @@ export class TypeOrmNusawaLogQueueRepository implements INusawaLogQueueRepositor
         return await this.repository.find({
             where: { status: QueueStatus.PENDING, nextAttemptAt: LessThanOrEqual(new Date()) },
             order: { nextAttemptAt: "ASC" },
+            relations: { call: true },
             take: limit,
         })
     }

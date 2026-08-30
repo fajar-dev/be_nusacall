@@ -181,7 +181,7 @@ export class CallSignalingService implements ICallSignalingNotifier {
 
     async logCallOutcome(call: Call, outcome: CallLogOutcome, durationSeconds?: number | null): Promise<void> {
         const body = formatCallLogMessage(outcome, { durationSeconds, agentEmail: call.user?.email })
-        await this.nusawaLog.enqueue({ callId: call.id, wacid: call.wacid, phoneNumberId: call.phoneNumberId, waId: call.contact?.phoneNumber ?? "", body })
+        await this.nusawaLog.enqueue({ callId: call.id, phoneNumberId: call.phoneNumberId, phoneNumber: call.contact?.phoneNumber ?? "", body })
     }
 
     notifyCallEnded(call: Call, endReason: EndReason): void {

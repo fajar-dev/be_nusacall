@@ -10,7 +10,7 @@ export class NusawaLogService {
         private readonly nusawaClient: NusawaClient,
     ) {}
 
-    async enqueue(input: { callId: number; wacid: string; phoneNumberId: string; waId: string; body: string }): Promise<void> {
+    async enqueue(input: { callId: number; phoneNumberId: string; phoneNumber: string; body: string }): Promise<void> {
         await this.queue.enqueue(input)
     }
 
@@ -22,8 +22,8 @@ export class NusawaLogService {
         for (const row of due) {
             const ok = await this.nusawaClient.logCallMessage({
                 phoneNumberId: row.phoneNumberId,
-                wacid: row.wacid,
-                to: row.waId,
+                wacid: row.call.wacid,
+                to: row.phoneNumber,
                 body: row.body,
             })
 
@@ -38,7 +38,7 @@ export class NusawaLogService {
             const nextAttemptAt = nextDelaySeconds ? new Date(Date.now() + nextDelaySeconds * 1000) : null
             await this.queue.markFailed(row.id, "nusawa logCallMessage returned non-2xx or timed out", nextAttemptAt)
             if (!nextAttemptAt) {
-                logger.warn("nusawa call log abandoned after max attempts", { queueId: row.id, wacid: row.wacid })
+                logger.warn("nusawa call log abandoned after max attempts", { queueId: row.id, wacid: row.call.wacid })
             }
         }
 
