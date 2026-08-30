@@ -72,22 +72,10 @@ export class MetaClient {
             call_id: callId,
             action: "accept",
             session: { sdp_type: "answer", sdp: answerSdp },
-            ...this.recordingFields(),
         }
         return this.post(`/${phoneNumberId}/calls`, body)
     }
 
-    private recordingFields(): Pick<MetaCallActionRequest, "recording"> {
-        const fields: Pick<MetaCallActionRequest, "recording"> = {}
-        if (config.recording.recordingEnabled) {
-            fields.recording = {
-                status: "ENABLED",
-                purpose: config.recording.purpose,
-                announcement_language: config.recording.announcementLanguage,
-            }
-        }
-        return fields
-    }
 
     async reject(phoneNumberId: string, callId: string): Promise<MetaCallActionResponse> {
         const body: MetaCallActionRequest = {
@@ -147,17 +135,7 @@ export class MetaClient {
         return this.get(`/${phoneNumberId}`, { fields: "health_status" })
     }
 
-    async getMediaUrl(mediaId: string): Promise<{ url: string; mime_type: string; sha256: string; file_size?: number }> {
-        return this.get(`/${mediaId}`)
-    }
 
-    async downloadMedia(url: string): Promise<Buffer> {
-        const res = await this.http.get(url, { responseType: "arraybuffer" })
-        if (res.status < 200 || res.status >= 300) {
-            throw new BadGatewayException(`Failed to download media (HTTP ${res.status})`)
-        }
-        return Buffer.from(res.data)
-    }
 }
 
 export const metaClient = new MetaClient()

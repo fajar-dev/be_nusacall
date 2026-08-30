@@ -76,10 +76,6 @@ export const config = {
 
     recording: {
         recordingEnabled: process.env.CALL_RECORDING_ENABLED === 'true',
-        purpose: process.env.CALL_RECORDING_PURPOSE || 'quality assurance',
-        announcementLanguage: process.env.CALL_RECORDING_ANNOUNCEMENT_LANGUAGE || 'en_US',
-        metaRetentionDays: 7,
-        downloadJobIntervalMinutes: Number(process.env.RECORDING_DOWNLOAD_INTERVAL_MINUTES) || 5,
     },
 
     outbound: {

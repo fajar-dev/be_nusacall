@@ -68,8 +68,8 @@ export class CallController {
 
     async recording(c: Context) {
         const id = Number(c.req.param("id"))
-        const url = await this.recordingService.getRecordingUrl(id)
-        return ApiResponse.success(c, { url })
+        const urls = await this.recordingService.getRecordingUrls(id)
+        return ApiResponse.success(c, urls)
     }
 
     async outbound(c: Context) {

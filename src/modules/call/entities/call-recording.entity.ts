@@ -1,6 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from "typeorm"
 import type { Relation } from "typeorm"
-import { RecordingArtifactStatus } from "../enums/recording-artifact-status.enum"
 import { Call } from "./call.entity"
 
 @Entity("call_recordings")
@@ -20,37 +19,17 @@ export class CallRecording {
     @Column({ length: 128 })
     wacid!: string
 
-    @Column({ name: "recording_status", type: "enum", enum: RecordingArtifactStatus, default: RecordingArtifactStatus.PENDING })
-    recordingStatus!: RecordingArtifactStatus
+    @Column({ name: "customer_s3_key", length: 255, nullable: true })
+    customerS3Key?: string | null
 
-    @Column({ name: "recording_media_id", length: 64, nullable: true })
-    recordingMediaId?: string | null
+    @Column({ name: "agent_s3_key", length: 255, nullable: true })
+    agentS3Key?: string | null
 
-    @Column({ name: "recording_sha256", length: 64, nullable: true })
-    recordingSha256?: string | null
-
-    @Column({ name: "recording_mime_type", length: 64, nullable: true })
-    recordingMimeType?: string | null
-
-    @Column({ name: "recording_s3_key", length: 255, nullable: true })
-    recordingS3Key?: string | null
-
-    @Column({ name: "recording_available_at", type: "datetime", nullable: true })
-    recordingAvailableAt?: Date | null
-
-    @Column({ name: "recording_expires_at", type: "datetime", nullable: true })
-    recordingExpiresAt?: Date | null
+    @Column({ name: "duration_seconds", type: "int", default: 0 })
+    durationSeconds!: number
 
     @Column({ name: "recording_error", type: "text", nullable: true })
     recordingError?: string | null
-
-
-
-
-
-
-
-
 
     @CreateDateColumn({ name: "created_at" })
     createdAt!: Date

@@ -993,16 +993,17 @@ paths:
         schema: { type: integer }
     get:
       tags: [Call]
-      summary: Get a presigned download URL for this call's recording
+      summary: Get presigned download URLs for this call's recording
       description: >-
-        Only returns a URL once the recording has been downloaded from Meta and
-        stored in MinIO. 404 if not requested/not ready yet, 410 if
-        Meta's 7-day retention window passed before we could download it.
+        Recording is captured by this service while it bridges the media, one
+        Ogg Opus track per direction, and uploaded to MinIO when the call ends.
+        Either track may be null when that side produced no audio or its upload
+        failed; 404 when the call has no recording at all.
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: Presigned URL retrieved
+          description: Presigned URLs retrieved
           content:
             application/json:
               schema:
@@ -1013,19 +1014,16 @@ paths:
                       data:
                         type: object
                         properties:
-                          url: { type: string }
+                          customer: { type: string, nullable: true, description: "Audio received from the customer" }
+                          agent: { type: string, nullable: true, description: "Audio sent by the agent" }
+                          durationSeconds: { type: integer, example: 135 }
         "401":
           description: Unauthorized
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
         "404":
-          description: No recording, or not downloaded yet
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ErrorResponse" }
-        "410":
-          description: Expired — Meta deleted the media before we downloaded it
+          description: No recording for this call
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }

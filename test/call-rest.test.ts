@@ -7,7 +7,6 @@ import { CallRecording } from "../src/modules/call/entities/call-recording.entit
 import { CallStatus } from "../src/modules/call/enums/call-status.enum"
 import { CallDirection } from "../src/modules/call/enums/call-direction.enum"
 import { EndReason } from "../src/modules/call/enums/end-reason.enum"
-import { RecordingArtifactStatus } from "../src/modules/call/enums/recording-artifact-status.enum"
 import { Contact } from "../src/modules/contact/entities/contact.entity"
 
 let app: Hono
@@ -134,37 +133,42 @@ describe("GET /api/call/:id/recording", () => {
         expect(status).toBe(404)
     })
 
-    test("404s while still pending (not downloaded yet)", async () => {
+    test("404s when a row exists but no track was stored", async () => {
         const { headers } = await createUserAndToken()
         const call = await seedCall()
         await getDataSource().getRepository(CallRecording).save({
-            callId: call.id, wacid: call.wacid, recordingStatus: RecordingArtifactStatus.PENDING,
+            callId: call.id, wacid: call.wacid, durationSeconds: 0,
         })
         const { status } = await request(app, `/api/call/${call.id}/recording`, { headers })
         expect(status).toBe(404)
     })
 
-    test("410s when Meta's 7-day window passed before we downloaded it", async () => {
+    test("returns a presigned URL per track once stored", async () => {
         const { headers } = await createUserAndToken()
         const call = await seedCall()
         await getDataSource().getRepository(CallRecording).save({
-            callId: call.id, wacid: call.wacid, recordingStatus: RecordingArtifactStatus.EXPIRED,
-        })
-        const { status } = await request(app, `/api/call/${call.id}/recording`, { headers })
-        expect(status).toBe(410)
-    })
-
-    test("returns a presigned URL once stored", async () => {
-        const { headers } = await createUserAndToken()
-        const call = await seedCall()
-        await getDataSource().getRepository(CallRecording).save({
-            callId: call.id, wacid: call.wacid,
-            recordingStatus: RecordingArtifactStatus.STORED, recordingS3Key: `recordings/2026/08/24/${call.wacid}-recording.ogg`,
+            callId: call.id, wacid: call.wacid, durationSeconds: 42,
+            customerS3Key: `recordings/2026/08/24/${call.wacid}-customer.opus`,
+            agentS3Key: `recordings/2026/08/24/${call.wacid}-agent.opus`,
         })
         const { status, body } = await request(app, `/api/call/${call.id}/recording`, { headers })
         expect(status).toBe(200)
-        expect(typeof body.data.url).toBe("string")
-        expect(body.data.url.length).toBeGreaterThan(0)
+        expect(typeof body.data.customer).toBe("string")
+        expect(typeof body.data.agent).toBe("string")
+        expect(body.data.durationSeconds).toBe(42)
+    })
+
+    test("still returns the available track when only one side was captured", async () => {
+        const { headers } = await createUserAndToken()
+        const call = await seedCall()
+        await getDataSource().getRepository(CallRecording).save({
+            callId: call.id, wacid: call.wacid, durationSeconds: 10,
+            agentS3Key: `recordings/2026/08/24/${call.wacid}-agent.opus`,
+        })
+        const { status, body } = await request(app, `/api/call/${call.id}/recording`, { headers })
+        expect(status).toBe(200)
+        expect(body.data.customer).toBeNull()
+        expect(typeof body.data.agent).toBe("string")
     })
 })
 

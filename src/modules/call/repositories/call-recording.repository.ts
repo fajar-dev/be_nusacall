@@ -1,68 +1,24 @@
-import { Repository } from "typeorm"
 import { AppDataSource } from "../../../config/database"
 import { CallRecording } from "../entities/call-recording.entity"
-import { RecordingArtifactStatus } from "../enums/recording-artifact-status.enum"
-import { ICallRecordingRepository } from "../interfaces/call-recording.repository.interface"
+import { ICallRecordingRepository, StoreRecordingInput } from "../interfaces/call-recording.repository.interface"
 
 export class TypeOrmCallRecordingRepository implements ICallRecordingRepository {
-    private readonly repository: Repository<CallRecording>
-
-    constructor() {
-        this.repository = AppDataSource.getRepository(CallRecording)
-    }
-
-    async findOrCreate(callId: number, wacid: string): Promise<CallRecording> {
-        const existing = await this.repository.findOne({ where: { callId } })
-        if (existing) return existing
-
-        try {
-            return await this.repository.save(this.repository.create({ callId, wacid }))
-        } catch (err) {
-            if (this.isUniqueViolation(err)) {
-                const winner = await this.repository.findOne({ where: { callId } })
-                if (winner) return winner
-            }
-            throw err
-        }
-    }
+    private readonly repository = AppDataSource.getRepository(CallRecording)
 
     async findByCallId(callId: number): Promise<CallRecording | null> {
-        return this.repository.findOne({ where: { callId } })
+        return await this.repository.findOne({ where: { callId } })
     }
 
-    async findDuePendingDownloads(limit: number): Promise<CallRecording[]> {
-        return this.repository
-            .createQueryBuilder("cr")
-            .where("cr.recordingStatus = :pending", { pending: RecordingArtifactStatus.PENDING })
-            .orderBy("cr.recordingExpiresAt", "ASC")
-            .limit(limit)
-            .getMany()
+    async findByWacid(wacid: string): Promise<CallRecording | null> {
+        return await this.repository.findOne({ where: { wacid } })
     }
 
-    async findExpiredPending(now: Date): Promise<CallRecording[]> {
-        return this.repository
-            .createQueryBuilder("cr")
-            .where("(cr.recordingStatus = :pending AND cr.recordingExpiresAt IS NOT NULL AND cr.recordingExpiresAt < :now)")
-            .setParameters({ pending: RecordingArtifactStatus.PENDING, now })
-            .getMany()
-    }
-
-    async updateRecording(id: number, patch: Parameters<ICallRecordingRepository["updateRecording"]>[1]): Promise<void> {
-        await this.repository.update(id, {
-            recordingStatus: patch.status,
-            ...(patch.mediaId !== undefined ? { recordingMediaId: patch.mediaId } : {}),
-            ...(patch.sha256 !== undefined ? { recordingSha256: patch.sha256 } : {}),
-            ...(patch.mimeType !== undefined ? { recordingMimeType: patch.mimeType } : {}),
-            ...(patch.s3Key !== undefined ? { recordingS3Key: patch.s3Key } : {}),
-            ...(patch.availableAt !== undefined ? { recordingAvailableAt: patch.availableAt } : {}),
-            ...(patch.expiresAt !== undefined ? { recordingExpiresAt: patch.expiresAt } : {}),
-            ...(patch.error !== undefined ? { recordingError: patch.error } : {}),
-        })
-    }
-
-
-    private isUniqueViolation(err: unknown): boolean {
-        const code = (err as { code?: string })?.code
-        return code === "ER_DUP_ENTRY"
+    async store(input: StoreRecordingInput): Promise<CallRecording> {
+        const existing = await this.findByCallId(input.callId)
+        if (existing) {
+            this.repository.merge(existing, input)
+            return await this.repository.save(existing)
+        }
+        return await this.repository.save(this.repository.create(input))
     }
 }

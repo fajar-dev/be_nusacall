@@ -1,8 +1,16 @@
 import { MediaSession } from "./media-session"
+import type { RecordedTrack } from "./call-recorder"
 import { logger } from "../../core/helpers/logger"
+
+export type RecordingListener = (wacid: string, tracks: RecordedTrack[]) => Promise<void>
 
 class SessionRegistry {
     private readonly sessions = new Map<string, MediaSession>()
+    private recordingListener: RecordingListener | null = null
+
+    attachRecordingListener(listener: RecordingListener): void {
+        this.recordingListener = listener
+    }
 
     create(wacid: string): MediaSession {
         const existing = this.sessions.get(wacid)
@@ -30,6 +38,20 @@ class SessionRegistry {
         if (!session) return
         await session.close(reason)
         this.sessions.delete(wacid)
+        await this.publishRecordings(session)
+    }
+
+    private async publishRecordings(session: MediaSession): Promise<void> {
+        const tracks = session.recordings
+        if (!tracks.length) return
+
+        try {
+            if (this.recordingListener) await this.recordingListener(session.wacid, tracks)
+        } catch (err) {
+            logger.error("Recording listener failed", { wacid: session.wacid, err })
+        } finally {
+            await session.discardRecordings()
+        }
     }
 
     get activeCount(): number {

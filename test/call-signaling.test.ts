@@ -351,7 +351,7 @@ describe("CallSignalingService.initiateOutbound", () => {
         const media = new CallMediaCoordinator(fakeMetaClient())
         const webhook = new WebhookService(
             callStateService, media, signaling, callRepository,
-            new CallRecordingService(new TypeOrmCallRecordingRepository(), fakeMetaClient(), { upload: async () => "", getPresignedUrl: async () => ""}),
+            new CallRecordingService(new TypeOrmCallRecordingRepository(), { upload: async () => "", getPresignedUrl: async () => "" }),
             contactService,
         )
 
@@ -465,7 +465,7 @@ describe("WebhookService + CallSignalingService — terminate logging", () => {
         )
         const webhook = new WebhookService(
             callStateService, noopMedia, signaling, callRepository,
-            new CallRecordingService(new TypeOrmCallRecordingRepository(), fakeMetaClient(), { upload: async () => "", getPresignedUrl: async () => ""}),
+            new CallRecordingService(new TypeOrmCallRecordingRepository(), { upload: async () => "", getPresignedUrl: async () => "" }),
             contactService,
         )
 
@@ -497,7 +497,7 @@ describe("WebhookService + CallSignalingService — terminate logging", () => {
         )
         const webhook = new WebhookService(
             callStateService, noopMedia, signaling, callRepository,
-            new CallRecordingService(new TypeOrmCallRecordingRepository(), fakeMetaClient(), { upload: async () => "", getPresignedUrl: async () => ""}),
+            new CallRecordingService(new TypeOrmCallRecordingRepository(), { upload: async () => "", getPresignedUrl: async () => "" }),
             contactService,
         )
 

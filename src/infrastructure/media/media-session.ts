@@ -3,6 +3,7 @@ import { createPeerConnection, waitForIceGatheringComplete, OPUS_PAYLOAD_TYPE } 
 import { ensurePtime20, assertValidOutboundSdp } from "./sdp-transformer"
 import { logger } from "../../core/helpers/logger"
 import { config } from "../../config/config"
+import { CallRecorder, type RecordedTrack } from "./call-recorder"
 
 export interface MediaStats {
     packetsToMeta: number
@@ -22,6 +23,8 @@ export class MediaSession {
 
     private forwardingStarted = false
     private closed = false
+    private recorder: CallRecorder | null = null
+    private recorded: RecordedTrack[] = []
     private closeTimer: ReturnType<typeof setTimeout> | null = null
 
     metaAnswerSdp: string | null = null
@@ -127,7 +130,10 @@ export class MediaSession {
     startForwarding(): void {
         if (this.closed) return
         this.forwardingStarted = true
-        logger.info("Media forwarding started", { wacid: this.wacid })
+        if (config.recording.recordingEnabled && !this.recorder) {
+            this.recorder = new CallRecorder(this.wacid)
+        }
+        logger.info("Media forwarding started", { wacid: this.wacid, recording: this.recorder !== null })
     }
 
     private forwardToAgent(rtp: RtpPacket): void {
@@ -139,6 +145,7 @@ export class MediaSession {
         this.transceiverB.sender.sendRtp(fwd).catch((err) => {
             logger.error("Failed forwarding RTP to agent leg", { wacid: this.wacid, err })
         })
+        this.recorder?.push("customer", rtp)
         this.stats.packetsToAgent++
         this.stats.lastPacketToAgentAt = new Date()
     }
@@ -152,6 +159,7 @@ export class MediaSession {
         this.transceiverA.sender.sendRtp(fwd).catch((err) => {
             logger.error("Failed forwarding RTP to Meta leg", { wacid: this.wacid, err })
         })
+        this.recorder?.push("agent", rtp)
         this.stats.packetsToMeta++
         this.stats.lastPacketToMetaAt = new Date()
     }
@@ -164,6 +172,14 @@ export class MediaSession {
         if (this.closeTimer) clearTimeout(this.closeTimer)
 
         logger.info("Closing media session", { wacid: this.wacid, reason, stats: this.stats })
+
+        if (this.recorder) {
+            try {
+                this.recorded = await this.recorder.stop()
+            } catch (err) {
+                logger.error("Failed finalising recording", { wacid: this.wacid, err })
+            }
+        }
 
         try {
             this.legA?.close()
@@ -179,5 +195,14 @@ export class MediaSession {
 
     get isClosed(): boolean {
         return this.closed
+    }
+
+    get recordings(): RecordedTrack[] {
+        return this.recorded
+    }
+
+    async discardRecordings(): Promise<void> {
+        await this.recorder?.cleanup()
+        this.recorded = []
     }
 }

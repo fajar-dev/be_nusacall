@@ -11,7 +11,6 @@ export interface MetaCallActionRequest {
     action: "connect" | "pre_accept" | "accept" | "reject" | "terminate"
     session?: MetaSession
     biz_opaque_callback_data?: string
-    recording?: { status: "ENABLED" | "DISABLED"; purpose?: string; announcement_language?: string }
 }
 
 export interface MetaCallActionResponse {

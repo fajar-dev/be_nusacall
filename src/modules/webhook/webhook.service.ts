@@ -26,7 +26,6 @@ interface MetaCallObject {
     end_time?: string
     duration?: number
     errors?: Array<{ code: number; message?: string; error_data?: { details?: string } }>
-    call_recording?: { type: "audio"; audio: { id: string; sha256: string; mime_type: string; url: string } }
 }
 
 interface MetaStatusObject {
@@ -101,8 +100,6 @@ export class WebhookService {
                     await this.handleTerminate(callObj, metadata, contacts, fullPayload)
                 } else if (callObj.event === "call_created") {
                     await this.handleCallCreated(callObj, metadata, contacts, fullPayload)
-                } else if (callObj.event === "call_recording_available") {
-                    await this.handleRecordingAvailable(callObj)
                 } else {
                     logger.info("Unhandled call event type", { event: callObj.event, wacid: callObj.id })
                 }
@@ -286,22 +283,6 @@ export class WebhookService {
         }
     }
 
-    private async handleRecordingAvailable(callObj: MetaCallObject): Promise<void> {
-        const recording = callObj.call_recording?.audio
-        if (!recording) {
-            logger.warn("call_recording_available with no audio object", { wacid: callObj.id })
-            return
-        }
-        const call = await this.calls.findByWacid(callObj.id)
-        if (!call) {
-            logger.warn("call_recording_available for unknown wacid", { wacid: callObj.id })
-            return
-        }
-        await this.recording.recordingAvailable({
-            callId: call.id, wacid: callObj.id,
-            mediaId: recording.id, sha256: recording.sha256, mimeType: recording.mime_type, url: recording.url,
-        })
-    }
 
 
     private async resolveContactId(_direction: CallDirection, phoneNumber: string, name: string | null): Promise<number | null> {
