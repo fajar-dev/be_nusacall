@@ -40,6 +40,10 @@ export const AppDataSource = new DataSource({
 - `synchronize: true` — Gunakan hanya di **development**. Di production, set `DB_SYNC=false`
 - Entity diimport langsung (bukan glob pattern)
 - Migrations belum diimplementasikan — gunakan `synchronize` untuk development
+- Perubahan skema yang memindahkan data ditulis manual sebagai SQL di `migrations/`
+  dan dijalankan **sebelum** kode baru menyentuh basis data. `synchronize` menghapus
+  kolom lama tanpa memindahkan isinya lebih dulu, jadi urutan terbalik berarti
+  kehilangan data
 
 ---
 
