@@ -248,6 +248,14 @@ components:
         id: { type: integer, example: 4821 }
         wacid: { type: string, example: "wacid.ABGGFjFVU2AfAgo6V" }
         phoneNumberId: { type: string, example: "202063559668129" }
+        account:
+          type: object
+          nullable: true
+          description: "Akun WhatsApp yang menangani panggilan ini, dicocokkan lewat phoneNumberId"
+          properties:
+            phoneNumberId: { type: string, example: "202063559668129" }
+            label: { type: string, example: "Helpdesk Medan" }
+            displayPhoneNumber: { type: string, example: "+62 819-8543-21" }
         contact:
           nullable: true
           allOf: [{ $ref: "#/components/schemas/Contact" }]
@@ -923,7 +931,7 @@ paths:
           schema:
             {
               type: string,
-              enum: [createdAt, answeredAt, endedAt, durationSeconds],
+              enum: [createdAt, answeredAt, endedAt, durationSeconds, direction, status, contact, account, user],
             }
         - name: order
           in: query

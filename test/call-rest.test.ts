@@ -5,6 +5,7 @@ import { getDataSource } from "../src/config/database"
 import { Call } from "../src/modules/call/entities/call.entity"
 import { CallRecording } from "../src/modules/call/entities/call-recording.entity"
 import { CallStatus } from "../src/modules/call/enums/call-status.enum"
+import { Account } from "../src/modules/account/entities/account.entity"
 import { CallDirection } from "../src/modules/call/enums/call-direction.enum"
 import { EndReason } from "../src/modules/call/enums/end-reason.enum"
 import { Contact } from "../src/modules/contact/entities/contact.entity"
@@ -40,6 +41,70 @@ async function seedCall(overrides: Partial<Call> = {}): Promise<Call> {
         ...overrides,
     })
 }
+
+async function seedAccount(phoneNumberId: string, label: string, displayPhoneNumber: string) {
+    return await getDataSource().getRepository(Account).save({
+        phoneNumberId, label, displayPhoneNumber,
+        businessAccountId: "252757097922101",
+    })
+}
+
+describe("GET /api/call - akun dan pengurutan", () => {
+    test("menyertakan label dan nomor akun pada setiap panggilan", async () => {
+        const { headers } = await createUserAndToken()
+        await seedAccount("202063559668129", "Helpdesk Medan", "+62 819-8543-21")
+        await seedCall()
+
+        const { body } = await request(app, "/api/call", { headers })
+
+        expect(body.data[0].account.label).toBe("Helpdesk Medan")
+        expect(body.data[0].account.displayPhoneNumber).toBe("+62 819-8543-21")
+    })
+
+    test("akun bernilai null ketika phone_number_id tidak terdaftar", async () => {
+        const { headers } = await createUserAndToken()
+        await seedCall({ phoneNumberId: "999999999999" })
+
+        const { body } = await request(app, "/api/call", { headers })
+
+        expect(body.data[0].account).toBeNull()
+    })
+
+    test("dapat diurutkan berdasarkan label akun", async () => {
+        const { headers } = await createUserAndToken()
+        await seedAccount("111", "Zulu", "+62 1")
+        await seedAccount("222", "Alfa", "+62 2")
+        await seedCall({ phoneNumberId: "111" })
+        await seedCall({ phoneNumberId: "222" })
+
+        const { body } = await request(app, "/api/call?sortBy=account&order=ASC", { headers })
+
+        expect(body.data.map((c: { account: { label: string } }) => c.account.label)).toEqual(["Alfa", "Zulu"])
+    })
+
+    test("dapat diurutkan berdasarkan nama kontak", async () => {
+        const { headers } = await createUserAndToken()
+        const repo = getDataSource().getRepository(Contact)
+        const zaki = await repo.save({ phoneNumber: "628900000001", name: "Zaki" })
+        const andi = await repo.save({ phoneNumber: "628900000002", name: "Andi" })
+        await seedCall({ contactId: zaki.id })
+        await seedCall({ contactId: andi.id })
+
+        const { body } = await request(app, "/api/call?sortBy=contact&order=ASC", { headers })
+
+        expect(body.data.map((c: { contact: { name: string } }) => c.contact.name)).toEqual(["Andi", "Zaki"])
+    })
+
+    test("dapat diurutkan berdasarkan durasi", async () => {
+        const { headers } = await createUserAndToken()
+        await seedCall({ durationSeconds: 300 })
+        await seedCall({ durationSeconds: 60 })
+
+        const { body } = await request(app, "/api/call?sortBy=durationSeconds&order=ASC", { headers })
+
+        expect(body.data.map((c: { durationSeconds: number }) => c.durationSeconds)).toEqual([60, 300])
+    })
+})
 
 describe("GET /api/call", () => {
     test("requires authentication", async () => {

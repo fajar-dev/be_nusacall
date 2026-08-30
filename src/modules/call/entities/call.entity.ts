@@ -5,6 +5,7 @@ import { CallDirection } from "../enums/call-direction.enum"
 import { EndReason } from "../enums/end-reason.enum"
 import { User } from "../../user/entities/user.entity"
 import { Contact } from "../../contact/entities/contact.entity"
+import { Account } from "../../account/entities/account.entity"
 
 @Entity("calls")
 @Index(["status", "createdAt"])
@@ -76,6 +77,9 @@ export class Call {
     @Index()
     @CreateDateColumn({ name: "created_at" })
     createdAt!: Date
+
+    /** Diisi lewat join pada phone_number_id, bukan kolom tersendiri. */
+    account?: Relation<Account> | null
 
     @UpdateDateColumn({ name: "updated_at" })
     updatedAt!: Date

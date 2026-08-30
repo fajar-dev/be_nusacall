@@ -1,5 +1,6 @@
 import { EntityManager } from "typeorm"
 import { Call } from "../entities/call.entity"
+import { Account } from "../../account/entities/account.entity"
 import { CallStatus, TERMINAL_CALL_STATUSES } from "../enums/call-status.enum"
 import { CallDirection } from "../enums/call-direction.enum"
 import { ICallRepository, CallListFilter } from "../interfaces/call.repository.interface"
@@ -11,6 +12,11 @@ const SORTABLE_COLUMNS: Record<string, string> = {
     answeredAt: "call.answeredAt",
     endedAt: "call.endedAt",
     durationSeconds: "call.durationSeconds",
+    direction: "call.direction",
+    status: "call.status",
+    contact: "contact.name",
+    account: "account.label",
+    user: "user.name",
 }
 
 export class TypeOrmCallRepository extends BaseRepository<Call> implements ICallRepository {
@@ -30,6 +36,7 @@ export class TypeOrmCallRepository extends BaseRepository<Call> implements ICall
             .leftJoinAndSelect("call.user", "user")
             .leftJoinAndSelect("user.organization", "organization")
             .leftJoinAndSelect("call.contact", "contact")
+            .leftJoinAndMapOne("call.account", Account, "account", "account.phoneNumberId = call.phoneNumberId")
 
         if (filter.q) {
             query.andWhere(
@@ -64,11 +71,20 @@ export class TypeOrmCallRepository extends BaseRepository<Call> implements ICall
     }
 
     async findById(id: number): Promise<Call | null> {
-        return await this.repository.findOne({ where: { id }, relations: { user: { organization: true }, contact: true } })
+        return await this.withRelations().where("call.id = :id", { id }).getOne()
     }
 
     async findByWacid(wacid: string): Promise<Call | null> {
-        return await this.repository.findOne({ where: { wacid }, relations: { user: { organization: true }, contact: true } })
+        return await this.withRelations().where("call.wacid = :wacid", { wacid }).getOne()
+    }
+
+    /** Akun dipetakan lewat join pada phone_number_id karena tidak ada kolom relasinya. */
+    private withRelations() {
+        return this.repository.createQueryBuilder("call")
+            .leftJoinAndSelect("call.user", "user")
+            .leftJoinAndSelect("user.organization", "organization")
+            .leftJoinAndSelect("call.contact", "contact")
+            .leftJoinAndMapOne("call.account", Account, "account", "account.phoneNumberId = call.phoneNumberId")
     }
 
     async updateIfRankLower(
