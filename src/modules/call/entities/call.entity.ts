@@ -86,8 +86,6 @@ export class Call {
     @Column({ name: "recording_enabled", default: false })
     recordingEnabled!: boolean
 
-    @Column({ name: "transcription_enabled", default: false })
-    transcriptionEnabled!: boolean
 
     @Index()
     @CreateDateColumn({ name: "created_at" })

@@ -16,7 +16,6 @@ function fakeCall(overrides: Partial<Call> = {}): Call {
         status: CallStatus.PENDING,
         statusRank: 10,
         recordingEnabled: false,
-        transcriptionEnabled: false,
         createdAt: new Date(),
         updatedAt: new Date(),
         ...overrides,

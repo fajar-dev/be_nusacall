@@ -97,9 +97,4 @@ export class CallController {
         }
     }
 
-    async transcript(c: Context) {
-        const id = Number(c.req.param("id"))
-        const content = await this.recordingService.getTranscriptContent(id)
-        return ApiResponse.success(c, content)
-    }
 }

@@ -33,8 +33,8 @@ export class TypeOrmCallRecordingRepository implements ICallRecordingRepository 
     async findDuePendingDownloads(limit: number): Promise<CallRecording[]> {
         return this.repository
             .createQueryBuilder("cr")
-            .where("cr.recordingStatus = :pending OR cr.transcriptStatus = :pending", { pending: RecordingArtifactStatus.PENDING })
-            .orderBy("LEAST(COALESCE(cr.recordingExpiresAt, cr.transcriptExpiresAt), COALESCE(cr.transcriptExpiresAt, cr.recordingExpiresAt))", "ASC")
+            .where("cr.recordingStatus = :pending", { pending: RecordingArtifactStatus.PENDING })
+            .orderBy("cr.recordingExpiresAt", "ASC")
             .limit(limit)
             .getMany()
     }
@@ -43,7 +43,6 @@ export class TypeOrmCallRecordingRepository implements ICallRecordingRepository 
         return this.repository
             .createQueryBuilder("cr")
             .where("(cr.recordingStatus = :pending AND cr.recordingExpiresAt IS NOT NULL AND cr.recordingExpiresAt < :now)")
-            .orWhere("(cr.transcriptStatus = :pending AND cr.transcriptExpiresAt IS NOT NULL AND cr.transcriptExpiresAt < :now)")
             .setParameters({ pending: RecordingArtifactStatus.PENDING, now })
             .getMany()
     }
@@ -61,18 +60,6 @@ export class TypeOrmCallRecordingRepository implements ICallRecordingRepository 
         })
     }
 
-    async updateTranscript(id: number, patch: Parameters<ICallRecordingRepository["updateTranscript"]>[1]): Promise<void> {
-        await this.repository.update(id, {
-            transcriptStatus: patch.status,
-            ...(patch.mediaId !== undefined ? { transcriptMediaId: patch.mediaId } : {}),
-            ...(patch.sha256 !== undefined ? { transcriptSha256: patch.sha256 } : {}),
-            ...(patch.mimeType !== undefined ? { transcriptMimeType: patch.mimeType } : {}),
-            ...(patch.s3Key !== undefined ? { transcriptS3Key: patch.s3Key } : {}),
-            ...(patch.availableAt !== undefined ? { transcriptAvailableAt: patch.availableAt } : {}),
-            ...(patch.expiresAt !== undefined ? { transcriptExpiresAt: patch.expiresAt } : {}),
-            ...(patch.error !== undefined ? { transcriptError: patch.error } : {}),
-        })
-    }
 
     private isUniqueViolation(err: unknown): boolean {
         const code = (err as { code?: string })?.code

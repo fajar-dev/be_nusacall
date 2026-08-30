@@ -266,7 +266,6 @@ components:
         durationSeconds: { type: integer, nullable: true, example: 135 }
         setupDurationMs: { type: integer, nullable: true }
         recordingEnabled: { type: boolean }
-        transcriptionEnabled: { type: boolean }
         createdAt: { type: string, format: date-time }
 
     CallStats:
@@ -998,56 +997,6 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
 
-  /call/{id}/transcript:
-    parameters:
-      - $ref: "#/components/parameters/AcceptLanguage"
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer }
-    get:
-      tags: [Call]
-      summary: Get this call's transcript content
-      description: >-
-        Same PENDING/EXPIRED lifecycle as /call/{id}/recording, but returns the
-        parsed transcript JSON directly (Meta's documented shape: metadata,
-        transcript.text/language/confidence, transcript.segments[] with
-        speaker/channel/start/end/words) rather than a URL — the browser needs
-        to actually read this, and a MinIO presigned URL may not have CORS
-        enabled for direct fetch, so this goes through the authenticated API
-        instead of the object store directly.
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Transcript content retrieved
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/BaseResponse"
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        description: Meta's transcript document — see description above
-        "401":
-          description: Unauthorized
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ErrorResponse" }
-        "404":
-          description: No transcript, or not downloaded yet
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ErrorResponse" }
-        "410":
-          description: Expired — Meta deleted the media before we downloaded it
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ErrorResponse" }
-
-  # ── Account Admin ────────────────────────────────────────────────────────
   /account:
     parameters:
       - $ref: "#/components/parameters/AcceptLanguage"

@@ -125,7 +125,6 @@ export class CallSignalingService implements ICallSignalingNotifier {
         await this.callState.transition(wacid, CallStatus.ACTIVE, {
             answeredAt: new Date(),
             recordingEnabled: config.recording.recordingEnabled,
-            transcriptionEnabled: config.recording.transcriptionEnabled,
         })
         this.notifier.send(agentEmail, packet("call_state", wacid, { status: "active" }))
     }

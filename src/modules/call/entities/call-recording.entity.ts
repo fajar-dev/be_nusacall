@@ -44,29 +44,13 @@ export class CallRecording {
     @Column({ name: "recording_error", type: "text", nullable: true })
     recordingError?: string | null
 
-    @Column({ name: "transcript_status", type: "enum", enum: RecordingArtifactStatus, default: RecordingArtifactStatus.PENDING })
-    transcriptStatus!: RecordingArtifactStatus
 
-    @Column({ name: "transcript_media_id", length: 64, nullable: true })
-    transcriptMediaId?: string | null
 
-    @Column({ name: "transcript_sha256", length: 64, nullable: true })
-    transcriptSha256?: string | null
 
-    @Column({ name: "transcript_mime_type", length: 64, nullable: true })
-    transcriptMimeType?: string | null
 
-    @Column({ name: "transcript_s3_key", length: 255, nullable: true })
-    transcriptS3Key?: string | null
 
-    @Column({ name: "transcript_available_at", type: "datetime", nullable: true })
-    transcriptAvailableAt?: Date | null
 
-    @Column({ name: "transcript_expires_at", type: "datetime", nullable: true })
-    transcriptExpiresAt?: Date | null
 
-    @Column({ name: "transcript_error", type: "text", nullable: true })
-    transcriptError?: string | null
 
     @CreateDateColumn({ name: "created_at" })
     createdAt!: Date

@@ -27,7 +27,6 @@ interface MetaCallObject {
     duration?: number
     errors?: Array<{ code: number; message?: string; error_data?: { details?: string } }>
     call_recording?: { type: "audio"; audio: { id: string; sha256: string; mime_type: string; url: string } }
-    call_transcript?: { document: { id: string; sha256: string; mime_type: string; url: string } }
 }
 
 interface MetaStatusObject {
@@ -104,8 +103,6 @@ export class WebhookService {
                     await this.handleCallCreated(callObj, metadata, contacts, fullPayload)
                 } else if (callObj.event === "call_recording_available") {
                     await this.handleRecordingAvailable(callObj)
-                } else if (callObj.event === "call_transcription_available") {
-                    await this.handleTranscriptAvailable(callObj)
                 } else {
                     logger.info("Unhandled call event type", { event: callObj.event, wacid: callObj.id })
                 }
@@ -313,22 +310,6 @@ export class WebhookService {
         })
     }
 
-    private async handleTranscriptAvailable(callObj: MetaCallObject): Promise<void> {
-        const transcript = callObj.call_transcript?.document
-        if (!transcript) {
-            logger.warn("call_transcription_available with no document object", { wacid: callObj.id })
-            return
-        }
-        const call = await this.calls.findByWacid(callObj.id)
-        if (!call) {
-            logger.warn("call_transcription_available for unknown wacid", { wacid: callObj.id })
-            return
-        }
-        await this.recording.transcriptAvailable({
-            callId: call.id, wacid: callObj.id,
-            mediaId: transcript.id, sha256: transcript.sha256, mimeType: transcript.mime_type, url: transcript.url,
-        })
-    }
 
     private async resolveContactId(direction: CallDirection, waId: string, profileName: string | null): Promise<number | null> {
         if (!waId) return null

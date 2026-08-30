@@ -16,14 +16,4 @@ export interface ICallRecordingRepository {
         expiresAt?: Date | null
         error?: string | null
     }): Promise<void>
-    updateTranscript(id: number, patch: {
-        status: RecordingArtifactStatus
-        mediaId?: string | null
-        sha256?: string | null
-        mimeType?: string | null
-        s3Key?: string | null
-        availableAt?: Date | null
-        expiresAt?: Date | null
-        error?: string | null
-    }): Promise<void>
 }

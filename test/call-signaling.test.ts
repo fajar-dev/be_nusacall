@@ -215,10 +215,9 @@ describe("CallSignalingService.handleAnswer", () => {
         expect(packets).toContain("call_state")
     })
 
-    test("stamps the Call row with recordingEnabled/transcriptionEnabled as actually requested on accept", async () => {
-        const original = { recording: config.recording.recordingEnabled, transcription: config.recording.transcriptionEnabled }
+    test("stamps the Call row with recordingEnabled as actually requested on accept", async () => {
+        const original = { recording: config.recording.recordingEnabled }
         config.recording.recordingEnabled = true
-        config.recording.transcriptionEnabled = false
         try {
             const wacid = "wacid.SIGANSWERRECORD1"
             await createRingingCall(wacid)
@@ -231,10 +230,8 @@ describe("CallSignalingService.handleAnswer", () => {
 
             const updated = await callRepository.findByWacid(wacid)
             expect(updated!.recordingEnabled).toBe(true)
-            expect(updated!.transcriptionEnabled).toBe(false)
         } finally {
             config.recording.recordingEnabled = original.recording
-            config.recording.transcriptionEnabled = original.transcription
         }
     })
 
@@ -353,7 +350,7 @@ describe("CallSignalingService.initiateOutbound", () => {
         const media = new CallMediaCoordinator(fakeMetaClient())
         const webhook = new WebhookService(
             callStateService, media, signaling, callRepository,
-            new CallRecordingService(new TypeOrmCallRecordingRepository(), fakeMetaClient(), { upload: async () => "", getPresignedUrl: async () => "", download: async () => Buffer.from("") }),
+            new CallRecordingService(new TypeOrmCallRecordingRepository(), fakeMetaClient(), { upload: async () => "", getPresignedUrl: async () => ""}),
             contactService,
         )
 
@@ -466,7 +463,7 @@ describe("WebhookService + CallSignalingService — terminate logging", () => {
         )
         const webhook = new WebhookService(
             callStateService, noopMedia, signaling, callRepository,
-            new CallRecordingService(new TypeOrmCallRecordingRepository(), fakeMetaClient(), { upload: async () => "", getPresignedUrl: async () => "", download: async () => Buffer.from("") }),
+            new CallRecordingService(new TypeOrmCallRecordingRepository(), fakeMetaClient(), { upload: async () => "", getPresignedUrl: async () => ""}),
             contactService,
         )
 
@@ -498,7 +495,7 @@ describe("WebhookService + CallSignalingService — terminate logging", () => {
         )
         const webhook = new WebhookService(
             callStateService, noopMedia, signaling, callRepository,
-            new CallRecordingService(new TypeOrmCallRecordingRepository(), fakeMetaClient(), { upload: async () => "", getPresignedUrl: async () => "", download: async () => Buffer.from("") }),
+            new CallRecordingService(new TypeOrmCallRecordingRepository(), fakeMetaClient(), { upload: async () => "", getPresignedUrl: async () => ""}),
             contactService,
         )
 

@@ -191,27 +191,6 @@ export function createRecordingAvailableWebhookPayload(overrides: RecordingAvail
     }
 }
 
-export function createTranscriptionAvailableWebhookPayload(overrides: RecordingAvailablePayloadOverrides) {
-    const businessAccountId = overrides.businessAccountId || "252757097922101"
-    const call: Record<string, unknown> = {
-        id: overrides.wacid,
-        event: "call_transcription_available",
-        timestamp: String(Math.floor(Date.now() / 1000)),
-        call_transcript: {
-            document: {
-                id: overrides.mediaId || "media.transcript1",
-                sha256: overrides.sha256 || "bbbb2222transcript000000000000000000000000000000000000000000000",
-                mime_type: overrides.mimeType || "application/json",
-                url: overrides.url || "https://lookaside.fbsbx.com/whatsapp_business/attachments/transcript",
-            },
-        },
-    }
-
-    return {
-        object: "whatsapp_business_account",
-        entry: [{ id: businessAccountId, changes: [{ field: "calls", value: { messaging_product: "whatsapp", calls: [call] } }] }],
-    }
-}
 
 interface AccountUpdatePayloadOverrides {
     businessAccountId?: string

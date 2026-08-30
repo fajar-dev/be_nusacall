@@ -23,7 +23,6 @@ export class CallSerializer {
             durationSeconds: call.durationSeconds,
             setupDurationMs: call.setupDurationMs,
             recordingEnabled: call.recordingEnabled,
-            transcriptionEnabled: call.transcriptionEnabled,
             createdAt: call.createdAt,
         }
     }

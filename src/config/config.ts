@@ -76,7 +76,6 @@ export const config = {
 
     recording: {
         recordingEnabled: process.env.CALL_RECORDING_ENABLED === 'true',
-        transcriptionEnabled: process.env.CALL_TRANSCRIPTION_ENABLED === 'true',
         purpose: process.env.CALL_RECORDING_PURPOSE || 'quality assurance',
         announcementLanguage: process.env.CALL_RECORDING_ANNOUNCEMENT_LANGUAGE || 'en_US',
         metaRetentionDays: 7,

@@ -77,17 +77,10 @@ export class MetaClient {
         return this.post(`/${phoneNumberId}/calls`, body)
     }
 
-    private recordingFields(): Pick<MetaCallActionRequest, "recording" | "transcription"> {
-        const fields: Pick<MetaCallActionRequest, "recording" | "transcription"> = {}
+    private recordingFields(): Pick<MetaCallActionRequest, "recording"> {
+        const fields: Pick<MetaCallActionRequest, "recording"> = {}
         if (config.recording.recordingEnabled) {
             fields.recording = {
-                status: "ENABLED",
-                purpose: config.recording.purpose,
-                announcement_language: config.recording.announcementLanguage,
-            }
-        }
-        if (config.recording.transcriptionEnabled) {
-            fields.transcription = {
                 status: "ENABLED",
                 purpose: config.recording.purpose,
                 announcement_language: config.recording.announcementLanguage,
