@@ -1,5 +1,5 @@
 import { CallRecording } from "../entities/call-recording.entity"
-import { RecordingArtifactStatus } from "../enum/recording-artifact-status.enum"
+import { RecordingArtifactStatus } from "../enums/recording-artifact-status.enum"
 
 export interface ICallRecordingRepository {
     findOrCreate(callId: number, wacid: string): Promise<CallRecording>

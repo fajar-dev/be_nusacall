@@ -2,7 +2,7 @@ import { describe, test, expect, beforeAll, afterAll, beforeEach } from "bun:tes
 import { initTestDatabase, destroyTestDatabase, cleanTestDatabase } from "./setup"
 import { TypeOrmCallPermissionRepository } from "../src/modules/permission/repositories/call-permission.repository"
 import { PermissionService } from "../src/modules/permission/permission.service"
-import { PermissionStatus } from "../src/modules/permission/enum/permission-status.enum"
+import { PermissionStatus } from "../src/modules/permission/enums/permission-status.enum"
 import { config } from "../src/config/config"
 import type { MetaClient } from "../src/infrastructure/meta/meta.client"
 

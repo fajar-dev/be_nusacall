@@ -1,9 +1,9 @@
 import { Call } from "./entities/call.entity"
-import { CallStatus } from "./enum/call-status.enum"
+import { CallStatus } from "./enums/call-status.enum"
 import { ICallRepository, CallListFilter } from "./interfaces/call.repository.interface"
 import { NotFoundException, ConflictException } from "../../core/exceptions/base"
 import { SortOrder } from "../../core/interfaces/base.repository.interface"
-import { EndReason } from "./enum/end-reason.enum"
+import { EndReason } from "./enums/end-reason.enum"
 
 export class CallService {
     constructor(private readonly repository: ICallRepository) {}

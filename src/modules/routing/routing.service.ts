@@ -1,5 +1,5 @@
 import { Call } from "../call/entities/call.entity"
-import { EndReason } from "../call/enum/end-reason.enum"
+import { EndReason } from "../call/enums/end-reason.enum"
 import { presenceRegistry } from "../user/presence.registry"
 
 export interface RoutingDecision {

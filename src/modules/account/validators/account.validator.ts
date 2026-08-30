@@ -1,12 +1,15 @@
 import { z } from "zod"
-import { CallIconVisibility } from "../enum/call-icon-visibility.enum"
+import { CallIconVisibility } from "../enums/call-icon-visibility.enum"
+import { TIMEZONES } from "../enums/timezone.enum"
+import { CallHoursStatus } from "../enums/call-hours-status.enum"
+import { DayOfWeek } from "../enums/day-of-week.enum"
 
 const CallHoursValidator = z.object({
-    status: z.enum(["ENABLED", "DISABLED"]),
-    timezone_id: z.string().min(1),
+    status: z.nativeEnum(CallHoursStatus),
+    timezone_id: z.enum(TIMEZONES),
     weekly_operating_hours: z.array(
         z.object({
-            day_of_week: z.enum(["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]),
+            day_of_week: z.nativeEnum(DayOfWeek),
             open_time: z.string().regex(/^\d{4}$/, "Format HHmm, contoh 0800"),
             close_time: z.string().regex(/^\d{4}$/, "Format HHmm, contoh 1700"),
         })

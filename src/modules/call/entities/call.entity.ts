@@ -1,8 +1,8 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from "typeorm"
 import type { Relation } from "typeorm"
-import { CallStatus, CALL_STATUS_RANK } from "../enum/call-status.enum"
-import { CallDirection } from "../enum/call-direction.enum"
-import { EndReason } from "../enum/end-reason.enum"
+import { CallStatus, CALL_STATUS_RANK } from "../enums/call-status.enum"
+import { CallDirection } from "../enums/call-direction.enum"
+import { EndReason } from "../enums/end-reason.enum"
 import { User } from "../../user/entities/user.entity"
 import { Contact } from "../../contact/entities/contact.entity"
 

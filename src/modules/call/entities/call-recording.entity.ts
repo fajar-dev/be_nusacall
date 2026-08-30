@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from "typeorm"
 import type { Relation } from "typeorm"
-import { RecordingArtifactStatus } from "../enum/recording-artifact-status.enum"
+import { RecordingArtifactStatus } from "../enums/recording-artifact-status.enum"
 import { Call } from "./call.entity"
 
 @Entity("call_recordings")

@@ -4,10 +4,10 @@ import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createTestApp
 import { getDataSource } from "../src/config/database"
 import { Call } from "../src/modules/call/entities/call.entity"
 import { CallRecording } from "../src/modules/call/entities/call-recording.entity"
-import { CallStatus } from "../src/modules/call/enum/call-status.enum"
-import { CallDirection } from "../src/modules/call/enum/call-direction.enum"
-import { EndReason } from "../src/modules/call/enum/end-reason.enum"
-import { RecordingArtifactStatus } from "../src/modules/call/enum/recording-artifact-status.enum"
+import { CallStatus } from "../src/modules/call/enums/call-status.enum"
+import { CallDirection } from "../src/modules/call/enums/call-direction.enum"
+import { EndReason } from "../src/modules/call/enums/end-reason.enum"
+import { RecordingArtifactStatus } from "../src/modules/call/enums/recording-artifact-status.enum"
 
 let app: Hono
 

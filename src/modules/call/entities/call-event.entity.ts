@@ -1,8 +1,8 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, ManyToOne, JoinColumn, CreateDateColumn } from "typeorm"
 import type { Relation } from "typeorm"
 import { Call } from "./call.entity"
-import { CallEventType } from "../enum/call-event-type.enum"
-import { CallEventStatus } from "../enum/call-event-status.enum"
+import { CallEventType } from "../enums/call-event-type.enum"
+import { CallEventStatus } from "../enums/call-event-status.enum"
 
 @Entity("call_events")
 @Index(["callId", "receivedAt"])

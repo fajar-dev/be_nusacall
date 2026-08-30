@@ -1,6 +1,6 @@
 import { IAccountRepository } from "./interfaces/account.repository.interface"
 import { Account } from "./entities/account.entity"
-import { CallIconVisibility } from "./enum/call-icon-visibility.enum"
+import { CallIconVisibility } from "./enums/call-icon-visibility.enum"
 import { MetaClient } from "../../infrastructure/meta/meta.client"
 import { NotFoundException } from "../../core/exceptions/base"
 import { logger } from "../../core/helpers/logger"

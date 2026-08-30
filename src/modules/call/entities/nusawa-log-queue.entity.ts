@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, ManyToOne, JoinColumn, CreateDateColumn } from "typeorm"
 import type { Relation } from "typeorm"
-import { QueueStatus } from "../enum/queue-status.enum"
+import { QueueStatus } from "../enums/queue-status.enum"
 import { Call } from "./call.entity"
 
 @Entity("nusawa_log_queue")

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { Type } from "../enums/type"
+import { Type } from "../enums/organization-type.enum"
 
 export const CreateOrganizationValidator = z.object({
     name: z.string().trim().min(1, "Name is required"),

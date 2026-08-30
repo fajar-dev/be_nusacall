@@ -5,7 +5,7 @@ import { TypeOrmAccountRepository } from "../src/modules/account/repositories/ac
 import { AccountService } from "../src/modules/account/account.service"
 import { getDataSource } from "../src/config/database"
 import { Account } from "../src/modules/account/entities/account.entity"
-import { CallIconVisibility } from "../src/modules/account/enum/call-icon-visibility.enum"
+import { CallIconVisibility } from "../src/modules/account/enums/call-icon-visibility.enum"
 import type { MetaClient } from "../src/infrastructure/meta/meta.client"
 
 let app: Hono

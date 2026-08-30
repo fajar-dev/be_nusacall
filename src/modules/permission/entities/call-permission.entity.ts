@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, UpdateDateColumn } from "typeorm"
-import { PermissionStatus } from "../enum/permission-status.enum"
+import { PermissionStatus } from "../enums/permission-status.enum"
 
 @Entity("call_permissions")
 @Index(["phoneNumberId", "waId"], { unique: true })

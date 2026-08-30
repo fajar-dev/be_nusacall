@@ -305,7 +305,14 @@ components:
       nullable: true
       properties:
         status: { type: string, enum: [ENABLED, DISABLED] }
-        timezone_id: { type: string, example: "Asia/Jakarta" }
+        timezone_id:
+          type: string
+          description: >-
+            IANA timezone identifier. Divalidasi terhadap daftar zona IANA
+            (termasuk alias seperti Asia/Calcutta dan US/Pacific) di
+            src/modules/account/enums/timezone.enum.ts — nilai di luar daftar
+            itu ditolak 422.
+          example: "Asia/Jakarta"
         weekly_operating_hours:
           { type: array, items: { $ref: "#/components/schemas/CallHoursDay" } }
         holiday_schedule:

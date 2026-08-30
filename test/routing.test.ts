@@ -1,9 +1,9 @@
 import { describe, test, expect, beforeEach } from "bun:test"
 import { RoutingService } from "../src/modules/routing/routing.service"
 import { presenceRegistry } from "../src/modules/user/presence.registry"
-import { EndReason } from "../src/modules/call/enum/end-reason.enum"
-import { CallDirection } from "../src/modules/call/enum/call-direction.enum"
-import { CallStatus } from "../src/modules/call/enum/call-status.enum"
+import { EndReason } from "../src/modules/call/enums/end-reason.enum"
+import { CallDirection } from "../src/modules/call/enums/call-direction.enum"
+import { CallStatus } from "../src/modules/call/enums/call-status.enum"
 import type { Call } from "../src/modules/call/entities/call.entity"
 
 function fakeCall(overrides: Partial<Call> = {}): Call {

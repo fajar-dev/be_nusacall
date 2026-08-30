@@ -1,6 +1,6 @@
 import { EntityManager } from "typeorm"
 import { Call } from "../entities/call.entity"
-import { CallStatus } from "../enum/call-status.enum"
+import { CallStatus } from "../enums/call-status.enum"
 import { IBaseRepository, SortOrder } from "../../../core/interfaces/base.repository.interface"
 
 export interface CallListFilter {

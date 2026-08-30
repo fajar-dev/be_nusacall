@@ -1,5 +1,5 @@
 import { Organization } from "./entities/organization.entity"
-import { Type } from "./enums/type"
+import { Type } from "./enums/organization-type.enum"
 
 export interface NusaworkOrganizationNode {
     id: number

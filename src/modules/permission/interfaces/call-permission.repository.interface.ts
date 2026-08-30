@@ -1,5 +1,5 @@
 import { CallPermission } from "../entities/call-permission.entity"
-import { PermissionStatus } from "../enum/permission-status.enum"
+import { PermissionStatus } from "../enums/permission-status.enum"
 
 export interface ICallPermissionRepository {
     findByContact(phoneNumberId: string, waId: string): Promise<CallPermission | null>

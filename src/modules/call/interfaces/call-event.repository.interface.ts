@@ -1,6 +1,6 @@
 import { CallEvent } from "../entities/call-event.entity"
-import { CallEventType } from "../enum/call-event-type.enum"
-import { CallEventStatus } from "../enum/call-event-status.enum"
+import { CallEventType } from "../enums/call-event-type.enum"
+import { CallEventStatus } from "../enums/call-event-status.enum"
 
 export interface RecordEventInput {
     dedupKey: string

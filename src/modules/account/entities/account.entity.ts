@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, UpdateDateColumn } from "typeorm"
-import { CallIconVisibility } from "../enum/call-icon-visibility.enum"
+import { CallIconVisibility } from "../enums/call-icon-visibility.enum"
 
 @Entity("accounts")
 export class Account {

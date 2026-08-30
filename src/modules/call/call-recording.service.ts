@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto"
 import { MetaClient } from "../../infrastructure/meta/meta.client"
 import { ICallRecordingRepository } from "./interfaces/call-recording.repository.interface"
-import { RecordingArtifactStatus } from "./enum/recording-artifact-status.enum"
+import { RecordingArtifactStatus } from "./enums/recording-artifact-status.enum"
 import { CallRecording } from "./entities/call-recording.entity"
 import { config } from "../../config/config"
 import { logger } from "../../core/helpers/logger"

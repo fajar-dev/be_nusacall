@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn, CreateDateColumn, UpdateDateColumn, Index } from "typeorm"
 import type { Relation } from "typeorm"
-import { Type } from "../enums/type"
+import { Type } from "../enums/organization-type.enum"
 
 @Entity("organizations")
 export class Organization {

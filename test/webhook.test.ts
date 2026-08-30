@@ -19,7 +19,7 @@ import { getDataSource } from "../src/config/database"
 import { Call } from "../src/modules/call/entities/call.entity"
 import { CallEvent } from "../src/modules/call/entities/call-event.entity"
 import { Contact } from "../src/modules/contact/entities/contact.entity"
-import { CallStatus } from "../src/modules/call/enum/call-status.enum"
+import { CallStatus } from "../src/modules/call/enums/call-status.enum"
 
 let app: Hono
 

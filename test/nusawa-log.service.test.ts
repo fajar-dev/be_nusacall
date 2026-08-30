@@ -5,9 +5,9 @@ import { NusawaLogService } from "../src/modules/call/nusawa-log.service"
 import { getDataSource } from "../src/config/database"
 import { Call } from "../src/modules/call/entities/call.entity"
 import { NusawaLogQueue } from "../src/modules/call/entities/nusawa-log-queue.entity"
-import { QueueStatus } from "../src/modules/call/enum/queue-status.enum"
-import { CallStatus } from "../src/modules/call/enum/call-status.enum"
-import { CallDirection } from "../src/modules/call/enum/call-direction.enum"
+import { QueueStatus } from "../src/modules/call/enums/queue-status.enum"
+import { CallStatus } from "../src/modules/call/enums/call-status.enum"
+import { CallDirection } from "../src/modules/call/enums/call-direction.enum"
 import type { NusawaClient } from "../src/infrastructure/nusawa/nusawa.client"
 
 let repository: TypeOrmNusawaLogQueueRepository

@@ -1,7 +1,7 @@
 import { Repository } from "typeorm"
 import { AppDataSource } from "../../../config/database"
 import { CallRecording } from "../entities/call-recording.entity"
-import { RecordingArtifactStatus } from "../enum/recording-artifact-status.enum"
+import { RecordingArtifactStatus } from "../enums/recording-artifact-status.enum"
 import { ICallRecordingRepository } from "../interfaces/call-recording.repository.interface"
 
 export class TypeOrmCallRecordingRepository implements ICallRecordingRepository {

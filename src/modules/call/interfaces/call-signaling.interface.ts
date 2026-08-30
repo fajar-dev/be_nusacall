@@ -1,6 +1,6 @@
 import { Call } from "../entities/call.entity"
 import { CallLogOutcome } from "../call-log-message"
-import { EndReason } from "../enum/end-reason.enum"
+import { EndReason } from "../enums/end-reason.enum"
 
 export interface WsOutboundPacket {
     type: string
