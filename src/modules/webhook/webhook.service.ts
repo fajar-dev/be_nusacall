@@ -317,7 +317,7 @@ export class WebhookService {
             const contact = await this.contacts.findOrCreate(waId, profileName)
             return contact.id
         }
-        const contact = await this.contacts.findByWaId(waId)
+        const contact = await this.contacts.findByPhoneNumber(waId)
         return contact?.id ?? null
     }
 

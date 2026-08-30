@@ -61,9 +61,9 @@ async function countCallEvents(wacid: string): Promise<number> {
     return await repo.countBy({ wacid })
 }
 
-async function getContact(waId: string): Promise<Contact | null> {
+async function getContact(phoneNumber: string): Promise<Contact | null> {
     const repo = getDataSource().getRepository(Contact)
-    return await repo.findOneBy({ waId })
+    return await repo.findOneBy({ phoneNumber })
 }
 
 async function flush() {
@@ -146,7 +146,7 @@ describe("Contact - auto-saved on inbound calls", () => {
 
         const contact = await getContact(waId)
         expect(contact).not.toBeNull()
-        expect(contact!.profileName).toBe("Budi")
+        expect(contact!.name).toBe("Budi")
     })
 
     test("a second inbound call from the same number does not create a duplicate or overwrite the name", async () => {
@@ -158,9 +158,9 @@ describe("Contact - auto-saved on inbound calls", () => {
         await flush()
 
         const repo = getDataSource().getRepository(Contact)
-        const matches = await repo.findBy({ waId })
+        const matches = await repo.findBy({ phoneNumber: waId })
         expect(matches).toHaveLength(1)
-        expect(matches[0]!.profileName).toBe("Budi")
+        expect(matches[0]!.name).toBe("Budi")
     })
 
     test("an outbound connect does not save the dialed number as a contact", async () => {

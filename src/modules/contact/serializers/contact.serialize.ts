@@ -4,8 +4,10 @@ export class ContactSerializer {
     static single(contact: Contact) {
         return {
             id: contact.id,
-            waId: contact.waId,
-            profileName: contact.profileName,
+            phoneNumber: contact.phoneNumber,
+            name: contact.name ?? null,
+            timeZone: contact.timeZone,
+            branch: contact.branch ? { id: contact.branch.id, name: contact.branch.name, code: contact.branch.code } : null,
             createdAt: contact.createdAt,
             updatedAt: contact.updatedAt,
         }

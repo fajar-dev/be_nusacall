@@ -19,6 +19,7 @@ import { userController } from "../modules/user/user.module"
 import { CreateUserValidator, UpdateUserValidator } from "../modules/user/validators/user.validator"
 import { organizationController } from "../modules/organization/organization.module"
 import { contactController } from "../modules/contact/contact.module"
+import { CreateContactValidator, UpdateContactValidator } from "../modules/contact/validators/contact.validator"
 import { branchController } from "../modules/branch/branch.module"
 
 const routes = new Hono()
@@ -58,6 +59,9 @@ routes.get("/account/:id/health", authMiddleware, (c) => accountController.healt
 
 routes.get("/contact", authMiddleware, (c) => contactController.index(c))
 routes.get("/contact/:id", authMiddleware, (c) => contactController.show(c))
+routes.post("/contact", authMiddleware, zValidator("json", CreateContactValidator, validationHook), (c) => contactController.store(c))
+routes.put("/contact/:id", authMiddleware, zValidator("json", UpdateContactValidator, validationHook), (c) => contactController.update(c))
+routes.delete("/contact/:id", authMiddleware, (c) => contactController.destroy(c))
 
 routes.get("/permission", authMiddleware, (c) => permissionController.check(c))
 routes.post("/permission/request", authMiddleware, zValidator("json", RequestPermissionValidator, validationHook), (c) => permissionController.request(c))

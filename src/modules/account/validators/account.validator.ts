@@ -5,11 +5,11 @@ import { CallHoursStatus } from "../enums/call-hours-status.enum"
 import { DayOfWeek } from "../enums/day-of-week.enum"
 
 const CallHoursValidator = z.object({
-    status: z.nativeEnum(CallHoursStatus),
+    status: z.enum(CallHoursStatus),
     timezone_id: z.enum(TIMEZONES),
     weekly_operating_hours: z.array(
         z.object({
-            day_of_week: z.nativeEnum(DayOfWeek),
+            day_of_week: z.enum(DayOfWeek),
             open_time: z.string().regex(/^\d{4}$/, "Format HHmm, contoh 0800"),
             close_time: z.string().regex(/^\d{4}$/, "Format HHmm, contoh 1700"),
         })
@@ -28,7 +28,7 @@ const CallHoursValidator = z.object({
 export const UpdateAccountValidator = z.object({
     label: z.string().min(1, "label is required").optional(),
     callingEnabled: z.boolean().optional(),
-    callIconVisibility: z.nativeEnum(CallIconVisibility).optional(),
+    callIconVisibility: z.enum(CallIconVisibility).optional(),
     color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Format warna harus hex, contoh #6366F1").optional(),
     answerTimeoutSeconds: z.number().int().min(5).max(25).optional(),
     callHours: CallHoursValidator.nullable().optional(),

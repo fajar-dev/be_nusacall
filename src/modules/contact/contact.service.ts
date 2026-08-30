@@ -1,12 +1,17 @@
-import { IContactRepository } from "./interfaces/contact.repository.interface"
+import { ContactListFilters, IContactRepository } from "./interfaces/contact.repository.interface"
 import { Contact } from "./entities/contact.entity"
-import { NotFoundException } from "../../core/exceptions/base"
+import { NotFoundException, BadRequestException } from "../../core/exceptions/base"
+import { SortOrder } from "../../core/enums/sort-order.enum"
+import { CreateContactValidator, UpdateContactValidator } from "./validators/contact.validator"
 
 export class ContactService {
     constructor(private readonly repository: IContactRepository) {}
 
-    async getAll(page: number, limit: number, q?: string): Promise<{ data: Contact[]; total: number }> {
-        return await this.repository.findAll(page, limit, q)
+    async getAll(
+        page: number, limit: number, q?: string,
+        filters: ContactListFilters = {}, sortBy?: string, order?: SortOrder,
+    ): Promise<{ data: Contact[]; total: number }> {
+        return await this.repository.findAll(page, limit, q, filters, sortBy, order)
     }
 
     async getById(id: number): Promise<Contact> {
@@ -17,18 +22,47 @@ export class ContactService {
         return contact
     }
 
-    async findByWaId(waId: string): Promise<Contact | null> {
-        return await this.repository.findByWaId(waId)
+    async findByPhoneNumber(phoneNumber: string): Promise<Contact | null> {
+        return await this.repository.findByPhoneNumber(phoneNumber)
     }
 
-    async findOrCreate(waId: string, profileName: string | null): Promise<Contact> {
-        const existing = await this.repository.findByWaId(waId)
+    async create(data: CreateContactValidator): Promise<Contact> {
+        const existing = await this.repository.findByPhoneNumber(data.phoneNumber)
+        if (existing) {
+            throw new BadRequestException("A contact with this phone number already exists")
+        }
+        const saved = await this.repository.save(data as Partial<Contact>)
+        return await this.getById(saved.id)
+    }
+
+    async update(id: number, data: UpdateContactValidator): Promise<Contact> {
+        const contact = await this.getById(id)
+
+        if (data.phoneNumber && data.phoneNumber !== contact.phoneNumber) {
+            const existing = await this.repository.findByPhoneNumber(data.phoneNumber)
+            if (existing && existing.id !== id) {
+                throw new BadRequestException("A contact with this phone number already exists")
+            }
+        }
+
+        const merged = this.repository.merge(contact, data as Partial<Contact>)
+        await this.repository.save(merged)
+        return await this.getById(id)
+    }
+
+    async delete(id: number): Promise<void> {
+        await this.getById(id)
+        await this.repository.delete(id)
+    }
+
+    async findOrCreate(phoneNumber: string, name: string | null): Promise<Contact> {
+        const existing = await this.repository.findByPhoneNumber(phoneNumber)
         if (existing) return existing
 
         try {
-            return await this.repository.save({ waId, profileName })
+            return await this.repository.save({ phoneNumber, name })
         } catch (err) {
-            const raced = await this.repository.findByWaId(waId)
+            const raced = await this.repository.findByPhoneNumber(phoneNumber)
             if (raced) return raced
             throw err
         }

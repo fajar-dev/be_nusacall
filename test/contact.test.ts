@@ -3,6 +3,7 @@ import { Hono } from "hono"
 import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createTestApp, request, createUserAndToken } from "./setup"
 import { getDataSource } from "../src/config/database"
 import { Contact } from "../src/modules/contact/entities/contact.entity"
+import { Branch } from "../src/modules/branch/entities/branch.entity"
 
 let app: Hono
 
@@ -21,8 +22,8 @@ beforeEach(async () => {
 
 async function seedContact(overrides: Partial<Contact> = {}): Promise<Contact> {
     return await getDataSource().getRepository(Contact).save({
-        waId: "628123456789",
-        profileName: "Budi",
+        phoneNumber: "628123456789",
+        name: "Budi",
         ...overrides,
     })
 }
@@ -41,19 +42,19 @@ describe("GET /api/contact", () => {
 
         expect(status).toBe(200)
         expect(body.data).toHaveLength(1)
-        expect(body.data[0].waId).toBe("628123456789")
-        expect(body.data[0].profileName).toBe("Budi")
+        expect(body.data[0].phoneNumber).toBe("628123456789")
+        expect(body.data[0].name).toBe("Budi")
     })
 
     test("filters by wa_id or profile name via q", async () => {
         const { headers } = await createUserAndToken()
-        await seedContact({ waId: "628111111111", profileName: "Budi" })
-        await seedContact({ waId: "628222222222", profileName: "Siti" })
+        await seedContact({ phoneNumber: "628111111111", name: "Budi" })
+        await seedContact({ phoneNumber: "628222222222", name: "Siti" })
 
         const { body } = await request(app, "/api/contact?q=Siti", { headers })
 
         expect(body.data).toHaveLength(1)
-        expect(body.data[0].profileName).toBe("Siti")
+        expect(body.data[0].name).toBe("Siti")
     })
 })
 
@@ -71,6 +72,165 @@ describe("GET /api/contact/:id", () => {
         const { status, body } = await request(app, `/api/contact/${contact.id}`, { headers })
 
         expect(status).toBe(200)
-        expect(body.data.waId).toBe("628123456789")
+        expect(body.data.phoneNumber).toBe("628123456789")
+    })
+})
+
+async function seedBranch(code: string, name: string): Promise<number> {
+    const saved = await getDataSource().getRepository(Branch).save({ code, name })
+    return saved.id
+}
+
+describe("POST /api/contact", () => {
+    test("membutuhkan autentikasi", async () => {
+        const { status } = await request(app, "/api/contact", { method: "POST", body: { phoneNumber: "628111222333" } })
+        expect(status).toBe(401)
+    })
+
+    test("membuat kontak dengan timeZone default UTC dan cabang kosong", async () => {
+        const { headers } = await createUserAndToken()
+
+        const { status, body } = await request(app, "/api/contact", {
+            method: "POST", headers, body: { phoneNumber: "628111222333", name: "Sari" },
+        })
+
+        expect(status).toBe(201)
+        expect(body.data.phoneNumber).toBe("628111222333")
+        expect(body.data.name).toBe("Sari")
+        expect(body.data.timeZone).toBe("UTC")
+        expect(body.data.branch).toBeNull()
+    })
+
+    test("menerima timeZone dan cabang", async () => {
+        const { headers } = await createUserAndToken()
+        const branchId = await seedBranch("020", "Medan")
+
+        const { status, body } = await request(app, "/api/contact", {
+            method: "POST", headers,
+            body: { phoneNumber: "628111222444", name: "Andi", timeZone: "Asia/Jakarta", branchId },
+        })
+
+        expect(status).toBe(201)
+        expect(body.data.timeZone).toBe("Asia/Jakarta")
+        expect(body.data.branch.id).toBe(branchId)
+    })
+
+    test("menolak nomor telepon duplikat", async () => {
+        const { headers } = await createUserAndToken()
+        await seedContact({ phoneNumber: "628999888777" })
+
+        const { status } = await request(app, "/api/contact", {
+            method: "POST", headers, body: { phoneNumber: "628999888777" },
+        })
+
+        expect(status).toBe(400)
+    })
+
+    test("menolak nomor telepon tidak valid", async () => {
+        const { headers } = await createUserAndToken()
+
+        const { status } = await request(app, "/api/contact", {
+            method: "POST", headers, body: { phoneNumber: "+62-812-abc" },
+        })
+
+        expect(status).toBe(422)
+    })
+
+    test("menolak timezone di luar daftar IANA", async () => {
+        const { headers } = await createUserAndToken()
+
+        const { status } = await request(app, "/api/contact", {
+            method: "POST", headers, body: { phoneNumber: "628111222555", timeZone: "Mars/Olympus" },
+        })
+
+        expect(status).toBe(422)
+    })
+})
+
+describe("PUT /api/contact/:id", () => {
+    test("memperbarui nama, timezone, dan cabang", async () => {
+        const { headers } = await createUserAndToken()
+        const contact = await seedContact()
+        const branchId = await seedBranch("062", "Bali")
+
+        const { status, body } = await request(app, `/api/contact/${contact.id}`, {
+            method: "PUT", headers, body: { name: "Budi Revisi", timeZone: "Asia/Makassar", branchId },
+        })
+
+        expect(status).toBe(200)
+        expect(body.data.name).toBe("Budi Revisi")
+        expect(body.data.timeZone).toBe("Asia/Makassar")
+        expect(body.data.branch.id).toBe(branchId)
+    })
+
+    test("404 untuk kontak yang tidak ada", async () => {
+        const { headers } = await createUserAndToken()
+        const { status } = await request(app, "/api/contact/999999", { method: "PUT", headers, body: { name: "X" } })
+        expect(status).toBe(404)
+    })
+
+    test("menolak nomor yang sudah dipakai kontak lain", async () => {
+        const { headers } = await createUserAndToken()
+        const first = await seedContact({ phoneNumber: "628100000001" })
+        await seedContact({ phoneNumber: "628100000002" })
+
+        const { status } = await request(app, `/api/contact/${first.id}`, {
+            method: "PUT", headers, body: { phoneNumber: "628100000002" },
+        })
+
+        expect(status).toBe(400)
+    })
+})
+
+describe("GET /api/contact — pengurutan", () => {
+    test("sortBy=name mengurutkan berdasarkan nama", async () => {
+        const { headers } = await createUserAndToken()
+        await seedContact({ phoneNumber: "628200000001", name: "Zulkifli" })
+        await seedContact({ phoneNumber: "628200000002", name: "Andi" })
+
+        const { body } = await request(app, "/api/contact?sortBy=name&order=ASC", { headers })
+
+        expect(body.data[0].name).toBe("Andi")
+        expect(body.data[body.data.length - 1].name).toBe("Zulkifli")
+    })
+
+    test("sortBy=branch mengurutkan berdasarkan nama cabang", async () => {
+        const { headers } = await createUserAndToken()
+        const alpha = await seedBranch("001", "Alpha")
+        const zulu = await seedBranch("099", "Zulu")
+        await seedContact({ phoneNumber: "628300000001", branchId: zulu })
+        await seedContact({ phoneNumber: "628300000002", branchId: alpha })
+
+        const { body } = await request(app, "/api/contact?sortBy=branch&order=ASC", { headers })
+        const names = body.data.map((c: { branch: { name: string } | null }) => c.branch?.name).filter(Boolean)
+
+        expect(names[0]).toBe("Alpha")
+    })
+})
+
+describe("GET /api/contact — filter cabang", () => {
+    test("branchId hanya mengembalikan kontak pada cabang tersebut", async () => {
+        const { headers } = await createUserAndToken()
+        const bali = await seedBranch("062", "Bali")
+        await seedContact({ phoneNumber: "628400000001", branchId: bali })
+        await seedContact({ phoneNumber: "628400000002" })
+
+        const { body } = await request(app, `/api/contact?branchId=${bali}`, { headers })
+
+        expect(body.meta.total).toBe(1)
+        expect(body.data[0].branch.id).toBe(bali)
+    })
+})
+
+describe("DELETE /api/contact/:id", () => {
+    test("menghapus kontak", async () => {
+        const { headers } = await createUserAndToken()
+        const contact = await seedContact()
+
+        const { status } = await request(app, `/api/contact/${contact.id}`, { method: "DELETE", headers })
+        expect(status).toBe(200)
+
+        const after = await request(app, `/api/contact/${contact.id}`, { headers })
+        expect(after.status).toBe(404)
     })
 })

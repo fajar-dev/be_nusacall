@@ -1,7 +1,12 @@
 import { Contact } from "../entities/contact.entity"
 import { IBaseRepository } from "../../../core/interfaces/base.repository.interface"
+import { SortOrder } from "../../../core/enums/sort-order.enum"
+
+export interface ContactListFilters {
+    branchId?: string
+}
 
 export interface IContactRepository extends IBaseRepository<Contact> {
-    findAll(page: number, limit: number, q?: string): Promise<{ data: Contact[]; total: number }>
-    findByWaId(waId: string): Promise<Contact | null>
+    findAll(page: number, limit: number, q?: string, filters?: ContactListFilters, sortBy?: string, order?: SortOrder): Promise<{ data: Contact[]; total: number }>
+    findByPhoneNumber(phoneNumber: string): Promise<Contact | null>
 }
