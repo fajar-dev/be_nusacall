@@ -118,6 +118,19 @@ describe("GET /api/call/stats", () => {
         expect(body.data.missed).toBe(1)
         expect(body.data.avgDurationSeconds).toBe(150)
     })
+
+    test("memisahkan hitungan panggilan masuk dan keluar", async () => {
+        const { headers } = await createUserAndToken()
+        await seedCall({ direction: CallDirection.INBOUND })
+        await seedCall({ direction: CallDirection.INBOUND })
+        await seedCall({ direction: CallDirection.OUTBOUND })
+
+        const { body } = await request(app, "/api/call/stats", { headers })
+
+        expect(body.data.inbound).toBe(2)
+        expect(body.data.outbound).toBe(1)
+        expect(body.data.total).toBe(3)
+    })
 })
 
 describe("GET /api/call/:id/recording", () => {

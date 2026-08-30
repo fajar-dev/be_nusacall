@@ -1,14 +1,11 @@
 import { Hono } from "hono"
 import crypto from "crypto"
 import { zValidator } from "@hono/zod-validator"
-
 import { LoginValidator, GoogleLoginValidator, RefreshTokenValidator } from "../modules/auth/validators/auth.validator"
 import { UpdateAccountValidator } from "../modules/account/validators/account.validator"
-
 import { authMiddleware } from "../core/middlewares/auth.middleware"
 import { validationHook } from "../core/helpers/validator"
 import { BadRequestException } from "../core/exceptions/base"
-
 import { authController } from "../modules/auth/auth.module"
 import { callController } from "../modules/call/call.module"
 import { accountController } from "../modules/account/account.module"
@@ -38,6 +35,7 @@ routes.get("/user", authMiddleware, (c) => userController.index(c))
 routes.get("/user/options", authMiddleware, (c) => userController.options(c))
 routes.get("/user/me", authMiddleware, (c) => userController.me(c))
 routes.get("/user/available", authMiddleware, (c) => userController.available(c))
+routes.get("/user/online", authMiddleware, (c) => userController.online(c))
 routes.get("/user/:id", authMiddleware, (c) => userController.show(c))
 routes.post("/user", authMiddleware, zValidator("json", CreateUserValidator, validationHook), (c) => userController.store(c))
 routes.put("/user/:id", authMiddleware, zValidator("json", UpdateUserValidator, validationHook), (c) => userController.update(c))

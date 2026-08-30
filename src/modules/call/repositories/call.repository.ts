@@ -1,6 +1,7 @@
 import { EntityManager } from "typeorm"
 import { Call } from "../entities/call.entity"
 import { CallStatus, TERMINAL_CALL_STATUSES } from "../enums/call-status.enum"
+import { CallDirection } from "../enums/call-direction.enum"
 import { ICallRepository, CallListFilter } from "../interfaces/call.repository.interface"
 import { SortOrder } from "../../../core/enums/sort-order.enum"
 import { BaseRepository } from "../../../core/repositories/base.repository"
@@ -136,6 +137,8 @@ export class TypeOrmCallRepository extends BaseRepository<Call> implements ICall
         const missed = rows.filter((r) => r.status === CallStatus.MISSED).length
         const rejected = rows.filter((r) => r.status === CallStatus.REJECTED).length
         const failed = rows.filter((r) => r.status === CallStatus.FAILED).length
+        const inbound = rows.filter((r) => r.direction === CallDirection.INBOUND).length
+        const outbound = rows.filter((r) => r.direction === CallDirection.OUTBOUND).length
 
         const durations = rows.map((r) => r.durationSeconds).filter((v): v is number => v != null)
         const setups = rows.map((r) => r.setupDurationMs).filter((v): v is number => v != null)
@@ -148,6 +151,8 @@ export class TypeOrmCallRepository extends BaseRepository<Call> implements ICall
             missed,
             rejected,
             failed,
+            inbound,
+            outbound,
             avgDurationSeconds: avg(durations),
             avgSetupMs: avg(setups),
         }

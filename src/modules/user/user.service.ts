@@ -35,6 +35,11 @@ export class UserService {
         return await this.repository.findByEmails(emails)
     }
 
+    async getOnline(): Promise<User[]> {
+        const emails = presenceRegistry.listAll().map((p) => p.email)
+        return await this.repository.findByEmails(emails)
+    }
+
     async save(data: Partial<User>, manager?: EntityManager): Promise<User> {
         return await this.repository.save(data, manager)
     }

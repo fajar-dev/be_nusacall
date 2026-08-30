@@ -21,6 +21,12 @@ export class UserController {
         return ApiResponse.success(c, serialized, "Available users retrieved successfully")
     }
 
+    async online(c: Context) {
+        const data = await this.service.getOnline()
+        const serialized = await UserSerializer.collection(data)
+        return ApiResponse.success(c, serialized, "Online users retrieved successfully")
+    }
+
     async options(c: Context) {
         const q = c.req.query("q") || ""
         const requestedLimit = Number(c.req.query("limit")) || 20

@@ -116,6 +116,32 @@ describe("GET /api/user/me", () => {
     })
 })
 
+describe("GET /api/user/online", () => {
+    test("kosong ketika tidak ada yang terhubung", async () => {
+        const { headers } = await createUserAndToken()
+
+        const { status, body } = await request(app, "/api/user/online", { headers })
+
+        expect(status).toBe(200)
+        expect(body.data).toEqual([])
+    })
+
+    test("tetap menyertakan agent yang sedang menelepon, tidak seperti available", async () => {
+        const { headers } = await createUserAndToken()
+        const busy = await seedUser({ email: "sibuk@nusa.id" })
+        presenceRegistry.register(busy.email, "conn-online-1")
+        presenceRegistry.setCurrentCall(busy.email, 77)
+
+        const online = await request(app, "/api/user/online", { headers })
+        const available = await request(app, "/api/user/available", { headers })
+
+        expect(online.body.data).toHaveLength(1)
+        expect(online.body.data[0].email).toBe("sibuk@nusa.id")
+        expect(online.body.data[0].currentCallId).toBe(77)
+        expect(available.body.data).toEqual([])
+    })
+})
+
 describe("GET /api/user/available", () => {
     test("is empty when nobody is online", async () => {
         const { headers } = await createUserAndToken()

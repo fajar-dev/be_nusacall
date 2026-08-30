@@ -275,6 +275,8 @@ components:
         missed: { type: integer, example: 5 }
         rejected: { type: integer, example: 1 }
         failed: { type: integer, example: 1 }
+        inbound: { type: integer, example: 30 }
+        outbound: { type: integer, example: 12 }
         avgDurationSeconds: { type: number, nullable: true, example: 128.4 }
         avgSetupMs: { type: number, nullable: true, example: 1100 }
         answerRate:
@@ -685,6 +687,37 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: "#/components/schemas/User" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /user/online:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+    get:
+      tags: [User]
+      summary: Get users currently online (live WebSocket connection)
+      description: >-
+        Everyone with a live connection, including users who are already on a
+        call. Use /user/available instead when routing a call, since that one
+        also excludes users who are busy.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Online users retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/User" }
         "401":
           description: Unauthorized
           content:
