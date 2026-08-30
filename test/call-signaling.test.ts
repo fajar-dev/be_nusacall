@@ -431,6 +431,27 @@ describe("CallSignalingService.handleReject / handleHangup", () => {
         expect((nusawaLog.enqueued[0] as { body: string }).body).toContain("ditolak")
     })
 
+    test("handleHangup menyimpan durasi panggilan, bukan meninggalkannya null", async () => {
+        const wacid = "wacid.SIGHANGUPDUR"
+        await createRingingCall(wacid)
+        await callStateService.transition(wacid, CallStatus.CONNECTING, { userId: agent1Id })
+        await callStateService.transition(wacid, CallStatus.ACTIVE, {
+            answeredAt: new Date(Date.now() - 45_000),
+        })
+
+        const service = new CallSignalingService(
+            new FakeNotifier(), callRepository, callStateService, fakeMetaClient(),
+            new RoutingService(), fakeNusawaLog().service, contactService,
+        )
+
+        await service.handleHangup("agent1@nusa.id", wacid)
+
+        const updated = await callRepository.findByWacid(wacid)
+        expect(updated!.durationSeconds).not.toBeNull()
+        expect(updated!.durationSeconds).toBeGreaterThanOrEqual(44)
+        expect(updated!.durationSeconds).toBeLessThanOrEqual(47)
+    })
+
     test("handleHangup calls Meta terminate and marks the call COMPLETED", async () => {
         const wacid = "wacid.SIGHANGUP1"
         await createRingingCall(wacid)

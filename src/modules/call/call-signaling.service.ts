@@ -44,6 +44,7 @@ export class CallSignalingService implements ICallSignalingNotifier {
             await this.callState.transition(call.wacid, CallStatus.MISSED, {
                 endReason: decision.reason ?? EndReason.NO_AGENT_AVAILABLE,
                 endedAt: new Date(),
+                durationSeconds: this.durationSince(call.answeredAt),
             })
             await sessionRegistry.remove(call.wacid, "no_agent_available")
             return
@@ -77,6 +78,7 @@ export class CallSignalingService implements ICallSignalingNotifier {
         const transitioned = await this.callState.transition(wacid, CallStatus.MISSED, {
             endReason: EndReason.ANSWER_TIMEOUT,
             endedAt: new Date(),
+            durationSeconds: this.durationSince(call.answeredAt),
         })
         if (!transitioned) return
 
@@ -114,7 +116,11 @@ export class CallSignalingService implements ICallSignalingNotifier {
             await this.metaClient.accept(call.phoneNumberId, wacid, session.metaAnswerSdp!)
         } catch (err) {
             logger.error("Meta accept failed after agent answered", { wacid, err })
-            await this.callState.transition(wacid, CallStatus.FAILED, { endReason: EndReason.MEDIA_FAILURE, endedAt: new Date() })
+            await this.callState.transition(wacid, CallStatus.FAILED, {
+                endReason: EndReason.MEDIA_FAILURE,
+                endedAt: new Date(),
+                durationSeconds: this.durationSince(call.answeredAt),
+            })
             await sessionRegistry.remove(wacid, "accept_failed")
             this.notifier.send(agentEmail, packet("call_ended", wacid, { endReason: EndReason.MEDIA_FAILURE }))
             presenceRegistry.setCurrentCall(agentEmail, null)
@@ -143,6 +149,7 @@ export class CallSignalingService implements ICallSignalingNotifier {
             endReason: EndReason.AGENT_REJECTED,
             endedAt: new Date(),
             errorMessage: reason ?? null,
+            durationSeconds: this.durationSince(call.answeredAt),
         })
         await sessionRegistry.remove(wacid, "agent_rejected")
         await this.logCallOutcome(call, CallLogOutcome.REJECTED)
@@ -160,12 +167,14 @@ export class CallSignalingService implements ICallSignalingNotifier {
             logger.error("Meta terminate failed", { wacid, err })
         }
 
+        const durationSeconds = this.durationSince(call.answeredAt)
         await this.callState.transition(wacid, CallStatus.COMPLETED, {
             endReason: EndReason.AGENT_HANGUP,
             endedAt: new Date(),
+            durationSeconds,
         })
         await sessionRegistry.remove(wacid, "agent_hangup")
-        await this.logCallOutcome(call, CallLogOutcome.COMPLETED, this.durationSince(call.answeredAt))
+        await this.logCallOutcome(call, CallLogOutcome.COMPLETED, durationSeconds)
         presenceRegistry.setCurrentCall(agentEmail, null)
         this.notifier.send(agentEmail, packet("call_ended", wacid, { endReason: EndReason.AGENT_HANGUP }))
     }
@@ -188,8 +197,8 @@ export class CallSignalingService implements ICallSignalingNotifier {
         this.notifier.send(email, packet("call_state", call.wacid, { status: "active" }))
     }
 
-    private durationSince(start: Date | null | undefined): number | null {
-        if (!start) return null
+    private durationSince(start: Date | null | undefined): number {
+        if (!start) return 0
         return Math.max(0, Math.round((Date.now() - start.getTime()) / 1000))
     }
 
