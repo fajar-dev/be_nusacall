@@ -97,6 +97,10 @@ describe("MediaSession - full bridge (Meta leg <-> Agent leg)", () => {
         fakeAgent.close()
         await session.close("test_complete")
         expect(session.isClosed).toBe(true)
+
+        const recorded = session.recordings.map((r) => r.track).sort()
+        expect(recorded).toEqual(["agent", "customer"])
+        await session.discardRecordings()
     }, 20000)
 })
 

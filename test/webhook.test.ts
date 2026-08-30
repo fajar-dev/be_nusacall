@@ -20,6 +20,7 @@ import { Call } from "../src/modules/call/entities/call.entity"
 import { CallEvent } from "../src/modules/call/entities/call-event.entity"
 import { Contact } from "../src/modules/contact/entities/contact.entity"
 import { CallStatus } from "../src/modules/call/enums/call-status.enum"
+import { CallDirection } from "../src/modules/call/enums/call-direction.enum"
 
 let app: Hono
 
@@ -135,6 +136,21 @@ describe("Call Lifecycle - normal flow (connect -> terminate)", () => {
         expect(call!.statusRank).toBe(90)
         expect(call!.durationSeconds).toBe(135)
         expect(call!.endedAt).not.toBeNull()
+    })
+})
+
+describe("Call Lifecycle - penanda rekaman", () => {
+    test("panggilan yang dijawab ditandai merekam, termasuk panggilan keluar", async () => {
+        const wacid = "wacid.RECFLAG1"
+
+        await postWebhook(app, createConnectWebhookPayload({ wacid, direction: "BUSINESS_INITIATED" }))
+        await flush()
+        await postWebhook(app, createStatusWebhookPayload({ wacid, status: "ACCEPTED" }))
+        await flush()
+
+        const call = await getCall(wacid)
+        expect(call!.direction).toBe(CallDirection.OUTBOUND)
+        expect(call!.recordingEnabled).toBe(config.recording.recordingEnabled)
     })
 })
 

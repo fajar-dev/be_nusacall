@@ -12,6 +12,7 @@ import { CallRecordingService } from "../call/call-recording.service"
 import { ContactService } from "../contact/contact.service"
 import { logger } from "../../core/helpers/logger"
 import { CallLogOutcome } from "../call/enums/call-log-outcome.enum"
+import { config } from "../../config/config"
 
 interface MetaCallObject {
     id: string
@@ -213,7 +214,10 @@ export class WebhookService {
                 await this.callState.transition(statusObj.id, CallStatus.RINGING, { ringingAt: new Date() })
                 break
             case CallEventStatus.ACCEPTED: {
-                const transitioned = await this.callState.transition(statusObj.id, CallStatus.ACTIVE, { answeredAt: new Date() })
+                const transitioned = await this.callState.transition(statusObj.id, CallStatus.ACTIVE, {
+                    answeredAt: new Date(),
+                    recordingEnabled: config.recording.recordingEnabled,
+                })
                 if (transitioned) {
                     await this.media.startOutboundForwarding(statusObj.id)
                     const call = await this.calls.findByWacid(statusObj.id)
