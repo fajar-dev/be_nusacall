@@ -19,6 +19,7 @@ import { config } from "../src/config/config"
 import { setDataSource } from "../src/config/database"
 import { languageMiddleware } from "../src/core/middlewares/language.middleware"
 import { requestLogger } from "../src/core/middlewares/logger.middleware"
+import { resolve } from "node:path"
 import { metaApplications } from "../src/config/meta-applications"
 
 const testDbName = process.env.DB_TEST_NAME || "nusacall_test"
@@ -39,7 +40,13 @@ const TestDataSource = new DataSource({
 
 let initPromise: Promise<void> | null = null
 
+export const TEST_APP_SECRET = "test-app-secret"
+export const TEST_VERIFY_TOKEN = "test-verify-token"
+
 export async function initTestDatabase() {
+    if (!process.env.META_CONFIG_PATH) {
+        process.env.META_CONFIG_PATH = resolve(import.meta.dir, "fixtures/meta.json")
+    }
     metaApplications.load()
 
     if (!initPromise) {

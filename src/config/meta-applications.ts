@@ -1,7 +1,8 @@
 import { readFileSync, existsSync } from "node:fs"
 import { resolve } from "node:path"
-import { config } from "./config"
 import { logger } from "../core/helpers/logger"
+
+const DEFAULT_API_URL = "https://graph.facebook.com/v23.0"
 
 export interface MetaApplication {
     id: string
@@ -28,19 +29,6 @@ interface RawApplication {
     whatsapp_business_accounts?: RawBusinessAccount[]
 }
 
-function fromEnvironment(): MetaApplication[] {
-    if (!config.meta.accessToken) return []
-    return [{
-        id: config.meta.appId,
-        name: "default",
-        secret: config.meta.appSecret,
-        verifyToken: config.meta.verifyToken,
-        accessToken: config.meta.accessToken,
-        apiUrl: `${config.meta.graphBaseUrl}/${config.meta.graphVersion}`,
-        businessAccountIds: [],
-    }]
-}
-
 function fromFile(path: string): MetaApplication[] {
     const parsed = JSON.parse(readFileSync(path, "utf-8")) as { applications?: RawApplication[] }
     const applications = parsed.applications ?? []
@@ -56,7 +44,7 @@ function fromFile(path: string): MetaApplication[] {
             secret: app.secret,
             verifyToken: app.verify_token ?? "",
             accessToken: app.access_token,
-            apiUrl: app.api_url ?? `${config.meta.graphBaseUrl}/${config.meta.graphVersion}`,
+            apiUrl: app.api_url ?? DEFAULT_API_URL,
             businessAccountIds: (app.whatsapp_business_accounts ?? [])
                 .map((account) => account.id)
                 .filter((id): id is string => Boolean(id)),
@@ -74,8 +62,16 @@ class MetaApplicationRegistry {
 
     load(): void {
         const path = process.env.META_CONFIG_PATH || resolve(process.cwd(), "configs/meta.json")
-        const fromConfigFile = existsSync(path)
-        this.applications = fromConfigFile ? fromFile(path) : fromEnvironment()
+
+        if (!existsSync(path)) {
+            throw new Error(`Meta configuration not found at ${path}. Salin configs/meta.example.json menjadi configs/meta.json lalu isi kredensialnya.`)
+        }
+
+        this.applications = fromFile(path)
+
+        if (this.applications.length === 0) {
+            throw new Error(`No usable Meta application in ${path}. Tiap aplikasi wajib memiliki access_token dan secret.`)
+        }
 
         this.byBusinessAccount.clear()
         for (const application of this.applications) {
@@ -85,7 +81,7 @@ class MetaApplicationRegistry {
         }
 
         logger.info("Meta applications loaded", {
-            source: fromConfigFile ? path : "environment",
+            source: path,
             applications: this.applications.length,
             businessAccounts: this.byBusinessAccount.size,
         })

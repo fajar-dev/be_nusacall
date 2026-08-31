@@ -35,15 +35,6 @@ export const config = {
         clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
     },
 
-    meta: {
-        appId: process.env.META_APP_ID || '',
-        appSecret: process.env.META_APP_SECRET || '',
-        verifyToken: process.env.META_VERIFY_TOKEN || '',
-        accessToken: process.env.META_ACCESS_TOKEN || '',
-        graphVersion: process.env.META_GRAPH_VERSION || 'v26.0',
-        graphBaseUrl: process.env.META_GRAPH_BASE_URL || 'https://graph.facebook.com',
-    },
-
     nusawork: {
         apiUrl: process.env.NUSAWORK_API_URL || '',
         clientId: process.env.NUSAWORK_CLIENT_ID || '',

@@ -1,0 +1,15 @@
+{
+  "applications": [
+    {
+      "id": "test-app",
+      "name": "test",
+      "secret": "test-app-secret",
+      "verify_token": "test-verify-token",
+      "access_token": "test-access-token",
+      "api_url": "https://graph.invalid/v23.0",
+      "whatsapp_business_accounts": [
+        { "id": "252757097922101", "name": "Test Business Account" }
+      ]
+    }
+  ]
+}

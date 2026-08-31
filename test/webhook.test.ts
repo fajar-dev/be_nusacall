@@ -6,8 +6,7 @@ import {
     destroyTestDatabase,
     cleanTestDatabase,
     createTestApp,
-    request,
-} from "./setup"
+    request, TEST_APP_SECRET, TEST_VERIFY_TOKEN } from "./setup"
 import {
     createConnectWebhookPayload,
     createStatusWebhookPayload,
@@ -38,7 +37,7 @@ beforeEach(async () => {
 })
 
 function sign(body: string): string {
-    const hex = createHmac("sha1", config.meta.appSecret).update(body).digest("hex")
+    const hex = createHmac("sha1", TEST_APP_SECRET).update(body).digest("hex")
     return `sha1=${hex}`
 }
 
@@ -74,7 +73,7 @@ async function flush() {
 describe("Webhook - GET /wh handshake", () => {
     test("returns the challenge when verify_token matches", async () => {
         const res = await app.request(
-            `/wh?hub.mode=subscribe&hub.verify_token=${config.meta.verifyToken}&hub.challenge=abc123`
+            `/wh?hub.mode=subscribe&hub.verify_token=${TEST_VERIFY_TOKEN}&hub.challenge=abc123`
         )
         expect(res.status).toBe(200)
         expect(await res.text()).toBe("abc123")
