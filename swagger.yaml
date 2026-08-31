@@ -24,12 +24,16 @@ tags:
     description: User roster and live presence. Every user can receive calls — there is no eligibility flag; availability is purely live WebSocket presence with no manual toggle (available on connect, offline on disconnect)
   - name: Organization
     description: Organization tree, used to group and filter users
+  - name: Branch
+    description: Daftar cabang, dipakai untuk menyaring agent dan kontak
   - name: Call
     description: Call history and stats
   - name: Account
     description: Per-number calling configuration, synced to Meta
   - name: Contact
     description: Buku kontak. Terisi otomatis sekali saat panggilan masuk dari nomor baru, dan bisa dikelola manual
+  - name: Permission
+    description: Izin panggilan dari Meta, wajib dimiliki sebelum melakukan panggilan keluar
   - name: Upload
     description: File upload & retrieval via MinIO object storage
 
@@ -225,6 +229,49 @@ components:
       properties:
         id: { type: integer, example: 3 }
         name: { type: string, example: "Helpdesk Medan" }
+
+    BranchListItem:
+      type: object
+      properties:
+        id: { type: integer, example: 2 }
+        name: { type: string, example: "PT. Media Antar Nusa - HO" }
+
+    CallPermission:
+      type: object
+      properties:
+        status: { type: string, enum: [no_permission, temporary, permanent], example: "temporary" }
+        expiresAt: { type: string, format: date-time, nullable: true }
+        lastRequestedAt: { type: string, format: date-time, nullable: true }
+        quota:
+          type: object
+          nullable: true
+          description: "Sisa kuota permintaan izin dari Meta, null bila tidak tersedia"
+
+    QrCodeGenerate:
+      type: object
+      properties:
+        token: { type: string, example: "0f1e2d3c" }
+        qrCode: { type: string, description: "Data URI gambar QR" }
+        timeoutMinutes: { type: integer, example: 5 }
+        expired: { type: string, format: date-time }
+
+    QrCodeStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [waiting, confirmation, success]
+          description: "waiting saat QR belum dipindai, confirmation saat menunggu persetujuan, success saat panelToken siap ditukar"
+        panelToken: { type: string, nullable: true }
+        profile:
+          type: object
+          nullable: true
+          properties:
+            firstName: { type: string }
+            lastName: { type: string }
+            email: { type: string }
+            photo: { type: string, nullable: true }
+            company: { type: string, nullable: true }
 
     # --- Call Schemas ---
     CallStatus:
@@ -545,6 +592,99 @@ paths:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   # ── User Roster ──────────────────────────────────────────────────────────
+  /auth/qrcode/generate:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+    get:
+      tags: [Auth]
+      summary: Generate a Nusawork QR code for sign-in
+      description: >-
+        Tidak memerlukan autentikasi karena dipakai pada halaman masuk.
+        Token yang dikembalikan dipakai untuk memantau status pemindaian.
+      responses:
+        "200":
+          description: QR code generated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/QrCodeGenerate" }
+        "502":
+          description: Nusawork could not be reached
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /auth/qrcode/{token}/status:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+      - name: token
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Auth]
+      summary: Poll the scan status of a QR code
+      description: >-
+        Dipanggil berulang oleh halaman masuk. Ketika status bernilai success,
+        panelToken yang menyertainya ditukar lewat /auth/qrcode/login.
+      responses:
+        "200":
+          description: Status retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/QrCodeStatus" }
+        "400":
+          description: Token is missing
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /auth/qrcode/login:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+    post:
+      tags: [Auth]
+      summary: Exchange a scanned panel token for NusaCall tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [panelToken]
+              properties:
+                panelToken: { type: string }
+      responses:
+        "200":
+          description: Logged in successfully via QR Code
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user: { $ref: "#/components/schemas/User" }
+                          accessToken: { type: string }
+                          refreshToken: { type: string }
+        "400":
+          description: Panel token is missing or invalid
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
   /user:
     parameters:
       - $ref: "#/components/parameters/AcceptLanguage"
@@ -887,6 +1027,33 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
 
+  /branch/list:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+    get:
+      tags: [Branch]
+      summary: Get a flat, unpaginated list of all branches (for filters/pickers)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Branches retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/BranchListItem" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
   # ── Call History ─────────────────────────────────────────────────────────
   /call:
     parameters:
@@ -1068,6 +1235,133 @@ paths:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
         "404":
           description: No recording for this call
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  # ── Outbound Calling & Permission ────────────────────────────────────────
+  /permission:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+    get:
+      tags: [Permission]
+      summary: Check whether an account may call a contact
+      description: >-
+        Meta mensyaratkan izin dari pengguna sebelum panggilan keluar dapat
+        dilakukan. Hasilnya dicache pada call_permissions dan disegarkan dari
+        Meta ketika sudah kedaluwarsa.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: phoneNumberId
+          in: query
+          required: true
+          schema: { type: string, example: "202063559668129" }
+        - name: contactId
+          in: query
+          required: true
+          schema: { type: integer, example: 12 }
+      responses:
+        "200":
+          description: Permission status retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/CallPermission" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /permission/request:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+    post:
+      tags: [Permission]
+      summary: Send a call permission request to the contact
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phoneNumberId, contactId]
+              properties:
+                phoneNumberId: { type: string, example: "202063559668129" }
+                contactId: { type: integer, example: 12 }
+      responses:
+        "200":
+          description: Permission request sent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BaseResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "422":
+          description: Validation failed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /call/outbound:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+    post:
+      tags: [Call]
+      summary: Start a business-initiated call to a contact
+      description: >-
+        Agent mengirim SDP offer miliknya, backend menjembatani media ke Meta
+        dan mengembalikan SDP answer. Izin panggilan harus sudah dimiliki.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phoneNumberId, contactId, offerSdp]
+              properties:
+                phoneNumberId: { type: string, example: "202063559668129" }
+                contactId: { type: integer, example: 12 }
+                offerSdp: { type: string, description: "SDP offer dari peramban agent" }
+      responses:
+        "200":
+          description: Call initiated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          wacid: { type: string, example: "wacid.ABGGFjFVU2AfAgo6V" }
+                          answerSdp: { type: string }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Contact has not granted call permission
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "422":
+          description: Validation failed
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
