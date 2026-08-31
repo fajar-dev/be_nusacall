@@ -41,7 +41,6 @@ export class UserRepository extends BaseRepository<User> implements IUserReposit
         const sortColumnMap: Record<string, string> = {
             name: "user.name",
             email: "user.email",
-            role: "user.role",
             organization: "organization.name",
             branch: "branch.name",
             isActive: "user.isActive",

@@ -148,11 +148,10 @@ export async function request(app: Hono, path: string, options: RequestOptions =
     return { status: res.status, body: json, headers: res.headers }
 }
 
-export async function createUserAndToken(overrides: Partial<{ email: string; role: string; isActive: boolean; employeeId: number }> = {}) {
+export async function createUserAndToken(overrides: Partial<{ email: string; isActive: boolean; employeeId: number }> = {}) {
     const { UserService } = require("../src/modules/user/user.service")
     const { UserRepository } = require("../src/modules/user/repositories/user.repository")
     const { AuthHelper } = require("../src/core/helpers/auth")
-    const { Role } = require("../src/modules/user/enums/role.enum")
 
     const userService = new (UserService as new (repo: unknown) => { save: (data: unknown) => Promise<any> })(new UserRepository())
     const email = overrides.email || `user${Date.now()}${Math.floor(Math.random() * 1000)}@nusa.id`
@@ -161,7 +160,6 @@ export async function createUserAndToken(overrides: Partial<{ email: string; rol
         email,
         name: "Test User",
         employeeId: overrides.employeeId ?? Math.floor(Math.random() * 1_000_000),
-        role: overrides.role ?? Role.AGENT,
         isActive: overrides.isActive ?? true,
     })
 

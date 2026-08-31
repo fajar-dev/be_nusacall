@@ -3,7 +3,6 @@ import { Hono } from "hono"
 import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createTestApp, request, createUserAndToken } from "./setup"
 import { nusaworkClient } from "../src/infrastructure/nusawork/nusawork.client"
 import { AuthHelper } from "../src/core/helpers/auth"
-import { Role } from "../src/modules/user/enums/role.enum"
 import { getDataSource } from "../src/config/database"
 import { Organization } from "../src/modules/organization/entities/organization.entity"
 
@@ -31,7 +30,6 @@ async function seedUser(overrides: Partial<{ email: string; isActive: boolean; n
         email: overrides.email ?? "user@nusa.id",
         name: overrides.name ?? "Budi Santoso",
         employeeId: Math.floor(Math.random() * 1_000_000),
-        role: Role.AGENT,
         isActive: overrides.isActive ?? true,
     })
 }
@@ -68,8 +66,7 @@ describe("POST /api/auth/login", () => {
             email: "berorganisasi@nusa.id",
             name: "Citra Dewi",
             employeeId: Math.floor(Math.random() * 1_000_000),
-            role: Role.AGENT,
-            isActive: true,
+                isActive: true,
             organizationId: organization.id,
         })
         spyOn(nusaworkClient, "authLogin").mockResolvedValue(true)

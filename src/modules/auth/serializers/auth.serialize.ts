@@ -14,8 +14,7 @@ export class AuthSerializer {
             organization: user.organization ? {
                 id: user.organization.id,
                 name: user.organization.name,
-            } : null,
-            role: user.role
+            } : null
         }
     }
 

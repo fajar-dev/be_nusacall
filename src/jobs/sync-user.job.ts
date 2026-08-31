@@ -2,7 +2,6 @@ import { AppDataSource } from "../config/database"
 import { User } from "../modules/user/entities/user.entity"
 import { Organization } from "../modules/organization/entities/organization.entity"
 import { Branch } from "../modules/branch/entities/branch.entity"
-import { Role } from "../modules/user/enums/role.enum"
 import { nusaworkClient } from "../infrastructure/nusawork/nusawork.client"
 import { logger } from "../core/helpers/logger"
 
@@ -104,7 +103,6 @@ async function sync() {
                         name: emp.full_name,
                         email,
                         photo: emp.photo_profile ?? undefined,
-                        role: Role.AGENT,
                         isActive,
                         organizationId,
                         branchId,

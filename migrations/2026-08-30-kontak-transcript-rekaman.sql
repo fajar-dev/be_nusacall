@@ -189,8 +189,12 @@ SET @sql = IFNULL((SELECT CONCAT('ALTER TABLE calls DROP INDEX ', INDEX_NAME)
    LIMIT 1), 'DO 0');
 PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
-SET @sql = IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='last_seen_at'),
-    'ALTER TABLE users DROP COLUMN last_seen_at', 'DO 0');
+-- Peran pengguna tidak pernah dipakai untuk membatasi akses; seluruh pengguna
+-- memiliki hak yang sama.
+SET @sql = (SELECT IFNULL(CONCAT('ALTER TABLE users ', GROUP_CONCAT(CONCAT('DROP COLUMN ', COLUMN_NAME))), 'DO 0')
+    FROM information_schema.COLUMNS
+   WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users'
+     AND COLUMN_NAME IN ('last_seen_at','role'));
 PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
 -- Timeout menjawab hanya berlaku global lewat env CALL_ANSWER_TIMEOUT; kolom per

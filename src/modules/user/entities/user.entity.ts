@@ -2,7 +2,6 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 import type { Relation } from "typeorm"
 import { Organization } from "../../organization/entities/organization.entity"
 import { Branch } from "../../branch/entities/branch.entity"
-import { Role } from "../enums/role.enum"
 
 @Entity("users")
 export class User {
@@ -38,9 +37,6 @@ export class User {
 
     @Column({ unique: true })
     email!: string
-
-    @Column({ type: "enum", enum: Role, default: Role.AGENT })
-    role!: Role
 
     @Index()
     @Column({ name: "is_active", default: true })

@@ -27,12 +27,11 @@ beforeEach(async () => {
     }
 })
 
-async function seedUser(overrides: Partial<{ email: string; name: string; isActive: boolean; role: string; branchId: number }> = {}) {
+async function seedUser(overrides: Partial<{ email: string; name: string; isActive: boolean; branchId: number }> = {}) {
     return await getUserService().save({
         email: overrides.email ?? `seed${Date.now()}${Math.floor(Math.random() * 1000)}@nusa.id`,
         name: overrides.name ?? "Seeded User",
         employeeId: Math.floor(Math.random() * 1_000_000),
-        role: overrides.role ?? "agent",
         isActive: overrides.isActive ?? true,
         ...(overrides.branchId !== undefined ? { branchId: overrides.branchId } : {}),
     })
@@ -225,7 +224,7 @@ describe("POST /api/user", () => {
         const { status, body } = await request(app, "/api/user", {
             method: "POST",
             headers,
-            body: { name: "New Agent", email: "new-agent@nusa.id", role: "agent", employeeId: 12345 },
+            body: { name: "New Agent", email: "new-agent@nusa.id", employeeId: 12345 },
         })
 
         expect(status).toBe(201)
@@ -240,7 +239,7 @@ describe("POST /api/user", () => {
         const { status } = await request(app, "/api/user", {
             method: "POST",
             headers,
-            body: { name: "Dup", email: "dup@nusa.id", role: "agent", employeeId: 54321 },
+            body: { name: "Dup", email: "dup@nusa.id", employeeId: 54321 },
         })
 
         expect(status).toBe(400)

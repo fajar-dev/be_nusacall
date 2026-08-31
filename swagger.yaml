@@ -172,7 +172,6 @@ components:
         photo: { type: string, nullable: true, format: uri }
         email: { type: string, format: email, example: "agent@nusa.id" }
         isActive: { type: boolean, example: true }
-        role: { type: string, enum: [admin, agent, manager], example: agent }
         organization:
           type: object
           nullable: true
@@ -204,12 +203,11 @@ components:
 
     CreateUserRequest:
       type: object
-      required: [name, email, role, employeeId]
+      required: [name, email, employeeId]
       properties:
         name: { type: string, example: "Budi Santoso" }
         email: { type: string, format: email, example: "agent@nusa.id" }
         photo: { type: string, nullable: true }
-        role: { type: string, enum: [admin, agent, manager], example: agent }
         employeeId: { type: integer, example: 12345 }
         organizationId: { type: integer, example: 3 }
 
@@ -219,7 +217,6 @@ components:
         name: { type: string }
         email: { type: string, format: email }
         photo: { type: string, nullable: true }
-        role: { type: string, enum: [admin, agent, manager] }
         employeeId: { type: integer }
         organizationId: { type: integer }
 
@@ -719,7 +716,7 @@ paths:
             presence. Sorting by it ranks users who are currently connected
             first (ASC), falling back to the default order when nobody is
             online.
-          schema: { type: string, enum: [name, email, role, organization, branch, isActive, availability, createdAt] }
+          schema: { type: string, enum: [name, email, organization, branch, isActive, availability, createdAt] }
         - name: order
           in: query
           schema: { type: string, enum: [ASC, DESC], default: DESC }
