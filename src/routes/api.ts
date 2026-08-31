@@ -53,6 +53,7 @@ routes.get("/account", authMiddleware, (c) => accountController.index(c))
 routes.get("/account/:id", authMiddleware, (c) => accountController.show(c))
 routes.put("/account/:id", authMiddleware, zValidator("json", UpdateAccountValidator, validationHook), (c) => accountController.update(c))
 routes.post("/account/:id/sync", authMiddleware, (c) => accountController.sync(c))
+routes.get("/account/:id/templates", authMiddleware, (c) => accountController.templates(c))
 routes.get("/account/:id/health", authMiddleware, (c) => accountController.health(c))
 
 routes.get("/contact", authMiddleware, (c) => contactController.index(c))

@@ -10,6 +10,8 @@ export class AccountSerializer {
             label: account.label,
             callingEnabled: account.callingEnabled,
             callIconVisibility: account.callIconVisibility,
+            permissionTemplateName: account.permissionTemplateName ?? null,
+            permissionTemplateLanguage: account.permissionTemplateLanguage ?? null,
             color: account.color,
             callHours: account.callHours ?? null,
             lastSyncedAt: account.lastSyncedAt ?? null,

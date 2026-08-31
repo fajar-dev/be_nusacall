@@ -79,3 +79,15 @@ export interface MetaCallPermissionResponse {
         limits: Array<{ time_period: string; max_allowed: number; current_usage: number; limit_expiration_time?: number }>
     }>
 }
+
+export interface MetaMessageTemplate {
+    id: string
+    name: string
+    language: string
+    status: string
+    category?: string
+}
+
+export interface MetaMessageTemplatesResponse {
+    data: MetaMessageTemplate[]
+}

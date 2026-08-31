@@ -29,8 +29,8 @@ export class NusawaClient {
     async sendCallPermissionRequest(
         phoneNumberId: string,
         waId: string,
-        templateName?: string,
-        templateLanguage?: string
+        templateName: string,
+        templateLanguage: string
     ): Promise<any> {
         try {
             const res = await this.http.post(
@@ -41,9 +41,9 @@ export class NusawaClient {
                     to: waId,
                     type: "template",
                     template: {
-                        name: templateName || config.outbound.permissionTemplateName || "call_permission_request",
+                        name: templateName,
                         language: {
-                            code: templateLanguage || config.outbound.permissionTemplateLanguage || "en_US",
+                            code: templateLanguage,
                         },
                         components: [],
                     },

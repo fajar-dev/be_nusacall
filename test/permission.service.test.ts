@@ -1,5 +1,7 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from "bun:test"
 import { initTestDatabase, destroyTestDatabase, cleanTestDatabase } from "./setup"
+import { getDataSource } from "../src/config/database"
+import { Account } from "../src/modules/account/entities/account.entity"
 import { TypeOrmCallPermissionRepository } from "../src/modules/permission/repositories/call-permission.repository"
 import { PermissionService } from "../src/modules/permission/permission.service"
 import { PermissionStatus } from "../src/modules/permission/enums/permission-status.enum"
@@ -93,35 +95,61 @@ function fakeNusawaClient(overrides: Partial<NusawaClient> = {}): NusawaClient {
 }
 
 describe("PermissionService.requestPermission", () => {
-    test("throws when no template is configured rather than silently failing", async () => {
-        const original = config.outbound.permissionTemplateName
-        config.outbound.permissionTemplateName = ""
-        try {
-            const service = new PermissionService(repository, fakeMetaClient(), contacts, fakeNusawaClient())
-            const c1 = await contacts.findOrCreate("628123456789", null)
-            await expect(service.requestPermission("202063559668129", c1.id)).rejects.toThrow()
-        } finally {
-            config.outbound.permissionTemplateName = original
-        }
+    async function seedAccount(phoneNumberId: string, templateName: string | null, language: string | null = "id") {
+        return await getDataSource().getRepository(Account).save({
+            phoneNumberId,
+            businessAccountId: "252757097922101",
+            label: "Uji",
+            displayPhoneNumber: "628198543210",
+            permissionTemplateName: templateName,
+            permissionTemplateLanguage: language,
+        })
+    }
+
+    test("menolak ketika akun belum memilih template", async () => {
+        await seedAccount("202063559668129", null)
+        const service = new PermissionService(repository, fakeMetaClient(), contacts, fakeNusawaClient())
+        const kontak = await contacts.findOrCreate("628123456789", null)
+
+        await expect(service.requestPermission("202063559668129", kontak.id)).rejects.toThrow()
     })
 
-    test("sends the template and records lastRequestedAt", async () => {
-        const original = config.outbound.permissionTemplateName
-        config.outbound.permissionTemplateName = "call_permission_request"
-        try {
-            const captured: { waId?: string } = {}
-            const nusawa = fakeNusawaClient({
-                sendCallPermissionRequest: async (_pn: string, waId: string) => { captured.waId = waId; return { success: true } },
-            })
-            const service = new PermissionService(repository, fakeMetaClient(), contacts, nusawa)
+    test("mengirim template milik akun dan mencatat waktu permintaannya", async () => {
+        await seedAccount("202063559668129", "izin_panggilan", "id")
+        const captured: { waId?: string; template?: string; language?: string } = {}
+        const nusawa = fakeNusawaClient({
+            sendCallPermissionRequest: async (_pn: string, waId: string, template: string, language: string) => {
+                captured.waId = waId
+                captured.template = template
+                captured.language = language
+                return { success: true }
+            },
+        })
+        const service = new PermissionService(repository, fakeMetaClient(), contacts, nusawa)
+        const kontak = await contacts.findOrCreate("628123456789", null)
 
-            await service.requestPermission("202063559668129", (await contacts.findOrCreate("628123456789", null)).id)
+        await service.requestPermission("202063559668129", kontak.id)
 
-            expect(captured.waId).toBe("628123456789")
-            const row = await repository.findByContact("202063559668129", (await contacts.findOrCreate("628123456789", null)).id)
-            expect(row!.lastRequestedAt).not.toBeNull()
-        } finally {
-            config.outbound.permissionTemplateName = original
-        }
+        expect(captured.waId).toBe("628123456789")
+        expect(captured.template).toBe("izin_panggilan")
+        expect(captured.language).toBe("id")
+        const row = await repository.findByContact("202063559668129", kontak.id)
+        expect(row!.lastRequestedAt).not.toBeNull()
+    })
+
+    test("memakai en_US ketika bahasanya belum diisi", async () => {
+        await seedAccount("202063559668129", "izin_panggilan", null)
+        const captured: { language?: string } = {}
+        const nusawa = fakeNusawaClient({
+            sendCallPermissionRequest: async (_pn: string, _wa: string, _t: string, language: string) => {
+                captured.language = language
+                return { success: true }
+            },
+        })
+        const service = new PermissionService(repository, fakeMetaClient(), contacts, nusawa)
+
+        await service.requestPermission("202063559668129", (await contacts.findOrCreate("628123456789", null)).id)
+
+        expect(captured.language).toBe("en_US")
     })
 })

@@ -11,6 +11,8 @@ export interface UpdateAccountInput {
     callingEnabled?: boolean
     callIconVisibility?: CallIconVisibility
     color?: string
+    permissionTemplateName?: string | null
+    permissionTemplateLanguage?: string | null
     callHours?: Record<string, unknown> | null
 }
 
@@ -40,6 +42,15 @@ export class AccountService {
     async sync(id: number): Promise<Account> {
         const account = await this.getById(id)
         return await this.syncToMeta(account)
+    }
+
+    /** Hanya template yang sudah disetujui Meta yang dapat dipakai mengirim pesan. */
+    async listTemplates(id: number) {
+        const account = await this.getById(id)
+        const response = await this.metaClient.listMessageTemplates(account.phoneNumberId, account.businessAccountId)
+        return response.data
+            .filter((template) => template.status === "APPROVED")
+            .map((template) => ({ name: template.name, language: template.language, category: template.category ?? null }))
     }
 
     async getHealth(id: number): Promise<MetaHealthStatusResponse> {

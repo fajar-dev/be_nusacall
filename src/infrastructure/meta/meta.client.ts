@@ -12,6 +12,7 @@ import type {
     MetaHealthStatusResponse,
     MetaSendTemplateRequest,
     MetaSendMessageResponse,
+    MetaMessageTemplatesResponse,
 } from "./meta.types"
 
 export class MetaClient {
@@ -110,18 +111,31 @@ export class MetaClient {
         return this.post(phoneNumberId, `/${phoneNumberId}/calls`, body)
     }
 
-    async sendCallPermissionRequest(phoneNumberId: string, waId: string): Promise<MetaSendMessageResponse> {
+    async sendCallPermissionRequest(
+        phoneNumberId: string,
+        waId: string,
+        templateName: string,
+        templateLanguage: string,
+    ): Promise<MetaSendMessageResponse> {
         const body: MetaSendTemplateRequest = {
             messaging_product: "whatsapp",
             recipient_type: "individual",
             to: waId,
             type: "template",
             template: {
-                name: config.outbound.permissionTemplateName,
-                language: { code: config.outbound.permissionTemplateLanguage },
+                name: templateName,
+                language: { code: templateLanguage },
             },
         }
         return this.post(phoneNumberId, `/${phoneNumberId}/messages`, body)
+    }
+
+    /** Template melekat pada akun bisnis, bukan pada nomor, tetapi kredensialnya tetap ditentukan oleh nomor. */
+    async listMessageTemplates(phoneNumberId: string, businessAccountId: string): Promise<MetaMessageTemplatesResponse> {
+        return this.get(phoneNumberId, `/${businessAccountId}/message_templates`, {
+            fields: "id,name,language,status,category",
+            limit: "200",
+        })
     }
 
     async getCallPermission(phoneNumberId: string, waId: string): Promise<MetaCallPermissionResponse> {

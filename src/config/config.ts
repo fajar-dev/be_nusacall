@@ -71,8 +71,6 @@ export const config = {
     },
 
     outbound: {
-        permissionTemplateName: process.env.CALL_PERMISSION_TEMPLATE_NAME || '',
-        permissionTemplateLanguage: process.env.CALL_PERMISSION_TEMPLATE_LANGUAGE || 'en_US',
         permissionCacheTtlSeconds: Number(process.env.CALL_PERMISSION_CACHE_TTL) || 60,
     },
 }

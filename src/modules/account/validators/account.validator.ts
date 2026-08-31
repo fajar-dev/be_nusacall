@@ -28,6 +28,8 @@ const CallHoursValidator = z.object({
 export const UpdateAccountValidator = z.object({
     label: z.string().min(1, "label is required").optional(),
     callingEnabled: z.boolean().optional(),
+    permissionTemplateName: z.string().trim().max(128).optional().nullable(),
+    permissionTemplateLanguage: z.string().trim().max(16).optional().nullable(),
     callIconVisibility: z.enum(CallIconVisibility).optional(),
     color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Format warna harus hex, contoh #6366F1").optional(),
     callHours: CallHoursValidator.nullable().optional(),

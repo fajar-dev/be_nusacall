@@ -5,6 +5,8 @@ import { CallPermission } from "./entities/call-permission.entity"
 import { PermissionStatus } from "./enums/permission-status.enum"
 import { config } from "../../config/config"
 import { BadRequestException } from "../../core/exceptions/base"
+import { AppDataSource } from "../../config/database"
+import { Account } from "../account/entities/account.entity"
 import { ContactService } from "../contact/contact.service"
 import type { MetaCallPermissionResponse } from "../../infrastructure/meta/meta.types"
 
@@ -38,10 +40,18 @@ export class PermissionService {
 
     async requestPermission(phoneNumberId: string, contactId: number): Promise<void> {
         const contact = await this.contacts.getById(contactId)
-        if (!config.outbound.permissionTemplateName) {
-            throw new BadRequestException("CALL_PERMISSION_TEMPLATE_NAME is not configured — create the template in Meta Business Manager first")
+
+        const account = await AppDataSource.getRepository(Account).findOneBy({ phoneNumberId })
+        if (!account?.permissionTemplateName) {
+            throw new BadRequestException("Template permintaan izin belum dipilih untuk akun ini")
         }
-        await this.nusawaClient.sendCallPermissionRequest(phoneNumberId, contact.phoneNumber)
+
+        await this.nusawaClient.sendCallPermissionRequest(
+            phoneNumberId,
+            contact.phoneNumber,
+            account.permissionTemplateName,
+            account.permissionTemplateLanguage ?? "en_US",
+        )
         await this.repository.markRequested(phoneNumberId, contactId, new Date())
     }
 }

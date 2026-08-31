@@ -32,6 +32,12 @@ export class AccountController {
         return ApiResponse.success(c, AccountSerializer.single(account), "Synced to Meta successfully")
     }
 
+    async templates(c: Context) {
+        const id = Number(c.req.param("id"))
+        const data = await this.service.listTemplates(id)
+        return ApiResponse.success(c, data, "Message templates retrieved successfully")
+    }
+
     async health(c: Context) {
         const id = Number(c.req.param("id"))
         const health = await this.service.getHealth(id)

@@ -31,6 +31,12 @@ export class Account {
     @Column({ length: 16, default: "#6366F1" })
     color!: string
 
+    @Column({ name: "permission_template_name", length: 128, nullable: true })
+    permissionTemplateName?: string | null
+
+    @Column({ name: "permission_template_language", length: 16, nullable: true })
+    permissionTemplateLanguage?: string | null
+
     @Column({ name: "call_hours", type: "json", nullable: true })
     callHours?: Record<string, unknown> | null
 

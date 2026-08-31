@@ -94,6 +94,16 @@ SET @sql = IF(NOT EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SC
     'ALTER TABLE call_recordings ADD COLUMN duration_seconds int NOT NULL DEFAULT 0', 'DO 0');
 PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
+-- 1.7 accounts: template permintaan izin dipilih per akun, bukan lewat env.
+
+SET @sql = IF(NOT EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='accounts' AND COLUMN_NAME='permission_template_name'),
+    'ALTER TABLE accounts ADD COLUMN permission_template_name varchar(128) NULL', 'DO 0');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @sql = IF(NOT EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='accounts' AND COLUMN_NAME='permission_template_language'),
+    'ALTER TABLE accounts ADD COLUMN permission_template_language varchar(16) NULL', 'DO 0');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
 -- ════════════════════════════════════════════════════════════════════
 -- FASE 2 — periksa sebelum deploy
 -- Ketiga angka harus 0.

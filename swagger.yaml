@@ -386,16 +386,29 @@ components:
         label: { type: string, example: "Helpdesk Medan" }
         callingEnabled: { type: boolean }
         callIconVisibility: { type: string, enum: [DEFAULT, DISABLE_ALL] }
+        permissionTemplateName: { type: string, nullable: true, example: "izin_panggilan", description: "Template yang dipakai saat meminta izin menelepon" }
+        permissionTemplateLanguage: { type: string, nullable: true, example: "id" }
         color: { type: string, example: "#6366F1", description: "Hex swatch shown against this number's calls on the live call board" }
         callHours: { $ref: "#/components/schemas/CallHours" }
         lastSyncedAt: { type: string, format: date-time, nullable: true }
+
+    MessageTemplate:
+      type: object
+      properties:
+        name: { type: string, example: "izin_panggilan" }
+        language: { type: string, example: "id" }
+        category: { type: string, nullable: true, example: "UTILITY" }
 
     UpdateAccountRequest:
       type: object
       properties:
         label: { type: string }
+        permissionTemplateName: { type: string, nullable: true }
+        permissionTemplateLanguage: { type: string, nullable: true }
         callingEnabled: { type: boolean }
         callIconVisibility: { type: string, enum: [DEFAULT, DISABLE_ALL] }
+        permissionTemplateName: { type: string, nullable: true, example: "izin_panggilan", description: "Template yang dipakai saat meminta izin menelepon" }
+        permissionTemplateLanguage: { type: string, nullable: true, example: "id" }
         color: { type: string, pattern: "^#[0-9A-Fa-f]{6}$", example: "#6366F1" }
         callHours: { $ref: "#/components/schemas/CallHours" }
 
@@ -1504,6 +1517,46 @@ paths:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
         "502":
           description: Meta rejected the settings push
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /account/{id}/templates:
+    parameters:
+      - $ref: "#/components/parameters/AcceptLanguage"
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [Account]
+      summary: List approved message templates for this account
+      description: >-
+        Template melekat pada akun bisnis WhatsApp, diambil langsung dari Meta.
+        Hanya template berstatus APPROVED yang dikembalikan karena hanya itu
+        yang dapat dipakai mengirim pesan.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Message templates retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/MessageTemplate" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: Account not found
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }

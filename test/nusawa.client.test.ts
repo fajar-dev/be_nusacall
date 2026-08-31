@@ -23,7 +23,7 @@ describe("NusawaClient.sendCallPermissionRequest", () => {
             return { status: 200, data: { success: true, message_id: "msg_123" } }
         }
 
-        const res = await client.sendCallPermissionRequest("335964456263211", "62895611024559")
+        const res = await client.sendCallPermissionRequest("335964456263211", "62895611024559", "izin_panggilan", "id")
 
         expect(capturedUrl).toBe("/api/messages")
         expect(capturedConfig.params).toEqual({ phone_number_id: "335964456263211" })
@@ -33,8 +33,8 @@ describe("NusawaClient.sendCallPermissionRequest", () => {
             to: "62895611024559",
             type: "template",
             template: {
-                name: "call_permission_request",
-                language: { code: "en_US" },
+                name: "izin_panggilan",
+                language: { code: "id" },
                 components: [],
             },
         })
