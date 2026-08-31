@@ -225,12 +225,19 @@ export class WebhookService {
                 }
                 break
             }
-            case CallEventStatus.REJECTED:
-                await this.callState.transition(statusObj.id, CallStatus.REJECTED, {
+            case CallEventStatus.REJECTED: {
+                const transitioned = await this.callState.transition(statusObj.id, CallStatus.REJECTED, {
                     endReason: EndReason.CUSTOMER_REJECTED,
                     endedAt: new Date(),
+                    durationSeconds: 0,
                 })
+                if (transitioned) {
+                    await this.media.teardown(statusObj.id, "customer_rejected")
+                    const call = await this.calls.findByWacid(statusObj.id)
+                    if (call) this.signaling.notifyCallEnded(call, EndReason.CUSTOMER_REJECTED)
+                }
                 break
+            }
         }
     }
 

@@ -541,6 +541,56 @@ const noopMedia: ICallMediaCoordinator = {
     startOutboundForwarding: async () => {},
 }
 
+describe("WebhookService — memberi tahu agent saat panggilan berakhir", () => {
+    function buatSignaling(notifier: FakeNotifier) {
+        const signaling = new CallSignalingService(
+            notifier, callRepository, callStateService, fakeMetaClient(),
+            new RoutingService(), fakeNusawaLog().service, contactService,
+        )
+        const webhook = new WebhookService(
+            callStateService, noopMedia, signaling, callRepository,
+            new CallRecordingService(new TypeOrmCallRecordingRepository(), { upload: async () => "", getPresignedUrl: async () => "" }),
+            contactService,
+        )
+        return webhook
+    }
+
+    test("pelanggan menolak panggilan keluar", async () => {
+        const wacid = "wacid.WHEND_REJECT"
+        await callStateService.findOrCreate(wacid, {
+            phoneNumberId: "202063559668129",
+            direction: CallDirection.OUTBOUND, status: CallStatus.PENDING, statusRank: 10,
+        })
+        await callStateService.transition(wacid, CallStatus.CONNECTING, { userId: agent1Id })
+        presenceRegistry.register("agent1@nusa.id", "conn-end-reject")
+
+        const notifier = new FakeNotifier()
+        await buatSignaling(notifier).process(JSON.stringify(
+            createStatusWebhookPayload({ wacid, status: "REJECTED" })
+        ))
+
+        expect(notifier.packetsFor("agent1@nusa.id").some(p => p.type === "call_ended")).toBe(true)
+    })
+
+    test("pelanggan menutup panggilan keluar yang sedang aktif", async () => {
+        const wacid = "wacid.WHEND_TERM_OUT"
+        await callStateService.findOrCreate(wacid, {
+            phoneNumberId: "202063559668129",
+            direction: CallDirection.OUTBOUND, status: CallStatus.PENDING, statusRank: 10,
+        })
+        await callStateService.transition(wacid, CallStatus.CONNECTING, { userId: agent1Id })
+        await callStateService.transition(wacid, CallStatus.ACTIVE, { answeredAt: new Date() })
+        presenceRegistry.register("agent1@nusa.id", "conn-end-term")
+
+        const notifier = new FakeNotifier()
+        await buatSignaling(notifier).process(JSON.stringify(
+            createTerminateWebhookPayload({ wacid, status: "COMPLETED", duration: 30 })
+        ))
+
+        expect(notifier.packetsFor("agent1@nusa.id").some(p => p.type === "call_ended")).toBe(true)
+    })
+})
+
 describe("WebhookService + CallSignalingService — terminate logging", () => {
     test("a customer-initiated terminate after ANSWERED logs a completed message and tells the agent it's over", async () => {
         const wacid = "wacid.WHSIGLOG1"
