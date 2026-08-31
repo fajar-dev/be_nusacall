@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { metaApplications } from './config/meta-applications'
 import { AppDataSource } from './config/database'
 import { serveStatic, websocket } from 'hono/bun'
 import { swaggerUI } from '@hono/swagger-ui'
@@ -24,6 +25,8 @@ app.use('*', cors({
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 }))
 app.use('*', languageMiddleware)
+
+metaApplications.load()
 
 AppDataSource.initialize()
     .then(() => {

@@ -1,7 +1,7 @@
 import { Context } from "hono"
 import { WebhookService } from "./webhook.service"
 import { verifyMetaSignature } from "../../core/helpers/signature"
-import { config } from "../../config/config"
+import { metaApplications } from "../../config/meta-applications"
 import { logger } from "../../core/helpers/logger"
 import { UnauthorizedException } from "../../core/exceptions/base"
 
@@ -13,7 +13,7 @@ export class WebhookController {
         const token = c.req.query("hub.verify_token")
         const challenge = c.req.query("hub.challenge")
 
-        if (mode === "subscribe" && token === config.meta.verifyToken) {
+        if (mode === "subscribe" && token && metaApplications.verifyTokenMatches(token)) {
             return c.text(challenge ?? "")
         }
 

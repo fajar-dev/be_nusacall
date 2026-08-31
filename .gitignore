@@ -5,3 +5,4 @@ public/uploads
 database/
 dist
 logs/
+configs/meta.json

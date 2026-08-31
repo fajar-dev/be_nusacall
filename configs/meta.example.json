@@ -1,0 +1,16 @@
+{
+  "applications": [
+    {
+      "id": "257456033754451",
+      "name": "NusaWAChannel",
+      "secret": "ganti-dengan-app-secret",
+      "verify_token": "ganti-dengan-verify-token",
+      "access_token": "ganti-dengan-access-token",
+      "api_url": "https://graph.facebook.com/v23.0",
+      "whatsapp_business_accounts": [
+        { "id": "252757097922101", "name": "Nusa" },
+        { "id": "122096284490013925", "name": "Media Antar Nusa" }
+      ]
+    }
+  ]
+}

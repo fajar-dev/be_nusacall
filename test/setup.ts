@@ -19,6 +19,7 @@ import { config } from "../src/config/config"
 import { setDataSource } from "../src/config/database"
 import { languageMiddleware } from "../src/core/middlewares/language.middleware"
 import { requestLogger } from "../src/core/middlewares/logger.middleware"
+import { metaApplications } from "../src/config/meta-applications"
 
 const testDbName = process.env.DB_TEST_NAME || "nusacall_test"
 
@@ -39,6 +40,8 @@ const TestDataSource = new DataSource({
 let initPromise: Promise<void> | null = null
 
 export async function initTestDatabase() {
+    metaApplications.load()
+
     if (!initPromise) {
         initPromise = TestDataSource.isInitialized ? Promise.resolve() : TestDataSource.initialize().then(() => {})
     }

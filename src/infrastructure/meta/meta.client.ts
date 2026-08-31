@@ -1,5 +1,6 @@
-import axios, { AxiosInstance, AxiosResponse } from "axios"
+import axios, { AxiosResponse } from "axios"
 import { config } from "../../config/config"
+import { resolveApplication } from "./meta-credentials"
 import { logger } from "../../core/helpers/logger"
 import { BadGatewayException } from "../../core/exceptions/base"
 import type {
@@ -14,11 +15,15 @@ import type {
 } from "./meta.types"
 
 export class MetaClient {
-    private readonly http: AxiosInstance = axios.create({
-        baseURL: `${config.meta.graphBaseUrl}/${config.meta.graphVersion}`,
-        headers: { Authorization: `Bearer ${config.meta.accessToken}` },
-        validateStatus: () => true,
-    })
+    /** Tiap permintaan memakai kredensial aplikasi pemilik nomor yang bersangkutan. */
+    private async requestConfig(phoneNumberId: string) {
+        const application = await resolveApplication(phoneNumberId)
+        return {
+            baseURL: application.apiUrl,
+            headers: { Authorization: `Bearer ${application.accessToken}` },
+            validateStatus: () => true,
+        }
+    }
 
     private unwrap<T>(path: string, res: AxiosResponse): T {
         if (res.status < 200 || res.status >= 300) {
@@ -34,10 +39,10 @@ export class MetaClient {
         return res.data as T
     }
 
-    private async post<T>(path: string, body: unknown): Promise<T> {
+    private async post<T>(phoneNumberId: string, path: string, body: unknown): Promise<T> {
         let res: AxiosResponse
         try {
-            res = await this.http.post(path, body)
+            res = await axios.post(path, body, await this.requestConfig(phoneNumberId))
         } catch (err) {
             logger.error("Meta Graph API request failed (network)", { url: path, err })
             throw new BadGatewayException("Failed to reach Meta Graph API")
@@ -45,10 +50,10 @@ export class MetaClient {
         return this.unwrap<T>(path, res)
     }
 
-    private async get<T>(path: string, params?: Record<string, string>): Promise<T> {
+    private async get<T>(phoneNumberId: string, path: string, params?: Record<string, string>): Promise<T> {
         let res: AxiosResponse
         try {
-            res = await this.http.get(path, { params })
+            res = await axios.get(path, { ...(await this.requestConfig(phoneNumberId)), params })
         } catch (err) {
             logger.error("Meta Graph API request failed (network)", { url: path, err })
             throw new BadGatewayException("Failed to reach Meta Graph API")
@@ -63,7 +68,7 @@ export class MetaClient {
             action: "pre_accept",
             session: { sdp_type: "answer", sdp: answerSdp },
         }
-        return this.post(`/${phoneNumberId}/calls`, body)
+        return this.post(phoneNumberId, `/${phoneNumberId}/calls`, body)
     }
 
     async accept(phoneNumberId: string, callId: string, answerSdp: string): Promise<MetaCallActionResponse> {
@@ -73,7 +78,7 @@ export class MetaClient {
             action: "accept",
             session: { sdp_type: "answer", sdp: answerSdp },
         }
-        return this.post(`/${phoneNumberId}/calls`, body)
+        return this.post(phoneNumberId, `/${phoneNumberId}/calls`, body)
     }
 
 
@@ -83,7 +88,7 @@ export class MetaClient {
             call_id: callId,
             action: "reject",
         }
-        return this.post(`/${phoneNumberId}/calls`, body)
+        return this.post(phoneNumberId, `/${phoneNumberId}/calls`, body)
     }
 
     async terminate(phoneNumberId: string, callId: string): Promise<MetaCallActionResponse> {
@@ -92,7 +97,7 @@ export class MetaClient {
             call_id: callId,
             action: "terminate",
         }
-        return this.post(`/${phoneNumberId}/calls`, body)
+        return this.post(phoneNumberId, `/${phoneNumberId}/calls`, body)
     }
 
     async connect(phoneNumberId: string, to: string, offerSdp: string): Promise<MetaCallActionResponse> {
@@ -102,7 +107,7 @@ export class MetaClient {
             action: "connect",
             session: { sdp_type: "offer", sdp: offerSdp },
         }
-        return this.post(`/${phoneNumberId}/calls`, body)
+        return this.post(phoneNumberId, `/${phoneNumberId}/calls`, body)
     }
 
     async sendCallPermissionRequest(phoneNumberId: string, waId: string): Promise<MetaSendMessageResponse> {
@@ -116,23 +121,23 @@ export class MetaClient {
                 language: { code: config.outbound.permissionTemplateLanguage },
             },
         }
-        return this.post(`/${phoneNumberId}/messages`, body)
+        return this.post(phoneNumberId, `/${phoneNumberId}/messages`, body)
     }
 
     async getCallPermission(phoneNumberId: string, waId: string): Promise<MetaCallPermissionResponse> {
-        return this.get(`/${phoneNumberId}/call_permissions`, { user_wa_id: waId })
+        return this.get(phoneNumberId, `/${phoneNumberId}/call_permissions`, { user_wa_id: waId })
     }
 
     async updateCallSettings(phoneNumberId: string, calling: Record<string, unknown>): Promise<{ success: boolean }> {
-        return this.post(`/${phoneNumberId}/settings`, { calling })
+        return this.post(phoneNumberId, `/${phoneNumberId}/settings`, { calling })
     }
 
     async getCallSettings(phoneNumberId: string): Promise<MetaCallSettings> {
-        return this.get(`/${phoneNumberId}/settings`)
+        return this.get(phoneNumberId, `/${phoneNumberId}/settings`)
     }
 
     async getHealthStatus(phoneNumberId: string): Promise<MetaHealthStatusResponse> {
-        return this.get(`/${phoneNumberId}`, { fields: "health_status" })
+        return this.get(phoneNumberId, `/${phoneNumberId}`, { fields: "health_status" })
     }
 
 
