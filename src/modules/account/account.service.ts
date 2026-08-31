@@ -11,7 +11,6 @@ export interface UpdateAccountInput {
     callingEnabled?: boolean
     callIconVisibility?: CallIconVisibility
     color?: string
-    answerTimeoutSeconds?: number
     callHours?: Record<string, unknown> | null
 }
 

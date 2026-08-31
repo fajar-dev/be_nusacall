@@ -30,7 +30,6 @@ export const UpdateAccountValidator = z.object({
     callingEnabled: z.boolean().optional(),
     callIconVisibility: z.enum(CallIconVisibility).optional(),
     color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Format warna harus hex, contoh #6366F1").optional(),
-    answerTimeoutSeconds: z.number().int().min(5).max(25).optional(),
     callHours: CallHoursValidator.nullable().optional(),
 })
 export type UpdateAccountValidator = z.infer<typeof UpdateAccountValidator>

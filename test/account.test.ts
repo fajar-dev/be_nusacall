@@ -31,10 +31,8 @@ async function seedAccount(overrides: Partial<Account> = {}): Promise<Account> {
         businessAccountId: "252757097922101",
         displayPhoneNumber: "+62 819-8543-21",
         label: "Helpdesk Medan",
-        isTestNumber: true,
         callingEnabled: true,
         callIconVisibility: CallIconVisibility.DEFAULT,
-        answerTimeoutSeconds: 20,
         ...overrides,
     })
 }

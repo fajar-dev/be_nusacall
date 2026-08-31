@@ -22,9 +22,6 @@ export class Account {
     @Column({ length: 128 })
     label!: string
 
-    @Column({ name: "is_test_number", default: false })
-    isTestNumber!: boolean
-
     @Column({ name: "calling_enabled", default: false })
     callingEnabled!: boolean
 
@@ -36,9 +33,6 @@ export class Account {
 
     @Column({ name: "call_hours", type: "json", nullable: true })
     callHours?: Record<string, unknown> | null
-
-    @Column({ name: "answer_timeout_seconds", type: "int", default: 20 })
-    answerTimeoutSeconds!: number
 
     @Column({ name: "last_synced_at", type: "datetime", nullable: true })
     lastSyncedAt?: Date | null

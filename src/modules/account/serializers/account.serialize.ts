@@ -8,12 +8,10 @@ export class AccountSerializer {
             phoneNumberId: account.phoneNumberId,
             displayPhoneNumber: account.displayPhoneNumber,
             label: account.label,
-            isTestNumber: account.isTestNumber,
             callingEnabled: account.callingEnabled,
             callIconVisibility: account.callIconVisibility,
             color: account.color,
             callHours: account.callHours ?? null,
-            answerTimeoutSeconds: account.answerTimeoutSeconds,
             lastSyncedAt: account.lastSyncedAt ?? null,
         }
     }

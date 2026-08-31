@@ -193,6 +193,15 @@ SET @sql = IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA
     'ALTER TABLE users DROP COLUMN last_seen_at', 'DO 0');
 PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
+-- Timeout menjawab hanya berlaku global lewat env CALL_ANSWER_TIMEOUT; kolom per
+-- akun dapat diubah dari antarmuka tetapi tidak pernah dibaca maupun dikirim ke
+-- Meta. Penanda nomor uji tidak pernah diisi oleh kode mana pun.
+SET @sql = (SELECT IFNULL(CONCAT('ALTER TABLE accounts ', GROUP_CONCAT(CONCAT('DROP COLUMN ', COLUMN_NAME))), 'DO 0')
+    FROM information_schema.COLUMNS
+   WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='accounts'
+     AND COLUMN_NAME IN ('answer_timeout_seconds','is_test_number'));
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
 SET @sql = IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='call_recordings' AND COLUMN_NAME='recording_error'),
     'ALTER TABLE call_recordings DROP COLUMN recording_error', 'DO 0');
 PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
