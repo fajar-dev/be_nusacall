@@ -148,6 +148,39 @@ describe("CallSignalingService.notifyIncoming", () => {
         expect(data.phoneNumber).toBe("628111222333")
     })
 
+    test("tetap mengantre ketika satu-satunya agent sedang menelepon", async () => {
+        presenceRegistry.register("agent1@nusa.id", "conn-1")
+        presenceRegistry.setCurrentCall("agent1@nusa.id", 999)
+
+        const call = await callStateService.findOrCreate("wacid.SIGBUSY1", {
+            phoneNumberId: "202063559668129",
+            direction: CallDirection.INBOUND, status: CallStatus.PENDING, statusRank: 10,
+        })
+
+        const notifier = new FakeNotifier()
+        const service = new CallSignalingService(notifier, callRepository, callStateService, fakeMetaClient(), new RoutingService(), fakeNusawaLog().service, contactService)
+        await service.notifyIncoming(call)
+
+        const updated = await callRepository.findByWacid("wacid.SIGBUSY1")
+        expect(updated!.status).toBe(CallStatus.RINGING)
+        expect(notifier.packetsFor("agent1@nusa.id").some(p => p.type === "incoming_call")).toBe(true)
+    })
+
+    test("tidak menimpa panggilan aktif agent yang sedang sibuk", async () => {
+        presenceRegistry.register("agent1@nusa.id", "conn-1")
+        presenceRegistry.setCurrentCall("agent1@nusa.id", 999)
+
+        const call = await callStateService.findOrCreate("wacid.SIGBUSY2", {
+            phoneNumberId: "202063559668129",
+            direction: CallDirection.INBOUND, status: CallStatus.PENDING, statusRank: 10,
+        })
+
+        const service = new CallSignalingService(new FakeNotifier(), callRepository, callStateService, fakeMetaClient(), new RoutingService(), fakeNusawaLog().service, contactService)
+        await service.notifyIncoming(call)
+
+        expect(presenceRegistry.get("agent1@nusa.id")!.currentCallId).toBe(999)
+    })
+
     test("rings every available agent and transitions the call to RINGING", async () => {
         presenceRegistry.register("agent1@nusa.id", "conn-1")
         const call = await callStateService.findOrCreate("wacid.SIGRING1", {
@@ -208,6 +241,29 @@ describe("CallSignalingService.notifyIncoming", () => {
 })
 
 describe("CallSignalingService.handleAnswer", () => {
+    test("menandai agent sedang menelepon meski panggilannya diambil dari antrean", async () => {
+        const wacid = "wacid.SIGCLAIM1"
+        await createRingingCall(wacid)
+        const call = await callRepository.findByWacid(wacid)
+        presenceRegistry.setCurrentCall("agent1@nusa.id", null)
+
+        const service = new CallSignalingService(
+            new FakeNotifier(), callRepository, callStateService, fakeMetaClient(),
+            new RoutingService(), fakeNusawaLog().service, contactService,
+        )
+        const agentPc = new RTCPeerConnection({ codecs: { audio: [opusCodec()] } })
+        agentPc.addTransceiver("audio", { direction: "sendrecv" })
+        const offer = await agentPc.createOffer()
+        await agentPc.setLocalDescription(offer)
+        await waitIceComplete(agentPc)
+
+        await service.handleAnswer(agent1Id, "agent1@nusa.id", wacid, agentPc.localDescription!.sdp)
+
+        expect(presenceRegistry.get("agent1@nusa.id")!.currentCallId).toBe(call!.id)
+        agentPc.close()
+    }, 20000)
+
+
     test("wires the agent's SDP, calls Meta accept, and activates the call", async () => {
         const wacid = "wacid.SIGANSWER1"
         await createRingingCall(wacid)

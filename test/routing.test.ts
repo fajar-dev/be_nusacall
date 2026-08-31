@@ -11,7 +11,6 @@ function fakeCall(overrides: Partial<Call> = {}): Call {
         id: 1,
         wacid: "wacid.ROUTE1",
         phoneNumberId: "202063559668129",
-        waId: "628123456789",
         direction: CallDirection.INBOUND,
         status: CallStatus.PENDING,
         statusRank: 10,
@@ -46,13 +45,24 @@ describe("RoutingService", () => {
         expect(decision.targets.sort()).toEqual(["agent1@nusa.id", "agent2@nusa.id"])
     })
 
-    test("excludes an agent who is busy on another call", () => {
+    test("tetap menyertakan agent yang sedang menelepon agar panggilan masuk antrean", () => {
         presenceRegistry.register("agent1@nusa.id", "conn-1")
         presenceRegistry.register("agent2@nusa.id", "conn-2")
         presenceRegistry.setCurrentCall("agent1@nusa.id", 999)
 
         const decision = new RoutingService().decide(fakeCall())
 
-        expect(decision.targets).toEqual(["agent2@nusa.id"])
+        expect(decision.kind).toBe("broadcast")
+        expect(decision.targets.sort()).toEqual(["agent1@nusa.id", "agent2@nusa.id"])
+    })
+
+    test("tetap mengantre ketika satu-satunya agent sedang menelepon", () => {
+        presenceRegistry.register("agent1@nusa.id", "conn-1")
+        presenceRegistry.setCurrentCall("agent1@nusa.id", 999)
+
+        const decision = new RoutingService().decide(fakeCall())
+
+        expect(decision.kind).toBe("broadcast")
+        expect(decision.targets).toEqual(["agent1@nusa.id"])
     })
 })

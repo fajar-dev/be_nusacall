@@ -54,7 +54,9 @@ export class CallSignalingService implements ICallSignalingNotifier {
         if (!transitioned) return
 
         for (const email of decision.targets) {
-            presenceRegistry.setCurrentCall(email, call.id)
+            if (presenceRegistry.get(email)?.currentCallId === null) {
+                presenceRegistry.setCurrentCall(email, call.id)
+            }
         }
 
         const expiresAt = Date.now() + config.call.answerTimeoutSeconds * 1000
@@ -107,6 +109,7 @@ export class CallSignalingService implements ICallSignalingNotifier {
             return
         }
 
+        presenceRegistry.setCurrentCall(agentEmail, call.id)
         this.releaseOtherRingingAgents(call, agentEmail)
 
         const answerSdp = await session.attachAgent(offerSdp)
