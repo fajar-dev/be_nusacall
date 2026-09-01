@@ -78,6 +78,7 @@ describe("GET /api/account/:id", () => {
 
         expect(status).toBe(200)
         expect(body.data.phoneNumberId).toBe("202063559668129")
+        expect(body.data.businessAccountId).toBe("252757097922101")
     })
 })
 

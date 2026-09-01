@@ -5,6 +5,7 @@ export class AccountSerializer {
         return {
             id: account.id,
             appId: account.appId ?? null,
+            businessAccountId: account.businessAccountId,
             phoneNumberId: account.phoneNumberId,
             displayPhoneNumber: account.displayPhoneNumber,
             label: account.label,
