@@ -104,13 +104,16 @@ PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 -- Tabel penghubung dibuat dan diisi lebih dulu, karena sinkronisasi skema akan
 -- membuatnya kosong lalu menghapus branch_id sehingga penugasan lama hilang.
 
+-- Nama indeks dan FK mengikuti pola hash yang dihasilkan TypeORM untuk entity
+-- ContactBranch, supaya sinkronisasi skema berikutnya tidak mengira keduanya
+-- berbeda lalu menghapus dan membuatnya ulang.
 CREATE TABLE IF NOT EXISTS contact_branches (
     contact_id int NOT NULL,
     branch_id int NOT NULL,
     PRIMARY KEY (contact_id, branch_id),
-    KEY IDX_contact_branches_branch (branch_id),
-    CONSTRAINT FK_contact_branches_contact FOREIGN KEY (contact_id) REFERENCES contacts (id) ON DELETE CASCADE,
-    CONSTRAINT FK_contact_branches_branch FOREIGN KEY (branch_id) REFERENCES branches (id) ON DELETE CASCADE
+    KEY IDX_7210cb5098e001564176321fa7 (branch_id),
+    CONSTRAINT FK_ae2006cffe7c877c77c427fa188 FOREIGN KEY (contact_id) REFERENCES contacts (id) ON DELETE CASCADE,
+    CONSTRAINT FK_7210cb5098e001564176321fa7a FOREIGN KEY (branch_id) REFERENCES branches (id) ON DELETE CASCADE
 );
 
 SET @sql = IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='contacts' AND COLUMN_NAME='branch_id'),

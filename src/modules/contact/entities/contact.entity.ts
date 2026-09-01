@@ -1,7 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, UpdateDateColumn, ManyToMany, JoinTable } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, UpdateDateColumn, OneToMany } from "typeorm"
 import type { Relation } from "typeorm"
-import { Branch } from "../../branch/entities/branch.entity"
 import type { Timezone } from "../../account/enums/timezone.enum"
+import { ContactBranch } from "./contact-branch.entity"
 
 @Entity("contacts")
 export class Contact {
@@ -18,13 +18,8 @@ export class Contact {
     @Column({ name: "time_zone", type: "varchar", length: 64, default: "UTC" })
     timeZone!: Timezone
 
-    @ManyToMany(() => Branch, { onDelete: "CASCADE" })
-    @JoinTable({
-        name: "contact_branches",
-        joinColumn: { name: "contact_id", referencedColumnName: "id" },
-        inverseJoinColumn: { name: "branch_id", referencedColumnName: "id" },
-    })
-    branches?: Relation<Branch>[]
+    @OneToMany(() => ContactBranch, (contactBranch) => contactBranch.contact)
+    contactBranches?: Relation<ContactBranch>[]
 
     @CreateDateColumn({ name: "created_at" })
     createdAt!: Date

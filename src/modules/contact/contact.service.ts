@@ -1,6 +1,5 @@
 import { ContactListFilters, IContactRepository } from "./interfaces/contact.repository.interface"
 import { Contact } from "./entities/contact.entity"
-import { Branch } from "../branch/entities/branch.entity"
 import { NotFoundException, BadRequestException } from "../../core/exceptions/base"
 import { SortOrder } from "../../core/enums/sort-order.enum"
 import { CreateContactValidator, UpdateContactValidator } from "./validators/contact.validator"
@@ -33,17 +32,12 @@ export class ContactService {
         if (existing) {
             throw new BadRequestException("A contact with this phone number already exists")
         }
-        const saved = await this.repository.save(this.withBranches(data))
-        return await this.getById(saved.id)
-    }
-
-    private withBranches(data: { branchIds?: number[] }): Partial<Contact> {
         const { branchIds, ...rest } = data
-        const payload = rest as Partial<Contact>
+        const saved = await this.repository.save(rest as Partial<Contact>)
         if (branchIds) {
-            payload.branches = branchIds.map((id) => ({ id }) as Branch)
+            await this.repository.setBranches(saved.id, branchIds)
         }
-        return payload
+        return await this.getById(saved.id)
     }
 
     async update(id: number, data: UpdateContactValidator): Promise<Contact> {
@@ -56,8 +50,12 @@ export class ContactService {
             }
         }
 
-        const merged = this.repository.merge(contact, this.withBranches(data))
+        const { branchIds, ...rest } = data
+        const merged = this.repository.merge(contact, rest as Partial<Contact>)
         await this.repository.save(merged)
+        if (branchIds) {
+            await this.repository.setBranches(id, branchIds)
+        }
         return await this.getById(id)
     }
 

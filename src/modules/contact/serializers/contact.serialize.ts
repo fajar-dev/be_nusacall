@@ -7,7 +7,7 @@ export class ContactSerializer {
             phoneNumber: contact.phoneNumber,
             name: contact.name ?? null,
             timeZone: contact.timeZone,
-            branches: (contact.branches ?? []).map((branch) => ({ id: branch.id, name: branch.name, code: branch.code })),
+            branches: (contact.contactBranches ?? []).map((cb) => ({ id: cb.branch.id, name: cb.branch.name, code: cb.branch.code })),
             createdAt: contact.createdAt,
             updatedAt: contact.updatedAt,
         }

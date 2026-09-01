@@ -1,4 +1,6 @@
+import { AppDataSource } from "../../../config/database"
 import { Contact } from "../entities/contact.entity"
+import { ContactBranch } from "../entities/contact-branch.entity"
 import { ContactListFilters, IContactRepository } from "../interfaces/contact.repository.interface"
 import { BaseRepository } from "../../../core/repositories/base.repository"
 import { SortOrder } from "../../../core/enums/sort-order.enum"
@@ -13,7 +15,8 @@ export class TypeOrmContactRepository extends BaseRepository<Contact> implements
         filters: ContactListFilters = {}, sortBy?: string, order?: SortOrder,
     ): Promise<{ data: Contact[]; total: number }> {
         const query = this.repository.createQueryBuilder("contact")
-            .leftJoinAndSelect("contact.branches", "branch")
+            .leftJoinAndSelect("contact.contactBranches", "contactBranch")
+            .leftJoinAndSelect("contactBranch.branch", "branch")
 
         if (q) {
             query.andWhere("(contact.phoneNumber LIKE :q OR contact.name LIKE :q)", { q: `%${q}%` })
@@ -45,10 +48,19 @@ export class TypeOrmContactRepository extends BaseRepository<Contact> implements
     }
 
     async findById(id: number): Promise<Contact | null> {
-        return await this.repository.findOne({ where: { id }, relations: { branches: true } })
+        return await this.repository.findOne({ where: { id }, relations: { contactBranches: { branch: true } } })
     }
 
     async findByPhoneNumber(phoneNumber: string): Promise<Contact | null> {
         return await this.repository.findOneBy({ phoneNumber })
+    }
+
+    /** Baris lama dihapus lebih dulu karena penugasan cabang selalu menggantikan yang sebelumnya, bukan menambahkannya. */
+    async setBranches(contactId: number, branchIds: number[]): Promise<void> {
+        const repository = AppDataSource.getRepository(ContactBranch)
+        await repository.delete({ contactId })
+        if (branchIds.length) {
+            await repository.insert(branchIds.map((branchId) => ({ contactId, branchId })))
+        }
     }
 }

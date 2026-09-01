@@ -3,6 +3,7 @@ import { Hono } from "hono"
 import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createTestApp, request, createUserAndToken } from "./setup"
 import { getDataSource } from "../src/config/database"
 import { Contact } from "../src/modules/contact/entities/contact.entity"
+import { ContactBranch } from "../src/modules/contact/entities/contact-branch.entity"
 import { Branch } from "../src/modules/branch/entities/branch.entity"
 import { ContactService } from "../src/modules/contact/contact.service"
 import { TypeOrmContactRepository } from "../src/modules/contact/repositories/contact.repository"
@@ -24,10 +25,11 @@ beforeEach(async () => {
 })
 
 async function seedContactWithBranches(phoneNumber: string, branchIds: number[]): Promise<Contact> {
-    const repository = getDataSource().getRepository(Contact)
-    const contact = await repository.save({ phoneNumber, name: "Budi" })
-    contact.branches = branchIds.map((id) => ({ id }) as Branch)
-    return await repository.save(contact)
+    const contact = await getDataSource().getRepository(Contact).save({ phoneNumber, name: "Budi" })
+    await getDataSource().getRepository(ContactBranch).insert(
+        branchIds.map((branchId) => ({ contactId: contact.id, branchId }))
+    )
+    return contact
 }
 
 async function seedContact(overrides: Partial<Contact> = {}): Promise<Contact> {
