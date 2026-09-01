@@ -65,9 +65,11 @@ export class AriClient {
     /** Menyambungkan event stream ARI (StasisStart/StasisEnd/dll); reconnect otomatis kalau putus. */
     connect(): void {
         const base = config.asterisk.ariBaseUrl.replace(/^http/, "ws")
-        const wsUrl = `${base}/ari/events?app=${config.asterisk.ariApp}&api_key=${config.asterisk.ariUsername}:${config.asterisk.ariPassword}&subscribeAll=true`
+        const wsUrl = `${base}/ari/events?app=${config.asterisk.ariApp}&subscribeAll=true`
+        const basicAuth = Buffer.from(`${config.asterisk.ariUsername}:${config.asterisk.ariPassword}`).toString("base64")
 
-        this.ws = new WebSocket(wsUrl)
+        // Server ini menolak auth lewat query string api_key (401) — perlu header Authorization eksplisit.
+        this.ws = new WebSocket(wsUrl, { headers: { Authorization: `Basic ${basicAuth}` } })
 
         this.ws.addEventListener("open", () => {
             logger.info("Connected to Asterisk ARI event stream", { app: config.asterisk.ariApp })
@@ -90,8 +92,9 @@ export class AriClient {
             this.scheduleReconnect()
         })
 
-        this.ws.addEventListener("error", (err) => {
-            logger.error("Asterisk ARI event stream error", { err })
+        this.ws.addEventListener("error", (ev) => {
+            const message = "message" in ev && typeof ev.message === "string" ? ev.message : String(ev)
+            logger.error("Asterisk ARI event stream error", { message })
         })
     }
 
