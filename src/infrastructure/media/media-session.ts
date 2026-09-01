@@ -91,7 +91,7 @@ export class MediaSession {
     private forwardToAgent(rtp: RtpPacket): void {
         if (!this.forwardingStarted || !this.transceiverB || this.closed) return
         const fwd = new RtpPacket(
-            new RtpHeader({ sequenceNumber: rtp.header.sequenceNumber, timestamp: rtp.header.timestamp, payloadType: OPUS_PAYLOAD_TYPE, ssrc: this.ssrcToAgent }),
+            new RtpHeader({ sequenceNumber: rtp.header.sequenceNumber, timestamp: rtp.header.timestamp, marker: rtp.header.marker, payloadType: OPUS_PAYLOAD_TYPE, ssrc: this.ssrcToAgent }),
             rtp.payload
         )
         this.transceiverB.sender.sendRtp(fwd).catch((err) => {
@@ -105,7 +105,7 @@ export class MediaSession {
     private forwardToCustomer(rtp: RtpPacket): void {
         if (!this.forwardingStarted || !this.legA || this.closed) return
         const fwd = new RtpPacket(
-            new RtpHeader({ sequenceNumber: rtp.header.sequenceNumber, timestamp: rtp.header.timestamp, payloadType: OPUS_PAYLOAD_TYPE, ssrc: this.ssrcToCustomer }),
+            new RtpHeader({ sequenceNumber: rtp.header.sequenceNumber, timestamp: rtp.header.timestamp, marker: rtp.header.marker, payloadType: OPUS_PAYLOAD_TYPE, ssrc: this.ssrcToCustomer }),
             rtp.payload
         )
         this.legA.sendRtp(fwd)
