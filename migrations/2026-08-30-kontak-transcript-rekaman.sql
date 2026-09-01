@@ -100,27 +100,6 @@ SET @sql = IF(NOT EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SC
     'ALTER TABLE accounts ADD COLUMN permission_template_language varchar(16) NULL', 'DO 0');
 PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
--- 1.8 contacts: satu kontak kini dapat berada pada beberapa cabang.
--- Tabel penghubung dibuat dan diisi lebih dulu, karena sinkronisasi skema akan
--- membuatnya kosong lalu menghapus branch_id sehingga penugasan lama hilang.
-
--- Nama indeks dan FK mengikuti pola hash yang dihasilkan TypeORM untuk entity
--- ContactBranch, supaya sinkronisasi skema berikutnya tidak mengira keduanya
--- berbeda lalu menghapus dan membuatnya ulang.
-CREATE TABLE IF NOT EXISTS contact_branches (
-    contact_id int NOT NULL,
-    branch_id int NOT NULL,
-    PRIMARY KEY (contact_id, branch_id),
-    KEY IDX_7210cb5098e001564176321fa7 (branch_id),
-    CONSTRAINT FK_ae2006cffe7c877c77c427fa188 FOREIGN KEY (contact_id) REFERENCES contacts (id) ON DELETE CASCADE,
-    CONSTRAINT FK_7210cb5098e001564176321fa7a FOREIGN KEY (branch_id) REFERENCES branches (id) ON DELETE CASCADE
-);
-
-SET @sql = IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='contacts' AND COLUMN_NAME='branch_id'),
-    'INSERT IGNORE INTO contact_branches (contact_id, branch_id)
-     SELECT id, branch_id FROM contacts WHERE branch_id IS NOT NULL', 'DO 0');
-PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-
 -- ════════════════════════════════════════════════════════════════════
 -- FASE 2 — periksa sebelum deploy
 -- Ketiga angka harus 0.
@@ -136,14 +115,6 @@ SELECT 'kontak ganda', COUNT(*) FROM (
 ) AS ganda
 UNION ALL
 SELECT 'kontak format lama', COUNT(*) FROM contacts WHERE phone_number LIKE '0%';
-
--- Hanya berlaku pada basis data yang sempat memakai kolom branch_id tunggal.
-SET @sql = IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='contacts' AND COLUMN_NAME='branch_id'),
-    "SELECT 'cabang kontak belum dipindahkan' AS pemeriksaan, COUNT(*) AS harus_nol FROM contacts c
-      WHERE c.branch_id IS NOT NULL
-        AND NOT EXISTS (SELECT 1 FROM contact_branches cb WHERE cb.contact_id = c.id AND cb.branch_id = c.branch_id)",
-    'DO 0');
-PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
 -- Nomor kini diseragamkan ke format internasional tanpa plus. Kontak berawalan 0
 -- berasal dari input manual sebelum penyeragaman berlaku dan bisa kembar dengan
@@ -213,13 +184,7 @@ SET @sql = IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA
     'ALTER TABLE call_recordings DROP COLUMN wacid', 'DO 0');
 PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
--- 3.6 contacts.branch_id sudah digantikan tabel contact_branches.
-
-SET @sql = IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='contacts' AND COLUMN_NAME='branch_id'),
-    'ALTER TABLE contacts DROP COLUMN branch_id', 'DO 0');
-PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-
--- 3.7 Kolom yang tidak pernah dibaca maupun ditulis oleh aplikasi.
+-- 3.6 Kolom yang tidak pernah dibaca maupun ditulis oleh aplikasi.
 
 -- Indeks status tunggal tercakup oleh indeks gabungan (status, created_at).
 SET @sql = IFNULL((SELECT CONCAT('ALTER TABLE calls DROP INDEX ', INDEX_NAME)
@@ -257,7 +222,7 @@ SET @sql = (SELECT IFNULL(CONCAT('ALTER TABLE call_events ', GROUP_CONCAT(CONCAT
      AND COLUMN_NAME IN ('processed','processing_error'));
 PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
--- 3.8 Kolom rekaman Meta. Objek lama di MinIO tidak ikut terhapus dan perlu
+-- 3.7 Kolom rekaman Meta. Objek lama di MinIO tidak ikut terhapus dan perlu
 --     dibersihkan tersendiri bila memang tidak lagi diperlukan.
 
 SET @sql = IFNULL((SELECT CONCAT('ALTER TABLE call_recordings ', GROUP_CONCAT(CONCAT('DROP COLUMN ', COLUMN_NAME)))
