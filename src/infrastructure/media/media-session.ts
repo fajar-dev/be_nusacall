@@ -105,7 +105,13 @@ export class MediaSession {
     private forwardToCustomer(rtp: RtpPacket): void {
         if (!this.forwardingStarted || !this.legA || this.closed) return
         const fwd = new RtpPacket(
-            new RtpHeader({ sequenceNumber: rtp.header.sequenceNumber, timestamp: rtp.header.timestamp, marker: rtp.header.marker, payloadType: OPUS_PAYLOAD_TYPE, ssrc: this.ssrcToCustomer }),
+            new RtpHeader({
+                sequenceNumber: rtp.header.sequenceNumber,
+                timestamp: rtp.header.timestamp,
+                marker: rtp.header.marker,
+                payloadType: this.legA.payloadType ?? OPUS_PAYLOAD_TYPE,
+                ssrc: this.ssrcToCustomer,
+            }),
             rtp.payload
         )
         this.legA.sendRtp(fwd)

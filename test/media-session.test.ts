@@ -56,11 +56,15 @@ describe("MediaSession - full bridge (SIP leg <-> Agent leg)", () => {
 
         let agentReceived = 0
         let asteriskReceived = 0
+        const payloadTypesSeenByAsterisk: number[] = []
 
         const rtpLeg = await AsteriskRtpLeg.bind()
         session.attachAsteriskLeg(rtpLeg)
 
-        const fakeAsterisk = await createFakeAsterisk(() => { asteriskReceived++ })
+        const fakeAsterisk = await createFakeAsterisk((rtp) => {
+            asteriskReceived++
+            payloadTypesSeenByAsterisk.push(rtp.header.payloadType)
+        })
 
         const { pc: fakeAgent, transceiver: agentTransceiver, offerSdp: agentOfferSdp } =
             await createFakeAgentPeer(() => { agentReceived++ })
@@ -75,10 +79,15 @@ describe("MediaSession - full bridge (SIP leg <-> Agent leg)", () => {
 
         session.startForwarding()
 
+        // Asterisk menegosiasikan payload type Opus-nya sendiri pada channel externalMedia
+        // (107 di produksi), berbeda dari milik leg WebRTC agent (111).
+        const ASTERISK_PAYLOAD_TYPE = 107
+        const AGENT_PAYLOAD_TYPE = 111
+
         const payload = Buffer.alloc(160, 0xaa)
         for (let i = 0; i < 10; i++) {
-            fakeAsterisk.sendTo(rtpLeg.localPort, new RtpPacket(new RtpHeader({ sequenceNumber: i + 1, timestamp: i * 960, payloadType: 111 }), payload))
-            await agentTransceiver.sender.sendRtp(new RtpPacket(new RtpHeader({ sequenceNumber: i + 500, timestamp: i * 960, payloadType: 111 }), payload))
+            fakeAsterisk.sendTo(rtpLeg.localPort, new RtpPacket(new RtpHeader({ sequenceNumber: i + 1, timestamp: i * 960, payloadType: ASTERISK_PAYLOAD_TYPE }), payload))
+            await agentTransceiver.sender.sendRtp(new RtpPacket(new RtpHeader({ sequenceNumber: i + 500, timestamp: i * 960, payloadType: AGENT_PAYLOAD_TYPE }), payload))
             await new Promise((r) => setTimeout(r, 20))
         }
         await new Promise((r) => setTimeout(r, 500))
@@ -87,6 +96,10 @@ describe("MediaSession - full bridge (SIP leg <-> Agent leg)", () => {
         expect(asteriskReceived).toBeGreaterThanOrEqual(8)
         expect(session.stats.packetsToAgent).toBeGreaterThanOrEqual(8)
         expect(session.stats.packetsToCustomer).toBeGreaterThanOrEqual(8)
+
+        // Audio yang diteruskan ke Asterisk harus memakai payload type milik Asterisk —
+        // kalau tidak, Asterisk gagal mendecode dan yang sampai ke pelanggan hanya desis.
+        expect(new Set(payloadTypesSeenByAsterisk)).toEqual(new Set([ASTERISK_PAYLOAD_TYPE]))
 
         fakeAgent.close()
         fakeAsterisk.socket.close()

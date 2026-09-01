@@ -19,17 +19,31 @@ export class AsteriskRtpLeg {
     private rtpListener: ((rtp: RtpPacket) => void) | null = null
     private closed = false
 
+    /**
+     * Payload type Opus pada channel externalMedia dinegosiasikan Asterisk sendiri
+     * (mis. 107) dan berbeda dari milik leg WebRTC agent/Meta (111). Mengirim balik
+     * dengan payload type yang salah membuat Asterisk gagal mendecode audio kita —
+     * jadi nilainya dipelajari dari paket pertama yang dikirim Asterisk.
+     */
+    private remotePayloadType: number | null = null
+
     private constructor(private readonly socket: dgram.Socket, readonly localPort: number) {
         this.socket.on("message", (msg, rinfo) => {
             if (this.closed) return
             this.remoteAddress = rinfo.address
             this.remotePort = rinfo.port
             try {
-                this.rtpListener?.(RtpPacket.deSerialize(msg))
+                const rtp = RtpPacket.deSerialize(msg)
+                this.remotePayloadType = rtp.header.payloadType
+                this.rtpListener?.(rtp)
             } catch (err) {
                 logger.warn("Failed to parse RTP packet from Asterisk externalMedia", { err })
             }
         })
+    }
+
+    get payloadType(): number | null {
+        return this.remotePayloadType
     }
 
     static bind(): Promise<AsteriskRtpLeg> {
