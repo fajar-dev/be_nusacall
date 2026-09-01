@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto"
 import { RTCPeerConnection, RTCRtpTransceiver, RtpPacket, RtpHeader } from "werift"
 import { createPeerConnection, waitForIceGatheringComplete, OPUS_PAYLOAD_TYPE } from "./peer-factory"
 import { ensurePtime20 } from "./sdp-transformer"
@@ -26,6 +27,10 @@ export class MediaSession {
     private recorder: CallRecorder | null = null
     private recorded: RecordedTrack[] = []
     private closeTimer: ReturnType<typeof setTimeout> | null = null
+
+    /** SSRC=0 (bawaan RtpHeader) ditolak/didiamkan peer SRTP — harus tetap & tidak nol selama sesi. */
+    private readonly ssrcToAgent = randomInt(1, 0xfffffffe)
+    private readonly ssrcToCustomer = randomInt(1, 0xfffffffe)
 
     readonly stats: MediaStats = {
         packetsToCustomer: 0,
@@ -86,7 +91,7 @@ export class MediaSession {
     private forwardToAgent(rtp: RtpPacket): void {
         if (!this.forwardingStarted || !this.transceiverB || this.closed) return
         const fwd = new RtpPacket(
-            new RtpHeader({ sequenceNumber: rtp.header.sequenceNumber, timestamp: rtp.header.timestamp, payloadType: OPUS_PAYLOAD_TYPE }),
+            new RtpHeader({ sequenceNumber: rtp.header.sequenceNumber, timestamp: rtp.header.timestamp, payloadType: OPUS_PAYLOAD_TYPE, ssrc: this.ssrcToAgent }),
             rtp.payload
         )
         this.transceiverB.sender.sendRtp(fwd).catch((err) => {
@@ -100,7 +105,7 @@ export class MediaSession {
     private forwardToCustomer(rtp: RtpPacket): void {
         if (!this.forwardingStarted || !this.legA || this.closed) return
         const fwd = new RtpPacket(
-            new RtpHeader({ sequenceNumber: rtp.header.sequenceNumber, timestamp: rtp.header.timestamp, payloadType: OPUS_PAYLOAD_TYPE }),
+            new RtpHeader({ sequenceNumber: rtp.header.sequenceNumber, timestamp: rtp.header.timestamp, payloadType: OPUS_PAYLOAD_TYPE, ssrc: this.ssrcToCustomer }),
             rtp.payload
         )
         this.legA.sendRtp(fwd)
