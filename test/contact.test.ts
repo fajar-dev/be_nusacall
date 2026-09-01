@@ -23,6 +23,13 @@ beforeEach(async () => {
     await cleanTestDatabase()
 })
 
+async function seedContactWithBranches(phoneNumber: string, branchIds: number[]): Promise<Contact> {
+    const repository = getDataSource().getRepository(Contact)
+    const contact = await repository.save({ phoneNumber, name: "Budi" })
+    contact.branches = branchIds.map((id) => ({ id }) as Branch)
+    return await repository.save(contact)
+}
+
 async function seedContact(overrides: Partial<Contact> = {}): Promise<Contact> {
     return await getDataSource().getRepository(Contact).save({
         phoneNumber: "628123456789",
@@ -101,7 +108,7 @@ describe("POST /api/contact", () => {
         expect(body.data.phoneNumber).toBe("628111222333")
         expect(body.data.name).toBe("Sari")
         expect(body.data.timeZone).toBe("UTC")
-        expect(body.data.branch).toBeNull()
+        expect(body.data.branches).toEqual([])
     })
 
     test("menerima timeZone dan cabang", async () => {
@@ -110,12 +117,12 @@ describe("POST /api/contact", () => {
 
         const { status, body } = await request(app, "/api/contact", {
             method: "POST", headers,
-            body: { phoneNumber: "628111222444", name: "Andi", timeZone: "Asia/Jakarta", branchId },
+            body: { phoneNumber: "628111222444", name: "Andi", timeZone: "Asia/Jakarta", branchIds: [branchId] },
         })
 
         expect(status).toBe(201)
         expect(body.data.timeZone).toBe("Asia/Jakarta")
-        expect(body.data.branch.id).toBe(branchId)
+        expect(body.data.branches.map((b: { id: number }) => b.id)).toEqual([branchId])
     })
 
     test("menolak nomor telepon duplikat", async () => {
@@ -157,13 +164,13 @@ describe("PUT /api/contact/:id", () => {
         const branchId = await seedBranch("062", "Bali")
 
         const { status, body } = await request(app, `/api/contact/${contact.id}`, {
-            method: "PUT", headers, body: { name: "Budi Revisi", timeZone: "Asia/Makassar", branchId },
+            method: "PUT", headers, body: { name: "Budi Revisi", timeZone: "Asia/Makassar", branchIds: [branchId] },
         })
 
         expect(status).toBe(200)
         expect(body.data.name).toBe("Budi Revisi")
         expect(body.data.timeZone).toBe("Asia/Makassar")
-        expect(body.data.branch.id).toBe(branchId)
+        expect(body.data.branches.map((b: { id: number }) => b.id)).toEqual([branchId])
     })
 
     test("404 untuk kontak yang tidak ada", async () => {
@@ -197,31 +204,47 @@ describe("GET /api/contact — pengurutan", () => {
         expect(body.data[body.data.length - 1].name).toBe("Zulkifli")
     })
 
-    test("sortBy=branch mengurutkan berdasarkan nama cabang", async () => {
-        const { headers } = await createUserAndToken()
-        const alpha = await seedBranch("001", "Alpha")
-        const zulu = await seedBranch("099", "Zulu")
-        await seedContact({ phoneNumber: "628300000001", branchId: zulu })
-        await seedContact({ phoneNumber: "628300000002", branchId: alpha })
-
-        const { body } = await request(app, "/api/contact?sortBy=branch&order=ASC", { headers })
-        const names = body.data.map((c: { branch: { name: string } | null }) => c.branch?.name).filter(Boolean)
-
-        expect(names[0]).toBe("Alpha")
-    })
 })
 
 describe("GET /api/contact — filter cabang", () => {
     test("branchId hanya mengembalikan kontak pada cabang tersebut", async () => {
         const { headers } = await createUserAndToken()
         const bali = await seedBranch("062", "Bali")
-        await seedContact({ phoneNumber: "628400000001", branchId: bali })
+        await seedContactWithBranches("628400000001", [bali])
         await seedContact({ phoneNumber: "628400000002" })
 
         const { body } = await request(app, `/api/contact?branchId=${bali}`, { headers })
 
         expect(body.meta.total).toBe(1)
-        expect(body.data[0].branch.id).toBe(bali)
+        expect(body.data[0].branches[0].id).toBe(bali)
+    })
+
+    test("kontak dengan beberapa cabang muncul pada penyaringan tiap cabangnya", async () => {
+        const { headers } = await createUserAndToken()
+        const medan = await seedBranch("020", "Medan")
+        const bali = await seedBranch("062", "Bali")
+        await seedContactWithBranches("628400000003", [medan, bali])
+
+        const perMedan = await request(app, `/api/contact?branchId=${medan}`, { headers })
+        const perBali = await request(app, `/api/contact?branchId=${bali}`, { headers })
+
+        expect(perMedan.body.meta.total).toBe(1)
+        expect(perBali.body.meta.total).toBe(1)
+        expect(perBali.body.data[0].branches).toHaveLength(2)
+    })
+
+    test("menyimpan beberapa cabang sekaligus lewat API", async () => {
+        const { headers } = await createUserAndToken()
+        const medan = await seedBranch("020", "Medan")
+        const bali = await seedBranch("062", "Bali")
+
+        const { status, body } = await request(app, "/api/contact", {
+            method: "POST", headers,
+            body: { phoneNumber: "628400000004", name: "Dedi", branchIds: [medan, bali] },
+        })
+
+        expect(status).toBe(201)
+        expect(body.data.branches.map((b: { id: number }) => b.id).sort()).toEqual([medan, bali].sort())
     })
 })
 

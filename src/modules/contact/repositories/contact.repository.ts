@@ -13,14 +13,17 @@ export class TypeOrmContactRepository extends BaseRepository<Contact> implements
         filters: ContactListFilters = {}, sortBy?: string, order?: SortOrder,
     ): Promise<{ data: Contact[]; total: number }> {
         const query = this.repository.createQueryBuilder("contact")
-            .leftJoinAndSelect("contact.branch", "branch")
+            .leftJoinAndSelect("contact.branches", "branch")
 
         if (q) {
             query.andWhere("(contact.phoneNumber LIKE :q OR contact.name LIKE :q)", { q: `%${q}%` })
         }
 
         if (filters.branchId !== undefined && filters.branchId !== "") {
-            query.andWhere("contact.branchId = :branchId", { branchId: Number(filters.branchId) })
+            query.andWhere(
+                "EXISTS (SELECT 1 FROM contact_branches cb WHERE cb.contact_id = contact.id AND cb.branch_id = :branchId)",
+                { branchId: Number(filters.branchId) }
+            )
         }
 
         const total = await query.getCount()
@@ -29,7 +32,6 @@ export class TypeOrmContactRepository extends BaseRepository<Contact> implements
             name: "contact.name",
             phoneNumber: "contact.phoneNumber",
             timeZone: "contact.timeZone",
-            branch: "branch.name",
             createdAt: "contact.createdAt",
         }
 
@@ -43,7 +45,7 @@ export class TypeOrmContactRepository extends BaseRepository<Contact> implements
     }
 
     async findById(id: number): Promise<Contact | null> {
-        return await this.repository.findOne({ where: { id }, relations: { branch: true } })
+        return await this.repository.findOne({ where: { id }, relations: { branches: true } })
     }
 
     async findByPhoneNumber(phoneNumber: string): Promise<Contact | null> {

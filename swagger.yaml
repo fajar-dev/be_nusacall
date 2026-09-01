@@ -381,6 +381,7 @@ components:
       properties:
         id: { type: integer, example: 1 }
         appId: { type: string, nullable: true, example: "1234567890123456" }
+        businessAccountId: { type: string, example: "340483899145969", description: "WABA pemilik nomor ini; menentukan kredensial Meta yang dipakai" }
         phoneNumberId: { type: string, example: "202063559668129" }
         displayPhoneNumber: { type: string, example: "+62 819-8543-21" }
         label: { type: string, example: "Helpdesk Medan" }
@@ -419,12 +420,15 @@ components:
         phoneNumber: { type: string, example: "628123456789" }
         name: { type: string, nullable: true, example: "Budi" }
         timeZone: { type: string, example: "UTC", description: "IANA timezone identifier, defaults to UTC" }
-        branch:
-          type: object
-          nullable: true
-          properties:
-            id: { type: integer, example: 2 }
-            name: { type: string, example: "PT. Media Antar Nusa - HO" }
+        branches:
+          type: array
+          description: "Satu kontak dapat berada pada lebih dari satu cabang"
+          items:
+            type: object
+            properties:
+              id: { type: integer, example: 2 }
+              name: { type: string, example: "PT. Media Antar Nusa - HO" }
+              code: { type: string, example: "020" }
             code: { type: string, example: "020" }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
@@ -436,7 +440,7 @@ components:
         phoneNumber: { type: string, example: "628123456789", description: "Tanda plus, spasi, dan tanda hubung boleh disertakan. Nomor diseragamkan ke format internasional tanpa plus, dan awalan 0 diganti kode negara 62, sehingga satu nomor selalu menunjuk ke satu kontak." }
         name: { type: string, nullable: true, example: "Budi" }
         timeZone: { type: string, example: "Asia/Jakarta", description: "IANA timezone identifier; UTC bila dikosongkan" }
-        branchId: { type: integer, nullable: true, example: 2 }
+        branchIds: { type: array, items: { type: integer }, example: [2, 5] }
 
     UpdateContactRequest:
       type: object
@@ -444,7 +448,7 @@ components:
         phoneNumber: { type: string, example: "628123456789", description: "Diseragamkan sama seperti pada pembuatan kontak" }
         name: { type: string, nullable: true }
         timeZone: { type: string, example: "Asia/Jakarta" }
-        branchId: { type: integer, nullable: true }
+        branchIds: { type: array, items: { type: integer } }
 
 paths:
   # ── Login ─────────────────────────────────────────────────────────────────
@@ -1623,7 +1627,7 @@ paths:
           schema: { type: integer }
         - name: sortBy
           in: query
-          schema: { type: string, enum: [name, phoneNumber, timeZone, branch, createdAt] }
+          schema: { type: string, enum: [name, phoneNumber, timeZone, createdAt] }
         - name: order
           in: query
           schema: { type: string, enum: [ASC, DESC], default: DESC }

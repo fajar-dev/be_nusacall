@@ -11,7 +11,7 @@ export const CreateContactValidator = z.object({
     phoneNumber,
     name: z.string().trim().min(1).max(128).optional().nullable(),
     timeZone: z.enum(TIMEZONES).optional(),
-    branchId: z.coerce.number().int().positive().optional().nullable(),
+    branchIds: z.array(z.coerce.number().int().positive()).optional(),
 })
 export type CreateContactValidator = z.infer<typeof CreateContactValidator>
 
@@ -19,6 +19,6 @@ export const UpdateContactValidator = z.object({
     phoneNumber: phoneNumber.optional(),
     name: z.string().trim().min(1).max(128).optional().nullable(),
     timeZone: z.enum(TIMEZONES).optional(),
-    branchId: z.coerce.number().int().positive().optional().nullable(),
+    branchIds: z.array(z.coerce.number().int().positive()).optional(),
 })
 export type UpdateContactValidator = z.infer<typeof UpdateContactValidator>
