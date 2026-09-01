@@ -1,33 +1,15 @@
-import { Call } from "../call/entities/call.entity"
 import { CallStateService } from "../call/call-state.service"
-import { CallStatus, isTerminalCallStatus } from "../call/enums/call-status.enum"
-import { CallDirection, fromMetaDirection } from "../call/enums/call-direction.enum"
+import { CallStatus } from "../call/enums/call-status.enum"
+import { CallDirection } from "../call/enums/call-direction.enum"
 import { EndReason } from "../call/enums/end-reason.enum"
 import { CallEventType } from "../call/enums/call-event-type.enum"
 import { CallEventStatus } from "../call/enums/call-event-status.enum"
-import { ICallMediaCoordinator } from "../call/interfaces/call-media-coordinator.interface"
 import { ICallSignalingNotifier } from "../call/interfaces/call-signaling.interface"
 import { ICallRepository } from "../call/interfaces/call.repository.interface"
-import { CallRecordingService } from "../call/call-recording.service"
 import { ContactService } from "../contact/contact.service"
+import { sessionRegistry } from "../../infrastructure/media/session-registry"
 import { logger } from "../../core/helpers/logger"
-import { CallLogOutcome } from "../call/enums/call-log-outcome.enum"
 import { config } from "../../config/config"
-
-interface MetaCallObject {
-    id: string
-    to?: string
-    from?: string
-    event: string
-    timestamp: string
-    direction?: "USER_INITIATED" | "BUSINESS_INITIATED"
-    session?: { sdp_type: string; sdp: string }
-    status?: "FAILED" | "COMPLETED"
-    start_time?: string
-    end_time?: string
-    duration?: number
-    errors?: Array<{ code: number; message?: string; error_data?: { details?: string } }>
-}
 
 interface MetaStatusObject {
     id: string
@@ -42,24 +24,24 @@ interface MetaMetadata {
     phone_number_id: string
 }
 
-interface MetaContact {
-    profile?: { name?: string }
-    wa_id?: string
-}
-
 interface MetaAccountUpdateValue {
     event: string
     violation_info?: { violation_type: string }
     restriction_info?: Array<{ restriction_type: string; expiration?: number; remediation?: string }>
 }
 
+/**
+ * Sinyal panggilan sekarang datang dari Asterisk lewat ARI
+ * (AsteriskCallHandlerService), bukan dari webhook `calls` field Meta —
+ * mode SIP tidak lagi membawa SDP lewat webhook. Webhook ini hanya menyimpan
+ * event `statuses` (kalau Meta masih mengirimkannya secara informasional)
+ * dan `account_update` untuk audit/log.
+ */
 export class WebhookService {
     constructor(
         private readonly callState: CallStateService,
-        private readonly media: ICallMediaCoordinator,
         private readonly signaling: ICallSignalingNotifier,
         private readonly calls: ICallRepository,
-        private readonly recording: CallRecordingService,
         private readonly contacts: ContactService,
     ) {}
 
@@ -91,93 +73,12 @@ export class WebhookService {
 
     private async processChangeValue(value: any, fullPayload: unknown): Promise<void> {
         const metadata: MetaMetadata | undefined = value.metadata
-        const contacts: MetaContact[] = value.contacts ?? []
-
-        for (const callObj of (value.calls ?? []) as MetaCallObject[]) {
-            try {
-                if (callObj.event === "connect") {
-                    await this.handleConnect(callObj, metadata, contacts, fullPayload)
-                } else if (callObj.event === "terminate") {
-                    await this.handleTerminate(callObj, metadata, contacts, fullPayload)
-                } else if (callObj.event === "call_created") {
-                    await this.handleCallCreated(callObj, metadata, contacts, fullPayload)
-                } else {
-                    logger.info("Unhandled call event type", { event: callObj.event, wacid: callObj.id })
-                }
-            } catch (err) {
-                logger.error("Failed processing call event", { wacid: callObj.id, event: callObj.event, err })
-            }
-        }
 
         for (const statusObj of (value.statuses ?? []) as MetaStatusObject[]) {
             try {
                 await this.handleStatus(statusObj, metadata, fullPayload)
             } catch (err) {
                 logger.error("Failed processing status event", { wacid: statusObj.id, err })
-            }
-        }
-    }
-
-    private async handleConnect(
-        callObj: MetaCallObject,
-        metadata: MetaMetadata | undefined,
-        contacts: MetaContact[],
-        fullPayload: unknown
-    ): Promise<void> {
-        const metaTimestamp = Number(callObj.timestamp) || undefined
-
-        const { accepted } = await this.callState.recordEvent({
-            wacid: callObj.id,
-            eventType: CallEventType.CONNECT,
-            metaTimestamp,
-            rawPayload: fullPayload as Record<string, unknown>,
-        })
-        if (!accepted) return
-
-        const direction = fromMetaDirection(callObj.direction ?? "USER_INITIATED")
-        const waId = direction === CallDirection.INBOUND ? callObj.from : callObj.to
-        const profileName = contacts[0]?.profile?.name ?? null
-        const contactId = await this.resolveContactId(direction, waId ?? "", profileName)
-
-        const defaults: Partial<Call> = {
-            phoneNumberId: metadata?.phone_number_id ?? "",
-            contactId,
-            direction,
-            status: CallStatus.PENDING,
-            statusRank: 10,
-        }
-
-        const call = await this.callState.findOrCreate(callObj.id, defaults)
-
-        if (isTerminalCallStatus(call.status)) {
-            logger.info("connect webhook arrived after call already reached a terminal state — ignored", {
-                wacid: callObj.id, status: call.status,
-            })
-            return
-        }
-
-        if (direction === CallDirection.INBOUND && callObj.session?.sdp) {
-            const result = await this.media.establishEarly(callObj.id, metadata?.phone_number_id ?? "", callObj.session.sdp)
-            if (!result.ok) {
-                await this.callState.transition(callObj.id, CallStatus.FAILED, {
-                    endReason: EndReason.MEDIA_FAILURE,
-                    endedAt: new Date(),
-                    errorMessage: result.error ?? null,
-                })
-                return
-            }
-
-            await this.signaling.notifyIncoming(call)
-        }
-
-        if (direction === CallDirection.OUTBOUND && callObj.session?.sdp) {
-            const result = await this.media.applyOutboundAnswer(callObj.id, callObj.session.sdp)
-            if (!result.ok) {
-                await this.callState.transition(callObj.id, CallStatus.FAILED, {
-                    endReason: EndReason.MEDIA_FAILURE,
-                    endedAt: new Date(),
-                    errorMessage: result.error ?? null,
-                })
             }
         }
     }
@@ -199,7 +100,7 @@ export class WebhookService {
         if (!accepted) return
 
         const statusWaId = statusObj.recipient_id ?? ""
-        const contactId = await this.resolveContactId(CallDirection.OUTBOUND, statusWaId, null)
+        const contactId = await this.resolveContactId(statusWaId, null)
 
         await this.callState.findOrCreate(statusObj.id, {
             phoneNumberId: metadata?.phone_number_id ?? "",
@@ -219,7 +120,6 @@ export class WebhookService {
                     recordingEnabled: config.recording.recordingEnabled,
                 })
                 if (transitioned) {
-                    await this.media.startOutboundForwarding(statusObj.id)
                     const call = await this.calls.findByWacid(statusObj.id)
                     if (call) this.signaling.notifyOutboundActive(call)
                 }
@@ -232,7 +132,7 @@ export class WebhookService {
                     durationSeconds: 0,
                 })
                 if (transitioned) {
-                    await this.media.teardown(statusObj.id, "customer_rejected")
+                    await sessionRegistry.remove(statusObj.id, "customer_rejected")
                     const call = await this.calls.findByWacid(statusObj.id)
                     if (call) this.signaling.notifyCallEnded(call, EndReason.CUSTOMER_REJECTED)
                 }
@@ -241,71 +141,7 @@ export class WebhookService {
         }
     }
 
-    private async handleTerminate(
-        callObj: MetaCallObject,
-        metadata: MetaMetadata | undefined,
-        contacts: MetaContact[],
-        fullPayload: unknown
-    ): Promise<void> {
-        const metaTimestamp = Number(callObj.timestamp) || undefined
-
-        const { accepted } = await this.callState.recordEvent({
-            wacid: callObj.id,
-            eventType: CallEventType.TERMINATE,
-            metaTimestamp,
-            rawPayload: fullPayload as Record<string, unknown>,
-        })
-        if (!accepted) return
-
-        const direction = fromMetaDirection(callObj.direction ?? "USER_INITIATED")
-        const waId = direction === CallDirection.INBOUND ? callObj.from : callObj.to
-        const profileName = contacts[0]?.profile?.name ?? null
-        const contactId = await this.resolveContactId(direction, waId ?? "", profileName)
-        const call = await this.callState.findOrCreate(callObj.id, {
-            phoneNumberId: metadata?.phone_number_id ?? "",
-            contactId,
-            direction,
-            status: CallStatus.PENDING,
-            statusRank: 10,
-        })
-
-        const terminalStatus = this.resolveTerminalState(callObj, call.status)
-
-        const endedAt = new Date()
-        const patch: Partial<Call> = {
-            endedAt,
-            endReason: this.mapEndReason(terminalStatus, callObj),
-        }
-        patch.durationSeconds = callObj.duration !== undefined
-            ? Number(callObj.duration)
-            : this.elapsedSeconds(call.answeredAt, endedAt)
-        if (callObj.errors?.length) {
-            patch.errorCode = callObj.errors[0]!.code
-            patch.errorMessage = callObj.errors[0]!.message || callObj.errors[0]!.error_data?.details || null
-        }
-
-        const transitioned = await this.callState.transition(callObj.id, terminalStatus, patch)
-        await this.media.teardown(callObj.id, `terminate_webhook_${terminalStatus}`)
-
-        if (transitioned) {
-            const outcome = terminalStatus === CallStatus.COMPLETED ? CallLogOutcome.COMPLETED
-                : terminalStatus === CallStatus.REJECTED ? CallLogOutcome.REJECTED
-                : CallLogOutcome.MISSED
-            const updatedCall = { ...call, ...patch }
-            await this.signaling.logCallOutcome(updatedCall, outcome, patch.durationSeconds ?? null)
-            this.signaling.notifyCallEnded(updatedCall, patch.endReason ?? EndReason.MEDIA_FAILURE)
-        }
-    }
-
-
-
-    /** Meta tidak selalu menyertakan durasi, jadi dihitung sendiri dari saat panggilan dijawab. */
-    private elapsedSeconds(answeredAt: Date | null | undefined, endedAt: Date): number {
-        if (!answeredAt) return 0
-        return Math.max(0, Math.round((endedAt.getTime() - answeredAt.getTime()) / 1000))
-    }
-
-    private async resolveContactId(_direction: CallDirection, phoneNumber: string, name: string | null): Promise<number | null> {
+    private async resolveContactId(phoneNumber: string, name: string | null): Promise<number | null> {
         if (!phoneNumber) return null
         const contact = await this.contacts.findOrCreate(phoneNumber, name)
         return contact.id
@@ -325,51 +161,5 @@ export class WebhookService {
             return
         }
         logger.info("Meta account_update received", { businessAccountId, event: value.event })
-    }
-
-    private resolveTerminalState(callObj: MetaCallObject, currentStatus: CallStatus): CallStatus {
-        if (callObj.errors?.length) return CallStatus.FAILED
-        if (callObj.status === "FAILED") return CallStatus.FAILED
-        if (currentStatus === CallStatus.ACTIVE) return CallStatus.COMPLETED
-        if (currentStatus === CallStatus.REJECTED) return CallStatus.REJECTED
-        return CallStatus.ABANDONED
-    }
-
-    private mapEndReason(terminal: CallStatus, callObj: MetaCallObject): EndReason | null {
-        if (terminal === CallStatus.FAILED) {
-            return callObj.errors?.length ? EndReason.META_ERROR : EndReason.MEDIA_FAILURE
-        }
-        if (terminal === CallStatus.ABANDONED) return EndReason.CUSTOMER_HANGUP
-        return null 
-    }
-
-    private async handleCallCreated(
-        callObj: MetaCallObject,
-        metadata: MetaMetadata | undefined,
-        contacts: MetaContact[],
-        fullPayload: unknown
-    ): Promise<void> {
-        const metaTimestamp = Number(callObj.timestamp) || undefined
-
-        const { accepted } = await this.callState.recordEvent({
-            wacid: callObj.id,
-            eventType: CallEventType.CALL_CREATED,
-            metaTimestamp,
-            rawPayload: fullPayload as Record<string, unknown>,
-        })
-        if (!accepted) return
-
-        const direction = fromMetaDirection(callObj.direction ?? "USER_INITIATED")
-        const waId = direction === CallDirection.INBOUND ? callObj.from : callObj.to
-        const profileName = contacts[0]?.profile?.name ?? null
-        const contactId = await this.resolveContactId(direction, waId ?? "", profileName)
-
-        await this.callState.findOrCreate(callObj.id, {
-            phoneNumberId: metadata?.phone_number_id ?? "",
-            contactId,
-            direction,
-            status: CallStatus.PENDING,
-            statusRank: 10,
-        })
     }
 }

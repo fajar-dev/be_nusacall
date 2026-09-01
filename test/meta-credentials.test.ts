@@ -102,13 +102,13 @@ describe("MetaClient memakai kredensial pemilik nomor", () => {
         await seedAccount("nomor-B", "wa-200")
 
         const client = new MetaClient()
-        await client.reject("nomor-A", "wacid.satu")
-        await client.reject("nomor-B", "wacid.dua")
+        await client.updateCallSettings("nomor-A", { status: "ENABLED" })
+        await client.updateCallSettings("nomor-B", { status: "ENABLED" })
 
         expect(diterima).toHaveLength(2)
-        expect(diterima[0]!.url).toBe("/nomor-A/calls")
+        expect(diterima[0]!.url).toBe("/nomor-A/settings")
         expect(diterima[0]!.authorization).toBe("Bearer token-satu")
-        expect(diterima[1]!.url).toBe("/nomor-B/calls")
+        expect(diterima[1]!.url).toBe("/nomor-B/settings")
         expect(diterima[1]!.authorization).toBe("Bearer token-dua")
     })
 

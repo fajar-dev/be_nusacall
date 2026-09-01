@@ -4,7 +4,6 @@ import { CallStateService } from "./call-state.service"
 import { CallStatus } from "./enums/call-status.enum"
 import { CallDirection } from "./enums/call-direction.enum"
 import { EndReason } from "./enums/end-reason.enum"
-import { MetaClient } from "../../infrastructure/meta/meta.client"
 import { sessionRegistry } from "../../infrastructure/media/session-registry"
 import { presenceRegistry } from "../user/presence.registry"
 import { RoutingService } from "../routing/routing.service"
@@ -13,9 +12,12 @@ import { formatCallLogMessage } from "./call-log-message"
 import { config } from "../../config/config"
 import { logger } from "../../core/helpers/logger"
 import type { IAgentNotifier, ICallSignalingNotifier, WsOutboundPacket } from "./interfaces/call-signaling.interface"
+import type { IAsteriskCallControl } from "./interfaces/asterisk-call-control.interface"
 import type { Call } from "./entities/call.entity"
 import { CallLogOutcome } from "./enums/call-log-outcome.enum"
 import { ContactService } from "../contact/contact.service"
+import { IAccountRepository } from "../account/interfaces/account.repository.interface"
+import { NotFoundException } from "../../core/exceptions/base"
 
 function packet(type: string, wacid: string, data?: unknown): WsOutboundPacket {
     return { type, wacid, data, ts: Date.now() }
@@ -26,10 +28,11 @@ export class CallSignalingService implements ICallSignalingNotifier {
         private readonly notifier: IAgentNotifier,
         private readonly callRepository: ICallRepository,
         private readonly callState: CallStateService,
-        private readonly metaClient: MetaClient,
+        private readonly asterisk: IAsteriskCallControl,
         private readonly routing: RoutingService,
         private readonly nusawaLog: NusawaLogService,
         private readonly contacts: ContactService,
+        private readonly accounts: IAccountRepository,
     ) {}
 
     async notifyIncoming(call: Call): Promise<void> {
@@ -37,9 +40,9 @@ export class CallSignalingService implements ICallSignalingNotifier {
 
         if (decision.kind === "reject") {
             try {
-                await this.metaClient.reject(call.phoneNumberId, call.wacid)
+                await this.asterisk.hangupChannel(call.wacid, "busy")
             } catch (err) {
-                logger.error("Meta reject failed for no-agent-available call", { wacid: call.wacid, err })
+                logger.error("Asterisk hangup failed for no-agent-available call", { wacid: call.wacid, err })
             }
             await this.callState.transition(call.wacid, CallStatus.MISSED, {
                 endReason: decision.reason ?? EndReason.NO_AGENT_AVAILABLE,
@@ -116,9 +119,9 @@ export class CallSignalingService implements ICallSignalingNotifier {
         this.notifier.send(agentEmail, packet("webrtc_answer", wacid, { sdp: answerSdp }))
 
         try {
-            await this.metaClient.accept(call.phoneNumberId, wacid, session.metaAnswerSdp!)
+            await this.asterisk.acceptCall(wacid)
         } catch (err) {
-            logger.error("Meta accept failed after agent answered", { wacid, err })
+            logger.error("Asterisk accept failed after agent answered", { wacid, err })
             await this.callState.transition(wacid, CallStatus.FAILED, {
                 endReason: EndReason.MEDIA_FAILURE,
                 endedAt: new Date(),
@@ -143,9 +146,9 @@ export class CallSignalingService implements ICallSignalingNotifier {
         if (!call) return
 
         try {
-            await this.metaClient.reject(call.phoneNumberId, wacid)
+            await this.asterisk.hangupChannel(wacid, "rejected")
         } catch (err) {
-            logger.error("Meta reject failed", { wacid, err })
+            logger.error("Asterisk hangup failed", { wacid, err })
         }
 
         await this.callState.transition(wacid, CallStatus.REJECTED, {
@@ -165,9 +168,9 @@ export class CallSignalingService implements ICallSignalingNotifier {
         if (!call) return
 
         try {
-            await this.metaClient.terminate(call.phoneNumberId, wacid)
+            await this.asterisk.hangupChannel(wacid, "normal")
         } catch (err) {
-            logger.error("Meta terminate failed", { wacid, err })
+            logger.error("Asterisk hangup failed", { wacid, err })
         }
 
         const durationSeconds = this.durationSince(call.answeredAt)
@@ -207,13 +210,14 @@ export class CallSignalingService implements ICallSignalingNotifier {
 
     async initiateOutbound(userId: number, agentEmail: string, phoneNumberId: string, contactId: number, offerSdp: string): Promise<{ wacid: string; answerSdp: string }> {
         const contact = await this.contacts.getById(contactId)
+        const account = await this.accounts.findByPhoneNumberId(phoneNumberId)
+        if (!account) throw new NotFoundException("Account not found")
+
         const tempKey = `pending.${randomUUID()}`
         const session = sessionRegistry.create(tempKey)
 
-        let metaOfferSdp: string
         let agentAnswerSdp: string
         try {
-            metaOfferSdp = await session.createMetaOffer()
             agentAnswerSdp = await session.attachAgent(offerSdp)
         } catch (err) {
             await sessionRegistry.remove(tempKey, "outbound_media_setup_failed")
@@ -222,10 +226,10 @@ export class CallSignalingService implements ICallSignalingNotifier {
 
         let wacid: string
         try {
-            const response = await this.metaClient.connect(phoneNumberId, contact.phoneNumber, metaOfferSdp)
-            wacid = response.calls?.[0]?.id ?? tempKey
+            const result = await this.asterisk.originateOutbound(account, contact.phoneNumber)
+            wacid = result.wacid
         } catch (err) {
-            await sessionRegistry.remove(tempKey, "outbound_connect_failed")
+            await sessionRegistry.remove(tempKey, "outbound_originate_failed")
             throw err
         }
 

@@ -4,8 +4,6 @@ import { resolveApplication } from "./meta-credentials"
 import { logger } from "../../core/helpers/logger"
 import { BadGatewayException } from "../../core/exceptions/base"
 import type {
-    MetaCallActionRequest,
-    MetaCallActionResponse,
     MetaErrorResponse,
     MetaCallPermissionResponse,
     MetaCallSettings,
@@ -60,55 +58,6 @@ export class MetaClient {
             throw new BadGatewayException("Failed to reach Meta Graph API")
         }
         return this.unwrap<T>(path, res)
-    }
-
-    async preAccept(phoneNumberId: string, callId: string, answerSdp: string): Promise<MetaCallActionResponse> {
-        const body: MetaCallActionRequest = {
-            messaging_product: "whatsapp",
-            call_id: callId,
-            action: "pre_accept",
-            session: { sdp_type: "answer", sdp: answerSdp },
-        }
-        return this.post(phoneNumberId, `/${phoneNumberId}/calls`, body)
-    }
-
-    async accept(phoneNumberId: string, callId: string, answerSdp: string): Promise<MetaCallActionResponse> {
-        const body: MetaCallActionRequest = {
-            messaging_product: "whatsapp",
-            call_id: callId,
-            action: "accept",
-            session: { sdp_type: "answer", sdp: answerSdp },
-        }
-        return this.post(phoneNumberId, `/${phoneNumberId}/calls`, body)
-    }
-
-
-    async reject(phoneNumberId: string, callId: string): Promise<MetaCallActionResponse> {
-        const body: MetaCallActionRequest = {
-            messaging_product: "whatsapp",
-            call_id: callId,
-            action: "reject",
-        }
-        return this.post(phoneNumberId, `/${phoneNumberId}/calls`, body)
-    }
-
-    async terminate(phoneNumberId: string, callId: string): Promise<MetaCallActionResponse> {
-        const body: MetaCallActionRequest = {
-            messaging_product: "whatsapp",
-            call_id: callId,
-            action: "terminate",
-        }
-        return this.post(phoneNumberId, `/${phoneNumberId}/calls`, body)
-    }
-
-    async connect(phoneNumberId: string, to: string, offerSdp: string): Promise<MetaCallActionResponse> {
-        const body: MetaCallActionRequest = {
-            messaging_product: "whatsapp",
-            to,
-            action: "connect",
-            session: { sdp_type: "offer", sdp: offerSdp },
-        }
-        return this.post(phoneNumberId, `/${phoneNumberId}/calls`, body)
     }
 
     async sendCallPermissionRequest(

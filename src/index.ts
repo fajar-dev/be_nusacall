@@ -6,7 +6,7 @@ import { serveStatic, websocket } from 'hono/bun'
 import { swaggerUI } from '@hono/swagger-ui'
 import api from './routes/api'
 import { webhookController } from './modules/webhook/webhook.module'
-import { signalingGateway } from './gateway/signaling.module'
+import { signalingGateway, asteriskCallHandler } from './gateway/signaling.module'
 import { sessionRegistry } from './infrastructure/media/session-registry'
 import { startJobs } from './jobs'
 import { ApiResponse } from './core/helpers/response'
@@ -27,6 +27,7 @@ app.use('*', cors({
 app.use('*', languageMiddleware)
 
 metaApplications.load()
+asteriskCallHandler.start()
 
 AppDataSource.initialize()
     .then(() => {

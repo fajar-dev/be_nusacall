@@ -83,12 +83,13 @@ export function createTestApp(): Hono {
     const api = require("../src/routes/api").default
     const { buildWebhookController } = require("../src/modules/webhook/webhook.module")
 
-    const noopMediaCoordinator = {
-        establishEarly: async () => ({ ok: true }),
-        teardown: async () => {},
+    const noopSignaling = {
+        notifyIncoming: async () => {},
+        logCallOutcome: async () => {},
+        notifyCallEnded: () => {},
+        notifyOutboundActive: () => {},
     }
-    const noopSignaling = { notifyIncoming: async () => {}, logCallOutcome: async () => {}, notifyCallEnded: () => {} }
-    const webhookController = buildWebhookController(noopMediaCoordinator, noopSignaling)
+    const webhookController = buildWebhookController(noopSignaling)
 
     const app = new Hono()
 

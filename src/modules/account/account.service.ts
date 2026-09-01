@@ -4,6 +4,7 @@ import { CallIconVisibility } from "./enums/call-icon-visibility.enum"
 import { MetaClient } from "../../infrastructure/meta/meta.client"
 import { NotFoundException } from "../../core/exceptions/base"
 import { logger } from "../../core/helpers/logger"
+import { config } from "../../config/config"
 import type { MetaHealthStatusResponse } from "../../infrastructure/meta/meta.types"
 
 export interface UpdateAccountInput {
@@ -58,12 +59,17 @@ export class AccountService {
         return await this.metaClient.getHealthStatus(account.phoneNumberId)
     }
 
+    /** Calling selalu diarahkan lewat SIP (Asterisk) — endpoint calling Graph API tidak dipakai lagi. */
     private async syncToMeta(account: Account): Promise<Account> {
         try {
             await this.metaClient.updateCallSettings(account.phoneNumberId, {
                 status: account.callingEnabled ? "ENABLED" : "DISABLED",
                 call_icon_visibility: account.callIconVisibility,
                 ...(account.callHours ? { call_hours: account.callHours } : {}),
+                sip: account.callingEnabled ? {
+                    status: "ENABLED",
+                    servers: [{ hostname: config.asterisk.sipHostname, port: config.asterisk.sipPort }],
+                } : { status: "DISABLED" },
             })
         } catch (err) {
             logger.error("Failed to sync account settings to Meta", { phoneNumberId: account.phoneNumberId, err })

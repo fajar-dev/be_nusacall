@@ -6,6 +6,7 @@ import { AccountService } from "../src/modules/account/account.service"
 import { getDataSource } from "../src/config/database"
 import { Account } from "../src/modules/account/entities/account.entity"
 import { CallIconVisibility } from "../src/modules/account/enums/call-icon-visibility.enum"
+import { config } from "../src/config/config"
 import type { MetaClient } from "../src/infrastructure/meta/meta.client"
 
 let app: Hono
@@ -97,7 +98,11 @@ describe("AccountService.update", () => {
         expect(updated.label).toBe("Helpdesk Bandung")
         expect(updated.callingEnabled).toBe(true)
         expect(updated.lastSyncedAt).not.toBeNull()
-        expect(sentCalling).toEqual([{ status: "ENABLED", call_icon_visibility: "DEFAULT" }])
+        expect(sentCalling).toEqual([{
+            status: "ENABLED",
+            call_icon_visibility: "DEFAULT",
+            sip: { status: "ENABLED", servers: [{ hostname: config.asterisk.sipHostname, port: config.asterisk.sipPort }] },
+        }])
     })
 
     test("does not lose the local save when Meta sync fails", async () => {

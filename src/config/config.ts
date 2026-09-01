@@ -73,4 +73,16 @@ export const config = {
     outbound: {
         permissionCacheTtlSeconds: Number(process.env.CALL_PERMISSION_CACHE_TTL) || 60,
     },
+
+    asterisk: {
+        ariBaseUrl: process.env.ASTERISK_ARI_URL || 'http://127.0.0.1:8088',
+        ariApp: process.env.ASTERISK_ARI_APP || 'nusacall-sip',
+        ariUsername: process.env.ASTERISK_ARI_USERNAME || '',
+        ariPassword: process.env.ASTERISK_ARI_PASSWORD || '',
+        sipHostname: process.env.ASTERISK_SIP_HOSTNAME || '',
+        sipPort: Number(process.env.ASTERISK_SIP_PORT) || 5061,
+        externalMediaHost: process.env.ASTERISK_EXTERNAL_MEDIA_HOST || '127.0.0.1',
+        externalMediaPortMin: Number(process.env.ASTERISK_EXTERNAL_MEDIA_PORT_MIN) || 41000,
+        externalMediaPortMax: Number(process.env.ASTERISK_EXTERNAL_MEDIA_PORT_MAX) || 41100,
+    },
 }

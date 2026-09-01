@@ -8,18 +8,14 @@ import {
     createTestApp,
     request, TEST_APP_SECRET, TEST_VERIFY_TOKEN } from "./setup"
 import {
-    createConnectWebhookPayload,
     createStatusWebhookPayload,
-    createTerminateWebhookPayload,
     createAccountUpdateWebhookPayload,
 } from "./helpers"
 import { config } from "../src/config/config"
 import { getDataSource } from "../src/config/database"
 import { Call } from "../src/modules/call/entities/call.entity"
 import { CallEvent } from "../src/modules/call/entities/call-event.entity"
-import { Contact } from "../src/modules/contact/entities/contact.entity"
 import { CallStatus } from "../src/modules/call/enums/call-status.enum"
-import { CallDirection } from "../src/modules/call/enums/call-direction.enum"
 
 let app: Hono
 
@@ -61,11 +57,6 @@ async function countCallEvents(wacid: string): Promise<number> {
     return await repo.countBy({ wacid })
 }
 
-async function getContact(phoneNumber: string): Promise<Contact | null> {
-    const repo = getDataSource().getRepository(Contact)
-    return await repo.findOneBy({ phoneNumber })
-}
-
 async function flush() {
     await new Promise((r) => setTimeout(r, 150))
 }
@@ -87,235 +78,28 @@ describe("Webhook - GET /wh handshake", () => {
 
 describe("Webhook - POST /wh signature verification", () => {
     test("accepts a correctly signed payload (204)", async () => {
-        const payload = createConnectWebhookPayload()
+        const payload = createStatusWebhookPayload({ wacid: "wacid.SIGVERIFY1", status: "RINGING" })
         const { status } = await postWebhook(app, payload)
         expect(status).toBe(204)
     })
 
     test("rejects an incorrectly signed payload (401)", async () => {
-        const payload = createConnectWebhookPayload()
+        const payload = createStatusWebhookPayload({ wacid: "wacid.SIGVERIFY2", status: "RINGING" })
         const { status, body } = await postWebhook(app, payload, { signature: "sha1=deadbeef" })
         expect(status).toBe(401)
         expect(body.success).toBe(false)
     })
 
     test("rejects a missing signature header (401)", async () => {
-        const payload = createConnectWebhookPayload()
+        const payload = createStatusWebhookPayload({ wacid: "wacid.SIGVERIFY3", status: "RINGING" })
         const bodyStr = JSON.stringify(payload)
         const { status } = await request(app, "/wh", { method: "POST", rawBody: bodyStr })
         expect(status).toBe(401)
     })
 })
 
-describe("Call Lifecycle - normal flow (connect -> terminate)", () => {
-    test("connect creates a PENDING call; terminate marks it COMPLETED after ACCEPTED", async () => {
-        const wacid = "wacid.NORMAL1"
-
-        await postWebhook(app, createConnectWebhookPayload({ wacid }))
-        await flush()
-
-        let call = await getCall(wacid)
-        expect(call).not.toBeNull()
-        expect(call!.status).toBe(CallStatus.PENDING)
-        expect(call!.statusRank).toBe(10)
-
-        await postWebhook(app, createStatusWebhookPayload({ wacid, status: "ACCEPTED" }))
-        await flush()
-
-        call = await getCall(wacid)
-        expect(call!.status).toBe(CallStatus.ACTIVE)
-
-        await postWebhook(app, createTerminateWebhookPayload({
-            wacid, status: "COMPLETED", startTime: 1000, endTime: 1135, duration: 135,
-        }))
-        await flush()
-
-        call = await getCall(wacid)
-        expect(call!.status).toBe(CallStatus.COMPLETED)
-        expect(call!.statusRank).toBe(90)
-        expect(call!.durationSeconds).toBe(135)
-        expect(call!.endedAt).not.toBeNull()
-    })
-})
-
-describe("Call Lifecycle - penanda rekaman", () => {
-    test("panggilan yang dijawab ditandai merekam, termasuk panggilan keluar", async () => {
-        const wacid = "wacid.RECFLAG1"
-
-        await postWebhook(app, createConnectWebhookPayload({ wacid, direction: "BUSINESS_INITIATED" }))
-        await flush()
-        await postWebhook(app, createStatusWebhookPayload({ wacid, status: "ACCEPTED" }))
-        await flush()
-
-        const call = await getCall(wacid)
-        expect(call!.direction).toBe(CallDirection.OUTBOUND)
-        expect(call!.recordingEnabled).toBe(config.recording.recordingEnabled)
-    })
-})
-
-describe("Call Lifecycle - durasi ketika Meta tidak mengirimkannya", () => {
-    test("durasi dihitung dari answeredAt sampai endedAt", async () => {
-        const wacid = "wacid.NODURATION1"
-
-        await postWebhook(app, createConnectWebhookPayload({ wacid }))
-        await flush()
-        await postWebhook(app, createStatusWebhookPayload({ wacid, status: "ACCEPTED" }))
-        await flush()
-
-        const answeredAt = new Date(Date.now() - 30_000)
-        await getDataSource().getRepository(Call).update({ wacid }, { answeredAt })
-
-        await postWebhook(app, createTerminateWebhookPayload({ wacid, status: "COMPLETED" }))
-        await flush()
-
-        const call = await getCall(wacid)
-        expect(call!.durationSeconds).not.toBeNull()
-        expect(call!.durationSeconds).toBeGreaterThanOrEqual(29)
-        expect(call!.durationSeconds).toBeLessThanOrEqual(32)
-    })
-
-    test("durasi tetap nol ketika panggilan tidak pernah dijawab", async () => {
-        const wacid = "wacid.NODURATION2"
-
-        await postWebhook(app, createConnectWebhookPayload({ wacid }))
-        await flush()
-        await postWebhook(app, createTerminateWebhookPayload({ wacid, status: "FAILED" }))
-        await flush()
-
-        const call = await getCall(wacid)
-        expect(call!.durationSeconds ?? 0).toBe(0)
-    })
-})
-
-describe("Contact - auto-saved on inbound calls", () => {
-    test("an inbound connect from a new number saves a contact", async () => {
-        const waId = "628111000001"
-        await postWebhook(app, createConnectWebhookPayload({ waId, profileName: "Budi" }))
-        await flush()
-
-        const contact = await getContact(waId)
-        expect(contact).not.toBeNull()
-        expect(contact!.name).toBe("Budi")
-    })
-
-    test("a second inbound call from the same number does not create a duplicate or overwrite the name", async () => {
-        const waId = "628111000002"
-        await postWebhook(app, createConnectWebhookPayload({ waId, profileName: "Budi" }))
-        await flush()
-
-        await postWebhook(app, createConnectWebhookPayload({ waId, profileName: "Someone Else" }))
-        await flush()
-
-        const repo = getDataSource().getRepository(Contact)
-        const matches = await repo.findBy({ phoneNumber: waId })
-        expect(matches).toHaveLength(1)
-        expect(matches[0]!.name).toBe("Budi")
-    })
-
-    test("an outbound connect also saves the dialed number as a contact", async () => {
-        const dialedNumber = "62819854321"
-        await postWebhook(app, createConnectWebhookPayload({ direction: "BUSINESS_INITIATED" }))
-        await flush()
-
-        const contact = await getContact(dialedNumber)
-        expect(contact).not.toBeNull()
-        expect(contact!.phoneNumber).toBe(dialedNumber)
-    })
-})
-
-describe("Call Lifecycle - reversed order (terminate before connect)", () => {
-    test("terminate arriving first creates the call as ABANDONED; a later connect does NOT revert it to PENDING", async () => {
-        const wacid = "wacid.REVERSED1"
-
-        await postWebhook(app, createTerminateWebhookPayload({ wacid, status: "COMPLETED" }))
-        await flush()
-
-        let call = await getCall(wacid)
-        expect(call).not.toBeNull()
-        expect(call!.status).toBe(CallStatus.ABANDONED) // never reached ACTIVE, so ABANDONED not COMPLETED
-        expect(call!.statusRank).toBe(90)
-
-        await postWebhook(app, createConnectWebhookPayload({ wacid }))
-        await flush()
-
-        call = await getCall(wacid)
-        expect(call!.status).toBe(CallStatus.ABANDONED)
-        expect(call!.statusRank).toBe(90)
-    })
-})
-
-describe("Call Lifecycle - duplicate connect webhooks", () => {
-    test("3 identical connect deliveries result in exactly ONE call row and ONE recorded event", async () => {
-        const wacid = "wacid.DUPCONNECT1"
-        const timestamp = Math.floor(Date.now() / 1000)
-        const payload = createConnectWebhookPayload({ wacid, timestamp })
-
-        await postWebhook(app, payload)
-        await postWebhook(app, payload)
-        await postWebhook(app, payload)
-        await flush()
-
-        const call = await getCall(wacid)
-        expect(call).not.toBeNull()
-        expect(call!.status).toBe(CallStatus.PENDING)
-
-        const eventCount = await countCallEvents(wacid)
-        expect(eventCount).toBe(1)
-    })
-})
-
-describe("Call Lifecycle - stale webhook", () => {
-    test("a terminate webhook older than the stale threshold is recorded but does NOT change state", async () => {
-        const wacid = "wacid.STALE1"
-
-        await postWebhook(app, createConnectWebhookPayload({ wacid }))
-        await flush()
-
-        let call = await getCall(wacid)
-        expect(call!.status).toBe(CallStatus.PENDING)
-
-        const staleTimestamp = Math.floor(Date.now() / 1000) - (config.call.webhookStaleSeconds + 300)
-        await postWebhook(app, createTerminateWebhookPayload({ wacid, status: "COMPLETED", timestamp: staleTimestamp }))
-        await flush()
-
-        call = await getCall(wacid)
-        expect(call!.status).toBe(CallStatus.PENDING)
-
-        const eventCount = await countCallEvents(wacid)
-        expect(eventCount).toBe(2) // connect + the stale terminate (recorded for audit, not acted on)
-    })
-})
-
-describe("Call Lifecycle - duplicate terminate after completion", () => {
-    test("a second terminate after COMPLETED does not change status or overwrite fields", async () => {
-        const wacid = "wacid.DUPTERM1"
-
-        await postWebhook(app, createConnectWebhookPayload({ wacid }))
-        await postWebhook(app, createStatusWebhookPayload({ wacid, status: "ACCEPTED" }))
-        await flush()
-
-        await postWebhook(app, createTerminateWebhookPayload({
-            wacid, status: "COMPLETED", duration: 60, timestamp: Math.floor(Date.now() / 1000),
-        }))
-        await flush()
-
-        let call = await getCall(wacid)
-        expect(call!.status).toBe(CallStatus.COMPLETED)
-        expect(call!.durationSeconds).toBe(60)
-
-        await postWebhook(app, createTerminateWebhookPayload({
-            wacid, status: "COMPLETED", duration: 9999, timestamp: Math.floor(Date.now() / 1000) + 5,
-        }))
-        await flush()
-
-        call = await getCall(wacid)
-        expect(call!.status).toBe(CallStatus.COMPLETED)
-        expect(call!.durationSeconds).toBe(60) // rank guard rejects the overwrite
-    })
-})
-
-describe("Call Lifecycle - status webhook arrives before connect", () => {
-    test("a RINGING status with no prior connect creates the row at PENDING then advances to RINGING", async () => {
+describe("Call Lifecycle - status webhook arrives before any ARI-driven call row exists", () => {
+    test("a RINGING status with no prior call creates the row at PENDING then advances to RINGING", async () => {
         const wacid = "wacid.STATUSFIRST1"
 
         await postWebhook(app, createStatusWebhookPayload({ wacid, status: "RINGING" }))
@@ -326,6 +110,61 @@ describe("Call Lifecycle - status webhook arrives before connect", () => {
         expect(call!.status).toBe(CallStatus.RINGING)
         expect(call!.statusRank).toBe(20)
         expect(call!.ringingAt).not.toBeNull()
+    })
+
+    test("ACCEPTED marks the call ACTIVE and stamps recordingEnabled", async () => {
+        const wacid = "wacid.STATUSACCEPTED1"
+
+        await postWebhook(app, createStatusWebhookPayload({ wacid, status: "RINGING" }))
+        await flush()
+        await postWebhook(app, createStatusWebhookPayload({ wacid, status: "ACCEPTED" }))
+        await flush()
+
+        const call = await getCall(wacid)
+        expect(call!.status).toBe(CallStatus.ACTIVE)
+        expect(call!.recordingEnabled).toBe(config.recording.recordingEnabled)
+    })
+})
+
+describe("Call Lifecycle - duplicate status webhooks", () => {
+    test("3 identical RINGING deliveries result in exactly ONE recorded event", async () => {
+        const wacid = "wacid.DUPSTATUS1"
+        const timestamp = Math.floor(Date.now() / 1000)
+        const payload = createStatusWebhookPayload({ wacid, status: "RINGING", timestamp })
+
+        await postWebhook(app, payload)
+        await postWebhook(app, payload)
+        await postWebhook(app, payload)
+        await flush()
+
+        const call = await getCall(wacid)
+        expect(call).not.toBeNull()
+        expect(call!.status).toBe(CallStatus.RINGING)
+
+        const eventCount = await countCallEvents(wacid)
+        expect(eventCount).toBe(1)
+    })
+})
+
+describe("Call Lifecycle - stale webhook", () => {
+    test("a status webhook older than the stale threshold is recorded but does NOT change state", async () => {
+        const wacid = "wacid.STALE1"
+
+        await postWebhook(app, createStatusWebhookPayload({ wacid, status: "RINGING" }))
+        await flush()
+
+        let call = await getCall(wacid)
+        expect(call!.status).toBe(CallStatus.RINGING)
+
+        const staleTimestamp = Math.floor(Date.now() / 1000) - (config.call.webhookStaleSeconds + 300)
+        await postWebhook(app, createStatusWebhookPayload({ wacid, status: "ACCEPTED", timestamp: staleTimestamp }))
+        await flush()
+
+        call = await getCall(wacid)
+        expect(call!.status).toBe(CallStatus.RINGING)
+
+        const eventCount = await countCallEvents(wacid)
+        expect(eventCount).toBe(2) // RINGING + the stale ACCEPTED (recorded for audit, not acted on)
     })
 })
 
@@ -366,13 +205,13 @@ describe("Webhook - account_update", () => {
         expect(status).toBe(204)
     })
 
-    test("account_update alongside a real calls event in the same delivery — both are processed", async () => {
+    test("account_update alongside a real status event in the same delivery — both are processed", async () => {
         const wacid = "wacid.ACCTUPD1"
-        const payload = createConnectWebhookPayload({ wacid })
-        payload.entry[0]!.changes.push({
+        const payload = createStatusWebhookPayload({ wacid, status: "RINGING" }) as Record<string, any>
+        payload.entry[0].changes.push({
             field: "account_update",
             value: { event: "ACCOUNT_VIOLATION", violation_info: { violation_type: "LOW_BUSINESS_INITIATED_CALLING_QUALITY" } },
-        } as never)
+        })
 
         const { status } = await postWebhook(app, payload)
         expect(status).toBe(204)

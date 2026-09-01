@@ -1,24 +1,3 @@
-interface MetaSession {
-    sdp_type: "offer" | "answer"
-    sdp: string
-}
-
-export interface MetaCallActionRequest {
-    messaging_product: "whatsapp"
-    call_id?: string
-    to?: string
-    recipient?: string
-    action: "connect" | "pre_accept" | "accept" | "reject" | "terminate"
-    session?: MetaSession
-    biz_opaque_callback_data?: string
-}
-
-export interface MetaCallActionResponse {
-    messaging_product?: "whatsapp"
-    success?: boolean
-    calls?: Array<{ id: string }>
-}
-
 export interface MetaErrorResponse {
     error: {
         message: string
