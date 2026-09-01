@@ -138,6 +138,15 @@ export class AriClient {
         })
     }
 
+    /** Originate langsung ke dialplan (bukan ke app Stasis) — dipakai untuk channel dummy diam. */
+    async originateToDialplan(params: { endpoint: string; context: string; extension: string }): Promise<AriChannel> {
+        return this.request("post", "/channels", {
+            endpoint: params.endpoint,
+            context: params.context,
+            extension: params.extension,
+        })
+    }
+
     async ringChannel(channelId: string): Promise<void> {
         await this.request("post", `/channels/${channelId}/ring`)
     }

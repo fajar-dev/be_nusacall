@@ -18,6 +18,7 @@ import { logger } from "../../core/helpers/logger"
 interface PendingBridge {
     bridgeId: string
     externalMediaChannelId: string
+    dummyChannelId: string
 }
 
 /**
@@ -149,7 +150,17 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
         })
         await ariClient.addChannelToBridge(bridge.id, externalMediaChannel.id)
 
-        return { bridgeId: bridge.id, externalMediaChannelId: externalMediaChannel.id }
+        // Asterisk memilih engine "simple_bridge" (bukan softmix) untuk bridge persis 2 anggota
+        // PJSIP+ExternalMedia, dan simple_bridge diam-diam mendrop RTP satu arah untuk kombinasi
+        // ini — bug yang sudah dikenal komunitas Asterisk. Anggota ke-3 yang diam memaksa softmix.
+        const dummyChannel = await ariClient.originateToDialplan({
+            endpoint: "Local/s@nusacall-dummy",
+            context: "nusacall-dummy",
+            extension: "s",
+        })
+        await ariClient.addChannelToBridge(bridge.id, dummyChannel.id)
+
+        return { bridgeId: bridge.id, externalMediaChannelId: externalMediaChannel.id, dummyChannelId: dummyChannel.id }
     }
 
     private async handleChannelStateChange(event: AriChannelStateChangeEvent): Promise<void> {
@@ -203,8 +214,9 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
         const pending = this.bridges.get(wacid)
         this.bridges.delete(wacid)
         if (pending) {
-            /** Menghancurkan bridge TIDAK menghangupkan anggotanya — externalMedia harus di-hangup eksplisit, kalau tidak channel-nya menggantung selamanya di Stasis. */
+            /** Menghancurkan bridge TIDAK menghangupkan anggotanya — externalMedia & dummy harus di-hangup eksplisit, kalau tidak channel-nya menggantung selamanya di Stasis/dialplan. */
             await ariClient.hangupChannel(pending.externalMediaChannelId, "normal").catch(() => {})
+            await ariClient.hangupChannel(pending.dummyChannelId, "normal").catch(() => {})
             await ariClient.destroyBridge(pending.bridgeId).catch(() => {})
         }
 
