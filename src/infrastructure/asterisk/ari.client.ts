@@ -170,6 +170,7 @@ export class AriClient {
             encapsulation: "rtp",
             transport: "udp",
             connection_type: "client",
+            direction: "both",
         })
     }
 }

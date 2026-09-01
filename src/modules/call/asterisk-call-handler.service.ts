@@ -203,6 +203,8 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
         const pending = this.bridges.get(wacid)
         this.bridges.delete(wacid)
         if (pending) {
+            /** Menghancurkan bridge TIDAK menghangupkan anggotanya — externalMedia harus di-hangup eksplisit, kalau tidak channel-nya menggantung selamanya di Stasis. */
+            await ariClient.hangupChannel(pending.externalMediaChannelId, "normal").catch(() => {})
             await ariClient.destroyBridge(pending.bridgeId).catch(() => {})
         }
 
