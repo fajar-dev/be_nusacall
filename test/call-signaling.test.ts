@@ -408,6 +408,24 @@ describe("CallSignalingService.handleReject / handleHangup", () => {
         expect((nusawaLog.enqueued[0] as { body: string }).body).toContain("ditolak")
     })
 
+    test("handleReject tidak menimpa panggilan yang sudah diklaim agent lain (race antar-agent)", async () => {
+        const wacid = "wacid.SIGREJECTRACE1"
+        await createRingingCall(wacid)
+        // agent2 sudah lebih dulu klaim panggilan ini sebelum klik "Tolak" agent1 diproses.
+        await callStateService.transition(wacid, CallStatus.CONNECTING, { userId: agent1Id })
+
+        const hungUp: string[] = []
+        const service = newSignalingService(new FakeNotifier(), fakeAsteriskControl({
+            hangupChannel: async (id) => { hungUp.push(id) },
+        }))
+
+        await service.handleReject("agent2@nusa.id", wacid, "busy")
+
+        expect(hungUp).toEqual([])
+        const updated = await callRepository.findByWacid(wacid)
+        expect(updated!.status).toBe(CallStatus.CONNECTING)
+    })
+
     test("handleHangup menyimpan durasi panggilan, bukan meninggalkannya null", async () => {
         const wacid = "wacid.SIGHANGUPDUR"
         await createRingingCall(wacid)

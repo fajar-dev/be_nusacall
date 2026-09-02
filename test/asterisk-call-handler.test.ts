@@ -4,10 +4,14 @@ import { describe, test, expect, beforeAll, afterAll, beforeEach, mock } from "b
 // sebelum modul manapun yang mengimpornya (termasuk AsteriskCallHandlerService)
 // dimuat — satu-satunya cara realistis mengendalikan sisi ARI tanpa Asterisk asli.
 let stasisStartListener: ((event: any) => void) | null = null
+let stasisEndListener: ((event: any) => void) | null = null
+let stateChangeListener: ((event: any) => void) | null = null
 
 const fakeAriClient = {
     onStasisStart: (cb: (event: any) => void) => { stasisStartListener = cb },
-    onStasisEnd: () => {},
+    onStasisEnd: (cb: (event: any) => void) => { stasisEndListener = cb },
+    onChannelStateChange: (cb: (event: any) => void) => { stateChangeListener = cb },
+    onRecordingFinished: () => {},
     connect: () => {},
     createBridge: async () => ({ id: "bridge-1" }),
     addChannelToBridge: async () => {},
@@ -30,6 +34,7 @@ const { TypeOrmContactRepository } = await import("../src/modules/contact/reposi
 const { TypeOrmAccountRepository } = await import("../src/modules/account/repositories/account.repository")
 const { CallStatus } = await import("../src/modules/call/enums/call-status.enum")
 const { CallDirection } = await import("../src/modules/call/enums/call-direction.enum")
+const { EndReason } = await import("../src/modules/call/enums/end-reason.enum")
 
 const TEST_PHONE_NUMBER_ID = "202063559668129"
 
@@ -63,7 +68,7 @@ beforeEach(async () => {
  * saat agent menekan angkat — StasisStart di sini hanya perlu membentuk bridge.
  */
 describe("AsteriskCallHandlerService — bridging leg agent", () => {
-    test("panggilan KELUAR ditandai ACTIVE saat agent tersambung, bukan tetap pending", async () => {
+    test("bridge agent+pelanggan terbentuk BELUM berarti panggilan keluar sudah ACTIVE", async () => {
         const wacid = "wacid.OUTBOUND-BRIDGE1"
         await callStateService.findOrCreate(wacid, {
             phoneNumberId: TEST_PHONE_NUMBER_ID,
@@ -76,9 +81,40 @@ describe("AsteriskCallHandlerService — bridging leg agent", () => {
         stasisStartListener!({ args: ["agent"], channel: { id: "agent-channel-1" } })
         await new Promise((r) => setTimeout(r, 50))
 
+        // Softphone browser agent auto-jawab begitu Asterisk menghubunginya —
+        // itu TIDAK sama dengan pelanggan di ujung sana benar-benar mengangkat.
+        const call = await callRepository.findByWacid(wacid)
+        expect(call!.status).toBe(CallStatus.PENDING)
+        expect(call!.answeredAt).toBeNull()
+    })
+
+    test("panggilan KELUAR baru ACTIVE begitu channel pelanggan sendiri jadi 'Up'", async () => {
+        const wacid = "wacid.OUTBOUND-BRIDGE2"
+        await callStateService.findOrCreate(wacid, {
+            phoneNumberId: TEST_PHONE_NUMBER_ID,
+            direction: CallDirection.OUTBOUND,
+            status: CallStatus.PENDING,
+            statusRank: 10,
+        })
+
+        await handler.connectAgent(wacid, 1)
+        stasisStartListener!({ args: ["agent"], channel: { id: "agent-channel-1" } })
+        await new Promise((r) => setTimeout(r, 50))
+
+        stateChangeListener!({ channel: { id: wacid, state: "Up" } })
+        await new Promise((r) => setTimeout(r, 50))
+
         const call = await callRepository.findByWacid(wacid)
         expect(call!.status).toBe(CallStatus.ACTIVE)
         expect(call!.answeredAt).not.toBeNull()
+    })
+
+    test("ChannelStateChange 'Up' diabaikan untuk channel yang bukan wacid panggilan keluar manapun", async () => {
+        stateChangeListener!({ channel: { id: "agent-channel-1", state: "Up" } })
+        await new Promise((r) => setTimeout(r, 20))
+        // Tidak melempar error, tidak ada yang perlu diverifikasi lebih lanjut —
+        // cukup pastikan findByWacid(channelId agent) yang null tidak bikin crash.
+        expect(true).toBe(true)
     })
 
     test("panggilan MASUK tidak disentuh statusnya di sini (sudah ACTIVE dari handleAnswer)", async () => {
@@ -96,5 +132,43 @@ describe("AsteriskCallHandlerService — bridging leg agent", () => {
 
         const call = await callRepository.findByWacid(wacid)
         expect(call!.status).toBe(CallStatus.PENDING)
+    })
+})
+
+describe("AsteriskCallHandlerService — StasisEnd sebelum benar-benar tersambung", () => {
+    test("panggilan KELUAR yang tidak pernah diangkat -> ABANDONED + ANSWER_TIMEOUT, bukan FAILED/media_failure", async () => {
+        const wacid = "wacid.OUTBOUND-NOANSWER1"
+        await callStateService.findOrCreate(wacid, {
+            phoneNumberId: TEST_PHONE_NUMBER_ID,
+            direction: CallDirection.OUTBOUND,
+            status: CallStatus.PENDING,
+            statusRank: 10,
+        })
+
+        stasisEndListener!({ channel: { id: wacid } })
+        await new Promise((r) => setTimeout(r, 50))
+
+        const call = await callRepository.findByWacid(wacid)
+        expect(call!.status).toBe(CallStatus.ABANDONED)
+        expect(call!.endReason).toBe(EndReason.ANSWER_TIMEOUT)
+    })
+
+    test("panggilan MASUK yang ditutup penelepon sebelum agent angkat -> ABANDONED + CUSTOMER_HANGUP, bukan media_failure", async () => {
+        const wacid = "wacid.INBOUND-CALLERHANGUP1"
+        const call = await callStateService.findOrCreate(wacid, {
+            phoneNumberId: TEST_PHONE_NUMBER_ID,
+            direction: CallDirection.INBOUND,
+            status: CallStatus.PENDING,
+            statusRank: 10,
+        })
+        await callStateService.transition(wacid, CallStatus.RINGING, { ringingAt: new Date() })
+        void call
+
+        stasisEndListener!({ channel: { id: wacid } })
+        await new Promise((r) => setTimeout(r, 50))
+
+        const updated = await callRepository.findByWacid(wacid)
+        expect(updated!.status).toBe(CallStatus.ABANDONED)
+        expect(updated!.endReason).toBe(EndReason.CUSTOMER_HANGUP)
     })
 })

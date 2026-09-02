@@ -144,6 +144,15 @@ export class CallSignalingService implements ICallSignalingNotifier {
         const call = await this.callRepository.findByWacid(wacid)
         if (!call) return
 
+        // Race antar-agent: kalau panggilan ini sudah diklaim/berakhir lewat
+        // proses lain sebelum klik "Tolak" ini diproses, jangan menimpanya —
+        // beri tahu agent yang telat lewat call_taken seperti biasa.
+        if (call.status !== CallStatus.RINGING) {
+            this.notifier.send(agentEmail, packet("call_taken", wacid, { byEmail: call.user?.email ?? "unknown" }))
+            presenceRegistry.setCurrentCall(agentEmail, null)
+            return
+        }
+
         try {
             await this.asterisk.hangupChannel(wacid, "rejected")
         } catch (err) {

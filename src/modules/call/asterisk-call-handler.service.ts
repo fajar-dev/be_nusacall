@@ -1,5 +1,5 @@
 import { ariClient } from "../../infrastructure/asterisk/ari.client"
-import type { AriStasisStartEvent, AriStasisEndEvent } from "../../infrastructure/asterisk/ari.types"
+import type { AriStasisStartEvent, AriStasisEndEvent, AriChannelStateChangeEvent } from "../../infrastructure/asterisk/ari.types"
 import { CallStateService } from "./call-state.service"
 import { ICallRepository } from "./interfaces/call.repository.interface"
 import { ContactService } from "../contact/contact.service"
@@ -47,6 +47,11 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
         ariClient.onStasisEnd((event) => {
             this.handleStasisEnd(event).catch((err) => {
                 logger.error("Failed handling ARI StasisEnd", { channelId: event.channel.id, err })
+            })
+        })
+        ariClient.onChannelStateChange((event) => {
+            this.handleChannelStateChange(event).catch((err) => {
+                logger.error("Failed handling ARI ChannelStateChange", { channelId: event.channel.id, err })
             })
         })
         ariClient.connect()
@@ -127,19 +132,32 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
             }
 
             this.active.set(wacid, entry)
-
-            const call = await this.calls.findByWacid(wacid)
-            if (call?.direction === CallDirection.OUTBOUND) {
-                await this.callState.transition(wacid, CallStatus.ACTIVE, {
-                    answeredAt: new Date(),
-                    recordingEnabled: config.recording.recordingEnabled,
-                })
-            }
         } catch (err) {
             logger.error("Failed bridging agent to customer", { wacid, agentChannelId, err })
             await this.hangupChannel(agentChannelId, "normal")
             await this.failCall(wacid, err)
         }
+    }
+
+    /**
+     * Sinyal paling akurat bahwa pelanggan BENAR-BENAR sudah mengangkat
+     * panggilan keluar — beda dengan "bridge agent+pelanggan berhasil
+     * dibentuk" (StasisStart "agent"), yang bisa saja terjadi selagi
+     * pelanggan masih berdering (softphone browser agent auto-jawab begitu
+     * Asterisk menghubunginya, tidak menunggu pelanggan di ujung sana).
+     */
+    private async handleChannelStateChange(event: AriChannelStateChangeEvent): Promise<void> {
+        if (event.channel.state !== "Up") return
+
+        const wacid = event.channel.id
+        const call = await this.calls.findByWacid(wacid)
+        if (!call || call.direction !== CallDirection.OUTBOUND) return
+        if (call.status === CallStatus.ACTIVE || isTerminalCallStatus(call.status)) return
+
+        await this.callState.transition(wacid, CallStatus.ACTIVE, {
+            answeredAt: new Date(),
+            recordingEnabled: config.recording.recordingEnabled,
+        })
     }
 
     private async handleOutboundCustomerStart(event: AriStasisStartEvent): Promise<void> {
@@ -211,11 +229,7 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
         const endedAt = new Date()
         const terminalStatus = this.resolveTerminalState(call.status)
         const durationSeconds = this.elapsedSeconds(call.answeredAt, endedAt)
-        const endReason = terminalStatus === CallStatus.COMPLETED
-            ? EndReason.CUSTOMER_HANGUP
-            : terminalStatus === CallStatus.REJECTED
-                ? EndReason.CUSTOMER_REJECTED
-                : EndReason.MEDIA_FAILURE
+        const endReason = this.resolveEndReason(terminalStatus, call.direction)
 
         const transitioned = await this.callState.transition(channelId, terminalStatus, {
             endedAt,
@@ -239,10 +253,26 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
         if (currentStatus === CallStatus.ACTIVE) {
             return CallStatus.COMPLETED
         }
-        if (currentStatus === CallStatus.RINGING || currentStatus === CallStatus.CONNECTING) {
+        // PENDING ikut di sini juga: untuk panggilan keluar, PENDING adalah
+        // satu-satunya status sebelum benar-benar tersambung (tidak pernah
+        // lewat RINGING/CONNECTING) — channel yang berakhir selagi masih
+        // PENDING berarti pelanggan tidak pernah mengangkat sama sekali.
+        if (currentStatus === CallStatus.PENDING || currentStatus === CallStatus.RINGING || currentStatus === CallStatus.CONNECTING) {
             return CallStatus.ABANDONED
         }
         return CallStatus.FAILED
+    }
+
+    private resolveEndReason(terminalStatus: CallStatus, direction: CallDirection): EndReason {
+        if (terminalStatus === CallStatus.COMPLETED) {
+            return EndReason.CUSTOMER_HANGUP
+        }
+        if (terminalStatus === CallStatus.ABANDONED) {
+            // Keluar & tidak pernah tersambung -> pelanggan tidak pernah angkat.
+            // Masuk & berakhir sebelum agent angkat -> penelepon menutup sendiri.
+            return direction === CallDirection.OUTBOUND ? EndReason.ANSWER_TIMEOUT : EndReason.CUSTOMER_HANGUP
+        }
+        return EndReason.MEDIA_FAILURE
     }
 
     private elapsedSeconds(answeredAt: Date | null | undefined, endedAt: Date): number {
