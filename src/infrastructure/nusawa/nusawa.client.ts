@@ -1,6 +1,15 @@
 import axios, { AxiosInstance } from "axios"
 import { config } from "../../config/config"
 import { logger } from "../../core/helpers/logger"
+import type {
+    NusawaApiResponse,
+    NusawaLogCallMessageParams,
+    NusawaSendCallPermissionParams,
+    NusawaTemplateMessagePayload,
+    NusawaTextMessagePayload,
+} from "./nusawa.types"
+
+export type * from "./nusawa.types"
 
 export class NusawaClient {
     private readonly http: AxiosInstance = axios.create({
@@ -12,11 +21,17 @@ export class NusawaClient {
         },
     })
 
-    async logCallMessage(params: { phoneNumberId: string; wacid: string; to: string; body: string }): Promise<boolean> {
+    async logCallMessage(params: NusawaLogCallMessageParams): Promise<boolean> {
         try {
+            const payload: NusawaTextMessagePayload = {
+                to: params.to,
+                id: params.wacid,
+                type: "text",
+                text: { body: params.body },
+            }
             const res = await this.http.post(
                 "/api/messages",
-                { to: params.to, id: params.wacid, type: "text", text: { body: params.body } },
+                payload,
                 { params: { no_send: "1", phone_number_id: params.phoneNumberId, ref: params.wacid } }
             )
             return res.status >= 200 && res.status < 300
@@ -31,23 +46,24 @@ export class NusawaClient {
         waId: string,
         templateName: string,
         templateLanguage: string
-    ): Promise<any> {
+    ): Promise<NusawaApiResponse> {
         try {
-            const res = await this.http.post(
-                "/api/messages",
-                {
-                    phone_number_id: phoneNumberId,
-                    messaging_product: "whatsapp",
-                    to: waId,
-                    type: "template",
-                    template: {
-                        name: templateName,
-                        language: {
-                            code: templateLanguage,
-                        },
-                        components: [],
+            const payload: NusawaTemplateMessagePayload = {
+                phone_number_id: phoneNumberId,
+                messaging_product: "whatsapp",
+                to: waId,
+                type: "template",
+                template: {
+                    name: templateName,
+                    language: {
+                        code: templateLanguage,
                     },
+                    components: [],
                 },
+            }
+            const res = await this.http.post<NusawaApiResponse>(
+                "/api/messages",
+                payload,
                 {
                     params: { phone_number_id: phoneNumberId },
                 }

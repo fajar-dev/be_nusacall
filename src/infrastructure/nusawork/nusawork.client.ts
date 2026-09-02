@@ -1,5 +1,14 @@
 import axios, { AxiosInstance } from "axios"
 import { config } from "../../config/config"
+import type {
+    NusaworkApiResponse,
+    NusaworkBranch,
+    NusaworkEmployee,
+    NusaworkOrganizationNode,
+    NusaworkTokenResponse,
+} from "./nusawork.types"
+
+export type * from "./nusawork.types"
 
 export class NusaworkClient {
     private readonly http: AxiosInstance = axios.create({
@@ -10,7 +19,7 @@ export class NusaworkClient {
     })
 
     private async getToken(): Promise<string> {
-        const res = await this.http.post<any>('/auth/api/oauth/token', {
+        const res = await this.http.post<NusaworkTokenResponse>('/auth/api/oauth/token', {
             grant_type: 'client_credentials',
             client_id: config.nusawork.clientId,
             client_secret: config.nusawork.clientSecret,
@@ -20,13 +29,13 @@ export class NusaworkClient {
             },
         })
 
-        return res.data.access_token as string
+        return res.data.access_token
     }
 
-    async getEmployees(): Promise<any[]> {
+    async getEmployees(): Promise<NusaworkEmployee[]> {
         const token = await this.getToken()
 
-        const res = await this.http.post<any>('/emp/api/v4.2/client/employee/filter', {
+        const res = await this.http.post<NusaworkApiResponse<NusaworkEmployee[]>>('/emp/api/v4.2/client/employee/filter', {
             fields: { active_status: ['active', 'Resign'] },
             is_paginate: false,
             multi_value: false,
@@ -38,25 +47,25 @@ export class NusaworkClient {
             },
         })
 
-        return (res?.data?.data as any[]) ?? []
+        return res.data?.data ?? []
     }
 
-    async getOrganization(): Promise<any[]> {
+    async getOrganization(): Promise<NusaworkOrganizationNode[]> {
         const token = await this.getToken()
 
-        const res = await this.http.get<any>('/emp/api/organization', {
+        const res = await this.http.get<NusaworkApiResponse<NusaworkOrganizationNode[]>>('/emp/api/organization', {
             headers: {
                 Authorization: `Bearer ${token}`,
                 'Content-Type': 'application/json',
             },
         })
 
-        return (res?.data?.data as any[]) ?? []
+        return res.data?.data ?? []
     }
 
     async authLogin(email: string, password: string): Promise<boolean> {
         try {
-            const res = await this.http.post<any>('/auth/api/oauth/token', {
+            const res = await this.http.post('/auth/api/oauth/token', {
                 grant_type: 'password',
                 username: email,
                 password: password,
@@ -75,17 +84,17 @@ export class NusaworkClient {
         }
     }
 
-    async getBranch(): Promise<any[]> {
+    async getBranch(): Promise<NusaworkBranch[]> {
         const token = await this.getToken()
 
-        const res = await this.http.get<any>('/emp/api/branch', {
+        const res = await this.http.get<NusaworkApiResponse<NusaworkBranch[]>>('/emp/api/branch', {
             headers: {
                 Authorization: `Bearer ${token}`,
                 'Content-Type': 'application/json',
             },
         })
 
-        return (res?.data?.data as any[]) ?? []
+        return res.data?.data ?? []
     }
 }
 

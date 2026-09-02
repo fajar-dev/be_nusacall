@@ -2,6 +2,9 @@ import * as Minio from "minio"
 import { config } from "../../config/config"
 import { Readable } from "node:stream"
 import { logger } from "../../core/helpers/logger"
+import type { MinioObjectResult, MinioUploadOptions } from "./minio.types"
+
+export type * from "./minio.types"
 
 const rawMinioClient = new Minio.Client({
     endPoint: config.minio.endPoint,
@@ -49,7 +52,7 @@ export class MinioClient {
         return `${config.app.appUrl}/api/proxy?path=${encodeURI(objectName)}`
     }
 
-    async getObject(objectName: string, bucket: string = BUCKET): Promise<{ stream: Readable; stat: Minio.BucketItemStat }> {
+    async getObject(objectName: string, bucket: string = BUCKET): Promise<MinioObjectResult> {
         const stat = await rawMinioClient.statObject(bucket, objectName)
         const stream = await rawMinioClient.getObject(bucket, objectName)
         return { stream, stat }

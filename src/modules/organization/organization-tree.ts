@@ -1,15 +1,7 @@
 import { Organization } from "./entities/organization.entity"
-import { OrganizationType } from "./enums/organization-type.enum"
+import type { NusaworkOrganizationNode } from "../../infrastructure/nusawork/nusawork.types"
 
-export interface NusaworkOrganizationNode {
-    id: number
-    pid: number
-    name: string
-    type: OrganizationType
-    description: string | null
-    is_active: boolean
-    childs?: NusaworkOrganizationNode[]
-}
+export type { NusaworkOrganizationNode }
 
 export function flattenNusaworkOrganizations(nodes: NusaworkOrganizationNode[]): Partial<Organization>[] {
     const seen = new Map<number, Partial<Organization>>()

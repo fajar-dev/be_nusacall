@@ -1,4 +1,5 @@
-import { ariClient, type AriStasisStartEvent, type AriStasisEndEvent } from "../../infrastructure/asterisk/ari.client"
+import { ariClient } from "../../infrastructure/asterisk/ari.client"
+import type { AriStasisStartEvent, AriStasisEndEvent } from "../../infrastructure/asterisk/ari.types"
 import { CallStateService } from "./call-state.service"
 import { ICallRepository } from "./interfaces/call.repository.interface"
 import { ContactService } from "../contact/contact.service"

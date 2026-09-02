@@ -2,42 +2,22 @@ import axios, { AxiosResponse } from "axios"
 import { config } from "../../config/config"
 import { logger } from "../../core/helpers/logger"
 import { BadGatewayException } from "../../core/exceptions/base"
+import type {
+    AriBridge,
+    AriChannel,
+    AriChannelStateChangeEvent,
+    AriEvent,
+    AriOriginateChannelParams,
+    AriRecordingFinishedEvent,
+    AriStasisEndEvent,
+    AriStasisStartEvent,
+    ChannelStateChangeListener,
+    RecordingFinishedListener,
+    StasisEndListener,
+    StasisStartListener,
+} from "./ari.types"
 
-export interface AriChannel {
-    id: string
-    state: string
-    caller: { number: string; name: string }
-}
-
-export interface AriStasisStartEvent {
-    type: "StasisStart"
-    application: string
-    args: string[]
-    channel: AriChannel
-}
-
-export interface AriStasisEndEvent {
-    type: "StasisEnd"
-    application: string
-    channel: AriChannel
-}
-
-export interface AriChannelStateChangeEvent {
-    type: "ChannelStateChange"
-    channel: AriChannel
-}
-
-export interface AriRecordingFinishedEvent {
-    type: "RecordingFinished"
-    recording: { name: string; format: string; duration?: number; target_uri: string }
-}
-
-type AriEvent = { type: string; [key: string]: unknown }
-
-type StasisStartListener = (event: AriStasisStartEvent) => void
-type StasisEndListener = (event: AriStasisEndEvent) => void
-type ChannelStateChangeListener = (event: AriChannelStateChangeEvent) => void
-type RecordingFinishedListener = (event: AriRecordingFinishedEvent) => void
+export type * from "./ari.types"
 
 export class AriClient {
     private ws: WebSocket | null = null
@@ -139,7 +119,7 @@ export class AriClient {
         this.recordingFinishedListeners.push(listener)
     }
 
-    async originateChannel(params: { endpoint: string; app: string; appArgs?: string; callerId?: string; timeoutSeconds?: number }): Promise<AriChannel> {
+    async originateChannel(params: AriOriginateChannelParams): Promise<AriChannel> {
         return this.request("post", "/channels", {
             endpoint: params.endpoint,
             app: params.app,
@@ -161,7 +141,7 @@ export class AriClient {
         await this.request("delete", `/channels/${channelId}`, { reason })
     }
 
-    async createBridge(): Promise<{ id: string }> {
+    async createBridge(): Promise<AriBridge> {
         return this.request("post", "/bridges", { type: "mixing" })
     }
 
