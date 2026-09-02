@@ -133,6 +133,19 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
             }
 
             this.active.set(wacid, entry)
+
+            // Panggilan masuk sudah ditandai ACTIVE saat agent menekan angkat
+            // (CallSignalingService.handleAnswer). Panggilan keluar tidak lewat jalur
+            // itu sama sekali, jadi tanpa ini statusnya tetap "pending" sepanjang
+            // percakapan — begitu pelanggan menutup lebih dulu, handleStasisEnd salah
+            // menyimpulkan "pending -> berakhir" sebagai kegagalan, bukan panggilan selesai.
+            const call = await this.calls.findByWacid(wacid)
+            if (call?.direction === CallDirection.OUTBOUND) {
+                await this.callState.transition(wacid, CallStatus.ACTIVE, {
+                    answeredAt: new Date(),
+                    recordingEnabled: config.recording.recordingEnabled,
+                })
+            }
         } catch (err) {
             logger.error("Failed bridging agent to customer", { wacid, agentChannelId, err })
             await this.hangupChannel(agentChannelId, "normal")
