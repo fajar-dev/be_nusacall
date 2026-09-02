@@ -171,13 +171,19 @@ export class CallSignalingService implements ICallSignalingNotifier {
             logger.error("Asterisk hangup failed", { wacid, err })
         }
 
+        // Kalau belum sempat ACTIVE (agent menutup panggilan keluar sebelum
+        // diangkat pelanggan), ini bukan panggilan yang "berhasil" — jangan
+        // dianggap COMPLETED.
+        const wasConnected = call.status === CallStatus.ACTIVE
         const durationSeconds = this.durationSince(call.answeredAt)
-        await this.callState.transition(wacid, CallStatus.COMPLETED, {
+        await this.callState.transition(wacid, wasConnected ? CallStatus.COMPLETED : CallStatus.ABANDONED, {
             endReason: EndReason.AGENT_HANGUP,
             endedAt: new Date(),
             durationSeconds,
         })
-        await this.logCallOutcome(call, CallLogOutcome.COMPLETED, durationSeconds)
+        if (wasConnected) {
+            await this.logCallOutcome(call, CallLogOutcome.COMPLETED, durationSeconds)
+        }
         presenceRegistry.setCurrentCall(agentEmail, null)
         this.notifier.send(agentEmail, packet("call_ended", wacid, { endReason: EndReason.AGENT_HANGUP }))
     }

@@ -14,6 +14,7 @@ import { CallIconVisibility } from "../src/modules/account/enums/call-icon-visib
 import { RoutingService } from "../src/modules/routing/routing.service"
 import { CallStatus } from "../src/modules/call/enums/call-status.enum"
 import { CallDirection } from "../src/modules/call/enums/call-direction.enum"
+import { EndReason } from "../src/modules/call/enums/end-reason.enum"
 import { presenceRegistry } from "../src/modules/user/presence.registry"
 import { getDataSource } from "../src/config/database"
 import { config } from "../src/config/config"
@@ -448,6 +449,38 @@ describe("CallSignalingService.handleReject / handleHangup", () => {
         expect(notifier.packetsFor("agent1@nusa.id").some((p) => p.type === "call_ended")).toBe(true)
         expect(nusawaLog.enqueued).toHaveLength(1)
         expect((nusawaLog.enqueued[0] as { body: string }).body).toContain("dijawab agent1@nusa.id")
+    })
+
+    test("handleHangup menutup panggilan keluar SEBELUM diangkat sebagai ABANDONED, bukan COMPLETED", async () => {
+        const wacid = "wacid.SIGHANGUPUNANSWERED"
+        const outContact = await contactService.findOrCreate("628999888778", null)
+        await callStateService.findOrCreate(wacid, {
+            phoneNumberId: TEST_PHONE_NUMBER_ID,
+            contactId: outContact.id,
+            userId: agent1Id,
+            direction: CallDirection.OUTBOUND,
+            status: CallStatus.PENDING,
+            statusRank: 10,
+        })
+
+        const hungUp: string[] = []
+        const notifier = new FakeNotifier()
+        const nusawaLog = fakeNusawaLog()
+        const service = new CallSignalingService(
+            notifier, callRepository, callStateService,
+            fakeAsteriskControl({ hangupChannel: async (id) => { hungUp.push(id) } }),
+            new RoutingService(), nusawaLog.service, contactService, accountRepository,
+        )
+
+        await service.handleHangup("agent1@nusa.id", wacid)
+
+        expect(hungUp).toEqual([wacid])
+        const updated = await callRepository.findByWacid(wacid)
+        expect(updated!.status).toBe(CallStatus.ABANDONED)
+        expect(updated!.endReason).toBe(EndReason.AGENT_HANGUP)
+        // Panggilan yang tidak pernah tersambung tidak perlu dilaporkan ke log NusaWA
+        // (formatnya juga cuma untuk panggilan masuk yang benar-benar dijawab).
+        expect(nusawaLog.enqueued).toHaveLength(0)
     })
 })
 
