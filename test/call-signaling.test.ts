@@ -216,6 +216,35 @@ describe("CallSignalingService.notifyIncoming", () => {
         const updated = await callRepository.findByWacid("wacid.SIGMISSED2")
         expect(updated!.status).toBe(CallStatus.MISSED)
     })
+
+    test("menutup channel Asterisk juga kalau tidak ada yang mengangkat sampai timeout habis", async () => {
+        const originalTimeout = config.call.answerTimeoutSeconds
+        config.call.answerTimeoutSeconds = 0.05
+
+        try {
+            const call = await callStateService.findOrCreate("wacid.SIGRINGTIMEOUT1", {
+                phoneNumberId: TEST_PHONE_NUMBER_ID,
+                direction: CallDirection.INBOUND, status: CallStatus.PENDING, statusRank: 10,
+            })
+            presenceRegistry.register("agent1@nusa.id", "conn-timeout")
+
+            const hungUp: Array<{ wacid: string; reason?: string }> = []
+            const notifier = new FakeNotifier()
+            const service = newSignalingService(notifier, fakeAsteriskControl({
+                hangupChannel: async (wacid, reason) => { hungUp.push({ wacid, reason }) },
+            }))
+            await service.notifyIncoming(call)
+
+            await new Promise((resolve) => setTimeout(resolve, 150))
+
+            expect(hungUp).toEqual([{ wacid: "wacid.SIGRINGTIMEOUT1", reason: "no_answer" }])
+            const updated = await callRepository.findByWacid("wacid.SIGRINGTIMEOUT1")
+            expect(updated!.status).toBe(CallStatus.MISSED)
+            expect(updated!.endReason).toBe("answer_timeout")
+        } finally {
+            config.call.answerTimeoutSeconds = originalTimeout
+        }
+    })
 })
 
 describe("CallSignalingService.handleAnswer", () => {

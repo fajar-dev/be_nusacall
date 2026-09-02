@@ -77,6 +77,15 @@ export class CallSignalingService implements ICallSignalingNotifier {
         const call = await this.callRepository.findByWacid(wacid)
         if (!call || call.status !== CallStatus.RINGING) return
 
+        // Channel-nya di Asterisk masih berdering — kalau ini dilewatkan,
+        // percakapan di database dianggap selesai tapi channel-nya sendiri
+        // menggantung terus sampai penelepon menyerah sendiri.
+        try {
+            await this.asterisk.hangupChannel(wacid, "no_answer")
+        } catch (err) {
+            logger.error("Asterisk hangup failed for a call that timed out unanswered", { wacid, err })
+        }
+
         const transitioned = await this.callState.transition(wacid, CallStatus.MISSED, {
             endReason: EndReason.ANSWER_TIMEOUT,
             endedAt: new Date(),
