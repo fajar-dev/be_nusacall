@@ -131,6 +131,22 @@ describe("AccountService.sync", () => {
     })
 })
 
+describe("AccountService.syncToMeta — akun unofficial", () => {
+    test("tidak pernah menghubungi Meta, cukup stempel lastSyncedAt", async () => {
+        const account = await seedAccount({ isOfficial: false })
+        let metaWasCalled = false
+        const service = new AccountService(
+            repository,
+            fakeMetaClient({ updateCallSettings: async () => { metaWasCalled = true; return { success: true } } })
+        )
+
+        const synced = await service.sync(account.id)
+
+        expect(metaWasCalled).toBe(false)
+        expect(synced.lastSyncedAt).not.toBeNull()
+    })
+})
+
 describe("AccountService.getHealth", () => {
     test("returns Meta's health status for the account", async () => {
         const account = await seedAccount()

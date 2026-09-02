@@ -9,6 +9,7 @@ export class AccountSerializer {
             phoneNumberId: account.phoneNumberId,
             displayPhoneNumber: account.displayPhoneNumber,
             label: account.label,
+            isOfficial: account.isOfficial,
             callingEnabled: account.callingEnabled,
             callIconVisibility: account.callIconVisibility,
             permissionTemplateName: account.permissionTemplateName ?? null,

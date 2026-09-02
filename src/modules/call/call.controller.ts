@@ -77,12 +77,19 @@ export class CallController {
         const user = c.get("user") as User
         const data = c.req.valid("json" as never) as { phoneNumberId: string; contactId: number }
 
-        const { permissionService } = await import("../permission/permission.module")
-        const { permission } = await permissionService.checkPermission(data.phoneNumberId, data.contactId)
-        const hasPermission = permission.status === PermissionStatus.PERMANENT
-            || (permission.status === PermissionStatus.TEMPORARY && (!permission.expiresAt || permission.expiresAt > new Date()))
-        if (!hasPermission) {
-            throw new ForbiddenException("No active call permission for this customer — request permission first")
+        const { accountRepository } = await import("../account/account.module")
+        const account = await accountRepository.findByPhoneNumberId(data.phoneNumberId)
+
+        // Nomor unofficial tidak pernah benar-benar meminta izin dari Meta,
+        // jadi tidak ada apa pun untuk dicek — biarkan langsung lewat.
+        if (account?.isOfficial !== false) {
+            const { permissionService } = await import("../permission/permission.module")
+            const { permission } = await permissionService.checkPermission(data.phoneNumberId, data.contactId)
+            const hasPermission = permission.status === PermissionStatus.PERMANENT
+                || (permission.status === PermissionStatus.TEMPORARY && (!permission.expiresAt || permission.expiresAt > new Date()))
+            if (!hasPermission) {
+                throw new ForbiddenException("No active call permission for this customer — request permission first")
+            }
         }
 
         const { callSignalingService } = await import("../../gateway/signaling.module")

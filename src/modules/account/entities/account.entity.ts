@@ -25,6 +25,9 @@ export class Account {
     @Column({ name: "calling_enabled", default: false })
     callingEnabled!: boolean
 
+    @Column({ name: "is_official", default: true })
+    isOfficial!: boolean
+
     @Column({ name: "call_icon_visibility", type: "enum", enum: CallIconVisibility, default: CallIconVisibility.DEFAULT })
     callIconVisibility!: CallIconVisibility
 

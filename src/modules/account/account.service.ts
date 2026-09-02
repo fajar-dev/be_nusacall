@@ -59,6 +59,11 @@ export class AccountService {
     }
 
     private async syncToMeta(account: Account): Promise<Account> {
+        if (!account.isOfficial) {
+            const stamped = this.repository.merge(account, { lastSyncedAt: new Date() })
+            return await this.repository.save(stamped)
+        }
+
         try {
             await this.metaClient.updateCallSettings(account.phoneNumberId, {
                 status: account.callingEnabled ? "ENABLED" : "DISABLED",
