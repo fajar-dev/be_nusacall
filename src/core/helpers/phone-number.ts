@@ -11,3 +11,13 @@ export function normalizePhoneNumber(raw: string): string {
     if (digits.startsWith("0")) return DEFAULT_COUNTRY_CODE + digits.slice(1)
     return digits
 }
+
+/**
+ * Bentuk E.164 lengkap dengan tanda plus. Meta membalas 200 OK untuk INVITE
+ * tanpa tanda plus tetapi tidak pernah mendering-kan ponsel tujuan, jadi
+ * Request-URI ke trunk Meta harus selalu memakai bentuk ini.
+ */
+export function toE164(raw: string): string {
+    const normalized = normalizePhoneNumber(raw)
+    return normalized ? `+${normalized}` : ""
+}

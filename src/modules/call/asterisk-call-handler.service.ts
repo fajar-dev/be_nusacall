@@ -10,6 +10,7 @@ import { CallStatus, isTerminalCallStatus } from "./enums/call-status.enum"
 import { CallDirection } from "./enums/call-direction.enum"
 import { EndReason } from "./enums/end-reason.enum"
 import { CallLogOutcome } from "./enums/call-log-outcome.enum"
+import { toE164 } from "../../core/helpers/phone-number"
 import { config } from "../../config/config"
 import { logger } from "../../core/helpers/logger"
 
@@ -179,7 +180,7 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
 
     async originateOutbound(account: Account, calleeNumber: string): Promise<{ wacid: string }> {
         const channel = await ariClient.originateChannel({
-            endpoint: `PJSIP/${calleeNumber}@meta-${account.phoneNumberId}`,
+            endpoint: `PJSIP/${toE164(calleeNumber)}@meta-${account.phoneNumberId}`,
             app: config.asterisk.ariApp,
             appArgs: "outbound",
         })
