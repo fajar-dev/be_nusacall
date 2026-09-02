@@ -40,7 +40,6 @@ export class CallEvent {
     @Column({ name: "is_stale", default: false })
     isStale!: boolean
 
-
     @CreateDateColumn({ name: "received_at" })
     receivedAt!: Date
 }

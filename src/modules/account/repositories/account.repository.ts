@@ -19,5 +19,4 @@ export class TypeOrmAccountRepository extends BaseRepository<Account> implements
     async findByPhoneNumberId(phoneNumberId: string): Promise<Account | null> {
         return await this.repository.findOneBy({ phoneNumberId })
     }
-
 }

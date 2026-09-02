@@ -29,13 +29,6 @@ interface MetaAccountUpdateValue {
     restriction_info?: Array<{ restriction_type: string; expiration?: number; remediation?: string }>
 }
 
-/**
- * Sinyal panggilan sekarang datang dari Asterisk lewat ARI
- * (AsteriskCallHandlerService), bukan dari webhook `calls` field Meta —
- * mode SIP tidak lagi membawa SDP lewat webhook. Webhook ini hanya menyimpan
- * event `statuses` (kalau Meta masih mengirimkannya secara informasional)
- * dan `account_update` untuk audit/log.
- */
 export class WebhookService {
     constructor(
         private readonly callState: CallStateService,

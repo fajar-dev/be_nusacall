@@ -40,7 +40,6 @@ callStateService.attachBoardListener(async (call) => {
 
 export { signalingGateway }
 
-/** Nama rekaman dibentuk sebagai `nusacall-<wacid>` saat bridge mulai direkam. */
 ariClient.onRecordingFinished(async (event) => {
     const wacid = event.recording.name.replace(/^nusacall-/, "")
     const call = await callRepository.findByWacid(wacid)

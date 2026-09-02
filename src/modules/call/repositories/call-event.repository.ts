@@ -29,7 +29,6 @@ export class TypeOrmCallEventRepository implements ICallEventRepository {
         }
     }
 
-
     async linkToCall(wacid: string, callId: number): Promise<void> {
         await this.repository
             .createQueryBuilder()

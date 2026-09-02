@@ -69,13 +69,11 @@ export class AriClient {
         return res.data as T
     }
 
-    /** Menyambungkan event stream ARI (StasisStart/StasisEnd/dll); reconnect otomatis kalau putus. */
     connect(): void {
         const base = config.asterisk.ariBaseUrl.replace(/^http/, "ws")
         const wsUrl = `${base}/ari/events?app=${config.asterisk.ariApp}&subscribeAll=true`
         const basicAuth = Buffer.from(`${config.asterisk.ariUsername}:${config.asterisk.ariPassword}`).toString("base64")
 
-        // Server ini menolak auth lewat query string api_key (401) — perlu header Authorization eksplisit.
         this.ws = new WebSocket(wsUrl, { headers: { Authorization: `Basic ${basicAuth}` } })
 
         this.ws.addEventListener("open", () => {
@@ -183,7 +181,6 @@ export class AriClient {
         })
     }
 
-    /** Memuat ulang modul lewat ARI — backend tidak punya hak root untuk memanggil CLI Asterisk. */
     async reloadModule(moduleName: string): Promise<void> {
         await this.request("put", `/asterisk/modules/${moduleName}`)
     }

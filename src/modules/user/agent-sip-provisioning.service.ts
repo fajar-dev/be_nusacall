@@ -24,7 +24,6 @@ export class AgentSipProvisioningService {
         return AppDataSource.getRepository(User)
     }
 
-    /** Username SIP diturunkan dari id, bukan email, supaya stabil dan bebas karakter yang perlu di-escape. */
     static usernameFor(userId: number): string {
         return `agent-${userId}`
     }
@@ -44,11 +43,6 @@ export class AgentSipProvisioningService {
         return await this.ensureCredential(userId)
     }
 
-    /**
-     * Menulis ulang berkas endpoint PJSIP untuk seluruh agent aktif lalu memuat
-     * ulang PJSIP lewat ARI. Reload dipilih daripada sudo karena backend berjalan
-     * sebagai user tanpa hak root; berkasnya sendiri sudah di-chown ke user itu.
-     */
     async syncAll(): Promise<{ endpoints: number }> {
         const activeUsers = await this.users.find({ where: { isActive: true }, select: { id: true } })
 
@@ -65,7 +59,6 @@ export class AgentSipProvisioningService {
         return { endpoints: activeUsers.length }
     }
 
-    /** `webrtc=yes` sekaligus menyalakan DTLS-SRTP, ICE, rtcp-mux, dan AVPF yang diwajibkan browser. */
     private renderEndpoint(credential: UserSipCredential): string {
         const name = credential.username
         return [

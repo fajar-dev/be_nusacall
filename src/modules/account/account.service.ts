@@ -45,7 +45,6 @@ export class AccountService {
         return await this.syncToMeta(account)
     }
 
-    /** Hanya template yang sudah disetujui Meta yang dapat dipakai mengirim pesan. */
     async listTemplates(id: number) {
         const account = await this.getById(id)
         const response = await this.metaClient.listMessageTemplates(account.phoneNumberId, account.businessAccountId)
@@ -59,7 +58,6 @@ export class AccountService {
         return await this.metaClient.getHealthStatus(account.phoneNumberId)
     }
 
-    /** Calling selalu diarahkan lewat SIP (Asterisk) — endpoint calling Graph API tidak dipakai lagi. */
     private async syncToMeta(account: Account): Promise<Account> {
         try {
             await this.metaClient.updateCallSettings(account.phoneNumberId, {

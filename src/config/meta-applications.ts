@@ -52,10 +52,6 @@ function fromFile(path: string): MetaApplication[] {
     })
 }
 
-/**
- * Kredensial tiap aplikasi Meta. Nomor teleponnya sendiri tidak disimpan di
- * sini melainkan pada tabel accounts, dan dihubungkan lewat business_account_id.
- */
 class MetaApplicationRegistry {
     private applications: MetaApplication[] = []
     private byBusinessAccount = new Map<string, MetaApplication>()

@@ -20,7 +20,7 @@ interface Connection {
 
 class SignalingGateway implements IAgentNotifier {
     private service!: CallSignalingService
-    private readonly connections = new Map<string, Connection>() 
+    private readonly connections = new Map<string, Connection>()
 
     attachService(service: CallSignalingService): void {
         this.service = service

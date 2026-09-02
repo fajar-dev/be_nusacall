@@ -12,8 +12,6 @@ export async function reconcileCallsJob(): Promise<void> {
     if (closed) logger.warn("reconciled stale calls", { count: closed })
 }
 
-
-
 export function startJobs(): void {
     setInterval(() => void flushNusawaLogJob(), 30_000)
     setInterval(() => void reconcileCallsJob(), 2 * 60_000)

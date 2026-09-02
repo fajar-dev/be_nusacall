@@ -31,7 +31,6 @@ export class AuthService {
         return { user, accessToken, refreshToken }
     }
 
-
     async refreshToken(data: RefreshTokenValidator) {
         try {
             const decoded = await verify(data.refreshToken, config.app.jwtRefreshSecret, "HS256") as { sub: number }

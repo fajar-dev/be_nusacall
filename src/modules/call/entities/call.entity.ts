@@ -73,12 +73,10 @@ export class Call {
     @Column({ name: "recording_enabled", default: false })
     recordingEnabled!: boolean
 
-
     @Index()
     @CreateDateColumn({ name: "created_at" })
     createdAt!: Date
 
-    /** Diisi lewat join pada phone_number_id, bukan kolom tersendiri. */
     account?: Relation<Account> | null
 
     @UpdateDateColumn({ name: "updated_at" })

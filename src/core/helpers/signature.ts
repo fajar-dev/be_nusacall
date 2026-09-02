@@ -14,11 +14,6 @@ function matches(rawBody: string, header: string, secret: string): boolean {
     return timingSafeEqual(expectedBuf, headerBuf)
 }
 
-/**
- * Tanda tangan diperiksa terhadap setiap aplikasi yang dikonfigurasi karena
- * pengirimnya baru diketahui setelah payload dibaca, sedangkan pemeriksaan ini
- * harus mendahuluinya.
- */
 export function verifyMetaSignature(rawBody: string, header: string | undefined): boolean {
     if (!header) return false
     return metaApplications.all.some((application) => matches(rawBody, header, application.secret))

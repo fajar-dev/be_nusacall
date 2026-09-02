@@ -3,7 +3,6 @@ import { resolveFileUrl } from "../../../core/helpers/serializer-utils"
 import { presenceRegistry } from "../presence.registry"
 
 export class UserSerializer {
-
     static async summary(user: User) {
         return {
             id: user.id,

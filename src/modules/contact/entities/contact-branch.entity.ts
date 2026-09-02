@@ -3,7 +3,6 @@ import type { Relation } from "typeorm"
 import { Contact } from "./contact.entity"
 import { Branch } from "../../branch/entities/branch.entity"
 
-/** Satu kontak dapat dilayani oleh beberapa cabang sekaligus. */
 @Entity("contact_branches")
 export class ContactBranch {
     @PrimaryColumn({ name: "contact_id" })

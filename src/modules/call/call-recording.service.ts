@@ -15,11 +15,6 @@ export interface RecordingUrls {
 
 const WAV_MIME_TYPE = "audio/wav"
 
-/**
- * Menyimpan rekaman yang dihasilkan Asterisk. Asterisk merekam di level bridge,
- * jadi kedua arah sudah tercampur jadi satu berkas — tidak ada lagi langkah
- * penggabungan di sisi backend.
- */
 export class CallRecordingService {
     constructor(
         private readonly repository: ICallRecordingRepository,

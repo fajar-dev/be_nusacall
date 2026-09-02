@@ -1,4 +1,3 @@
-
 const env = process.env.NODE_ENV || 'development'
 const isProduction = env === 'production'
 
@@ -59,7 +58,7 @@ export const config = {
 
     recording: {
         recordingEnabled: process.env.CALL_RECORDING_ENABLED === 'true',
-        // Asterisk dan backend co-located, jadi berkas rekaman dibaca langsung dari disk.
+
         spoolDir: process.env.ASTERISK_RECORDING_DIR || '/var/spool/asterisk/recording',
     },
 
@@ -77,7 +76,6 @@ export const config = {
         agentConfigPath: process.env.ASTERISK_AGENT_CONFIG_PATH || '/etc/asterisk/pjsip_agents.conf',
     },
 
-    // Dikirim ke browser agent supaya softphone-nya bisa mendaftar ke Asterisk.
     agentSip: {
         wsUrl: process.env.AGENT_SIP_WS_URL || '',
         domain: process.env.AGENT_SIP_DOMAIN || '',

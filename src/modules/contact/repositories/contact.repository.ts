@@ -55,7 +55,6 @@ export class TypeOrmContactRepository extends BaseRepository<Contact> implements
         return await this.repository.findOneBy({ phoneNumber })
     }
 
-    /** Baris lama dihapus lebih dulu karena penugasan cabang selalu menggantikan yang sebelumnya, bukan menambahkannya. */
     async setBranches(contactId: number, branchIds: number[]): Promise<void> {
         const repository = AppDataSource.getRepository(ContactBranch)
         await repository.delete({ contactId })

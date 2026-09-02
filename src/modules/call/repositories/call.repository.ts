@@ -81,7 +81,6 @@ export class TypeOrmCallRepository extends BaseRepository<Call> implements ICall
         return await this.withRelations().where("call.wacid = :wacid", { wacid }).getOne()
     }
 
-    /** Akun dipetakan lewat join pada phone_number_id karena tidak ada kolom relasinya. */
     private withRelations() {
         return this.repository.createQueryBuilder("call")
             .leftJoinAndSelect("call.user", "user")

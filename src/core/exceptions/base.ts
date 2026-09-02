@@ -6,8 +6,8 @@ export class BaseException extends HTTPException {
     public context: any
 
     constructor(
-        message: string, 
-        status: number = 400, 
+        message: string,
+        status: number = 400,
         errors: any = null
     ) {
         super(status as ContentfulStatusCode, { message })

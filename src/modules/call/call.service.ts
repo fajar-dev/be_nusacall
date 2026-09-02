@@ -26,14 +26,11 @@ export class CallService {
         return call
     }
 
-
     async getStats(filter: { phoneNumberId?: string; from?: string; to?: string }) {
         const stats = await this.repository.getStats(filter)
         const answerRate = stats.total > 0 ? stats.answered / stats.total : null
         return { ...stats, answerRate }
     }
-
-
 
     async findStaleActive(olderThanMinutes: number): Promise<Call[]> {
         return await this.repository.findStaleActive(olderThanMinutes)

@@ -2,7 +2,6 @@ import { User } from "../../user/entities/user.entity"
 import { resolveFileUrl } from "../../../core/helpers/serializer-utils"
 
 export class AuthSerializer {
-
     static async single(user: User) {
         return {
             id: user.id,

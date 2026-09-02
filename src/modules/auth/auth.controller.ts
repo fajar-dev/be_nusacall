@@ -52,7 +52,6 @@ export class AuthController {
         return ApiResponse.success(c, serialized, "User profile retrieved successfully")
     }
 
-    /** Kredensial softphone milik user yang sedang login — dipakai browser untuk mendaftar ke Asterisk. */
     async sipCredentials(c: Context) {
         const user = c.get("user")
         const { agentSipProvisioningService } = await import("../user/agent-sip-provisioning.service")

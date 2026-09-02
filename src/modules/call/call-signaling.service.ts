@@ -93,11 +93,6 @@ export class CallSignalingService implements ICallSignalingNotifier {
         }
     }
 
-    /**
-     * Agent menekan angkat. Arbitrase tetap di sini (rank guard menentukan siapa
-     * yang menang), tapi medianya diserahkan ke Asterisk: softphone agent dipanggil,
-     * dan penyambungan ke leg pelanggan terjadi saat panggilan itu terangkat.
-     */
     async handleAnswer(userId: number, agentEmail: string, wacid: string): Promise<void> {
         const call = await this.callRepository.findByWacid(wacid)
         if (!call) {
@@ -201,11 +196,6 @@ export class CallSignalingService implements ICallSignalingNotifier {
         return Math.max(0, Math.round((Date.now() - start.getTime()) / 1000))
     }
 
-    /**
-     * Leg pelanggan di-originate lebih dulu; softphone agent baru dipanggil ketika
-     * leg itu masuk Stasis (lihat AsteriskCallHandlerService.handleOutboundCustomerStart),
-     * supaya agent tidak berdering untuk nomor yang ternyata tidak bisa dihubungi.
-     */
     async initiateOutbound(userId: number, agentEmail: string, phoneNumberId: string, contactId: number): Promise<{ wacid: string }> {
         const contact = await this.contacts.getById(contactId)
         const account = await this.accounts.findByPhoneNumberId(phoneNumberId)

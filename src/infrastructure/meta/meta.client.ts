@@ -14,7 +14,6 @@ import type {
 } from "./meta.types"
 
 export class MetaClient {
-    /** Tiap permintaan memakai kredensial aplikasi pemilik nomor yang bersangkutan. */
     private async requestConfig(phoneNumberId: string) {
         const application = await resolveApplication(phoneNumberId)
         return {
@@ -79,7 +78,6 @@ export class MetaClient {
         return this.post(phoneNumberId, `/${phoneNumberId}/messages`, body)
     }
 
-    /** Template melekat pada akun bisnis, bukan pada nomor, tetapi kredensialnya tetap ditentukan oleh nomor. */
     async listMessageTemplates(phoneNumberId: string, businessAccountId: string): Promise<MetaMessageTemplatesResponse> {
         return this.get(phoneNumberId, `/${businessAccountId}/message_templates`, {
             fields: "id,name,language,status,category",
@@ -102,8 +100,6 @@ export class MetaClient {
     async getHealthStatus(phoneNumberId: string): Promise<MetaHealthStatusResponse> {
         return this.get(phoneNumberId, `/${phoneNumberId}`, { fields: "health_status" })
     }
-
-
 }
 
 export const metaClient = new MetaClient()

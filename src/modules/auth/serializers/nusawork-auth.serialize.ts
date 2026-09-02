@@ -1,5 +1,4 @@
 export class NusaworkAuthSerializer {
-
     static generate(data: { token: string; qrCode: string; timeoutMinutes: number; expired: string }) {
         return {
             token: data.token,

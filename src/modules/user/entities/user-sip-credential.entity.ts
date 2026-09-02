@@ -2,12 +2,6 @@ import { Entity, PrimaryGeneratedColumn, Column, Index, ManyToOne, JoinColumn, C
 import type { Relation } from "typeorm"
 import { User } from "./user.entity"
 
-/**
- * Kredensial SIP milik tiap agent, dipakai softphone browser untuk mendaftar ke
- * Asterisk lewat WebSocket. Password disimpan apa adanya karena Asterisk perlu
- * mencocokkannya dengan digest auth dan browser perlu menerimanya saat login —
- * keduanya mustahil dengan hash satu arah.
- */
 @Entity("user_sip_credentials")
 export class UserSipCredential {
     @PrimaryGeneratedColumn()
