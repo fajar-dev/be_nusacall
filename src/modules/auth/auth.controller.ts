@@ -6,11 +6,13 @@ import { AuthSerializer } from "./serializers/auth.serialize"
 import { NusaworkAuthSerializer } from "./serializers/nusawork-auth.serialize"
 import { BadRequestException } from "../../core/exceptions/base"
 import { config } from "../../config/config"
+import { AgentSipProvisioningService, agentSipProvisioningService as defaultSipService } from "../user/agent-sip-provisioning.service"
 
 export class AuthController {
     constructor(
         private readonly authService: AuthService,
         private readonly nusaworkAuthService: NusaworkAuthService,
+        private readonly sipService: AgentSipProvisioningService = defaultSipService,
     ) {}
 
     async nusaworkLogin(c: Context) {
@@ -31,8 +33,8 @@ export class AuthController {
         return ApiResponse.success(c, {
             user: serializedUser,
             accessToken: data.accessToken,
-            refreshToken: data.refreshToken
-        }, 'Logged in successfully')
+            refreshToken: data.refreshToken,
+        }, "Google authentication successful")
     }
 
     async refreshToken(c: Context) {
@@ -54,8 +56,7 @@ export class AuthController {
 
     async sipCredentials(c: Context) {
         const user = c.get("user")
-        const { agentSipProvisioningService } = await import("../user/agent-sip-provisioning.service")
-        const credential = await agentSipProvisioningService.getCredential(user.id)
+        const credential = await this.sipService.getCredential(user.id)
 
         return ApiResponse.success(c, {
             username: credential.username,

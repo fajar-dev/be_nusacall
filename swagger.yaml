@@ -167,7 +167,7 @@ components:
       type: object
       properties:
         id: { type: integer, example: 42 }
-        employeeId: { type: integer, example: 12345 }
+        employeeId: { type: string, example: "EMP-12345" }
         name: { type: string, example: "Budi Santoso" }
         photo: { type: string, nullable: true, format: uri }
         email: { type: string, format: email, example: "agent@nusa.id" }
@@ -208,7 +208,7 @@ components:
         name: { type: string, example: "Budi Santoso" }
         email: { type: string, format: email, example: "agent@nusa.id" }
         photo: { type: string, nullable: true }
-        employeeId: { type: integer, example: 12345 }
+        employeeId: { type: string, example: "EMP-12345" }
         organizationId: { type: integer, example: 3 }
 
     UpdateUserRequest:
@@ -217,7 +217,7 @@ components:
         name: { type: string }
         email: { type: string, format: email }
         photo: { type: string, nullable: true }
-        employeeId: { type: integer }
+        employeeId: { type: string, example: "EMP-12345" }
         organizationId: { type: integer }
 
     # --- Organization Schemas ---

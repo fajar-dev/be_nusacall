@@ -29,7 +29,7 @@ async function seedUser(overrides: Partial<{ email: string; isActive: boolean; n
     return await getUserService().save({
         email: overrides.email ?? "user@nusa.id",
         name: overrides.name ?? "Budi Santoso",
-        employeeId: Math.floor(Math.random() * 1_000_000),
+        employeeId: String(Math.floor(Math.random() * 1_000_000)),
         isActive: overrides.isActive ?? true,
     })
 }
@@ -65,8 +65,8 @@ describe("POST /api/auth/login", () => {
         await getUserService().save({
             email: "berorganisasi@nusa.id",
             name: "Citra Dewi",
-            employeeId: Math.floor(Math.random() * 1_000_000),
-                isActive: true,
+            employeeId: String(Math.floor(Math.random() * 1_000_000)),
+            isActive: true,
             organizationId: organization.id,
         })
         spyOn(nusaworkClient, "authLogin").mockResolvedValue(true)

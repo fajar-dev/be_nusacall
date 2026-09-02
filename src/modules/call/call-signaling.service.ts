@@ -15,7 +15,19 @@ import type { Call } from "./entities/call.entity"
 import { CallLogOutcome } from "./enums/call-log-outcome.enum"
 import { ContactService } from "../contact/contact.service"
 import { IAccountRepository } from "../account/interfaces/account.repository.interface"
-import { NotFoundException } from "../../core/exceptions/base"
+import { BadGatewayException, ForbiddenException, NotFoundException } from "../../core/exceptions/base"
+import { PermissionService } from "../permission/permission.service"
+import { PermissionStatus } from "../permission/enums/permission-status.enum"
+
+const OUTBOUND_ERROR_MESSAGES: Record<number, string> = {
+    138006: "This customer hasn't granted call permission yet — request it first.",
+    138009: "Too many permission requests sent to this customer recently — try again later.",
+    138012: "Daily limit of 100 business-initiated calls reached — try again tomorrow.",
+    138013: "Business-initiated calling isn't available for this phone number.",
+    138014: "Calling is temporarily disabled for this number due to low call quality.",
+    138015: "This phone number's messaging limit is below the 2000 required for calling.",
+    138017: "A permanent call permission already exists — no need to request again.",
+}
 
 function packet(type: string, wacid: string, data?: unknown): WsOutboundPacket {
     return { type, wacid, data, ts: Date.now() }
@@ -31,6 +43,7 @@ export class CallSignalingService implements ICallSignalingNotifier {
         private readonly nusawaLog: NusawaLogService,
         private readonly contacts: ContactService,
         private readonly accounts: IAccountRepository,
+        private readonly permissions?: PermissionService,
     ) {}
 
     async notifyIncoming(call: Call): Promise<void> {
@@ -77,9 +90,6 @@ export class CallSignalingService implements ICallSignalingNotifier {
         const call = await this.callRepository.findByWacid(wacid)
         if (!call || call.status !== CallStatus.RINGING) return
 
-        // Channel-nya di Asterisk masih berdering — kalau ini dilewatkan,
-        // percakapan di database dianggap selesai tapi channel-nya sendiri
-        // menggantung terus sampai penelepon menyerah sendiri.
         try {
             await this.asterisk.hangupChannel(wacid, "no_answer")
         } catch (err) {
@@ -144,9 +154,6 @@ export class CallSignalingService implements ICallSignalingNotifier {
         const call = await this.callRepository.findByWacid(wacid)
         if (!call) return
 
-        // Race antar-agent: kalau panggilan ini sudah diklaim/berakhir lewat
-        // proses lain sebelum klik "Tolak" ini diproses, jangan menimpanya —
-        // beri tahu agent yang telat lewat call_taken seperti biasa.
         if (call.status !== CallStatus.RINGING) {
             this.notifier.send(agentEmail, packet("call_taken", wacid, { byEmail: call.user?.email ?? "unknown" }))
             presenceRegistry.setCurrentCall(agentEmail, null)
@@ -180,9 +187,6 @@ export class CallSignalingService implements ICallSignalingNotifier {
             logger.error("Asterisk hangup failed", { wacid, err })
         }
 
-        // Kalau belum sempat ACTIVE (agent menutup panggilan keluar sebelum
-        // diangkat pelanggan), ini bukan panggilan yang "berhasil" — jangan
-        // dianggap COMPLETED.
         const wasConnected = call.status === CallStatus.ACTIVE
         const durationSeconds = this.durationSince(call.answeredAt)
         await this.callState.transition(wacid, wasConnected ? CallStatus.COMPLETED : CallStatus.ABANDONED, {
@@ -225,18 +229,35 @@ export class CallSignalingService implements ICallSignalingNotifier {
         const account = await this.accounts.findByPhoneNumberId(phoneNumberId)
         if (!account) throw new NotFoundException("Account not found")
 
-        const { wacid } = await this.asterisk.originateOutbound(account, contact.phoneNumber)
+        if (account.isOfficial !== false && this.permissions) {
+            const { permission } = await this.permissions.checkPermission(phoneNumberId, contactId)
+            const hasPermission = permission.status === PermissionStatus.PERMANENT
+                || (permission.status === PermissionStatus.TEMPORARY && (!permission.expiresAt || permission.expiresAt > new Date()))
+            if (!hasPermission) {
+                throw new ForbiddenException("No active call permission for this customer — request permission first")
+            }
+        }
 
-        const call = await this.callRepository.save({
-            wacid, phoneNumberId, contactId,
-            direction: CallDirection.OUTBOUND,
-            status: CallStatus.PENDING,
-            statusRank: 10,
-            userId,
-        })
-        presenceRegistry.setCurrentCall(agentEmail, call.id)
+        try {
+            const { wacid } = await this.asterisk.originateOutbound(account, contact.phoneNumber)
 
-        return { wacid }
+            const call = await this.callRepository.save({
+                wacid, phoneNumberId, contactId,
+                direction: CallDirection.OUTBOUND,
+                status: CallStatus.PENDING,
+                statusRank: 10,
+                userId,
+            })
+            presenceRegistry.setCurrentCall(agentEmail, call.id)
+
+            return { wacid }
+        } catch (err) {
+            const code = (err as { context?: { code?: number } })?.context?.code
+            if (code && OUTBOUND_ERROR_MESSAGES[code]) {
+                throw new BadGatewayException(OUTBOUND_ERROR_MESSAGES[code], { code })
+            }
+            throw err
+        }
     }
 
     private releaseOtherRingingAgents(call: Call, exceptEmail: string): void {

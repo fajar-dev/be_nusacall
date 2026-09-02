@@ -241,7 +241,7 @@ describe("CallSignalingService.notifyIncoming", () => {
             expect(hungUp).toEqual([{ wacid: "wacid.SIGRINGTIMEOUT1", reason: "no_answer" }])
             const updated = await callRepository.findByWacid("wacid.SIGRINGTIMEOUT1")
             expect(updated!.status).toBe(CallStatus.MISSED)
-            expect(updated!.endReason).toBe("answer_timeout")
+            expect(updated!.endReason).toBe(EndReason.ANSWER_TIMEOUT)
         } finally {
             config.call.answerTimeoutSeconds = originalTimeout
         }
@@ -411,7 +411,6 @@ describe("CallSignalingService.handleReject / handleHangup", () => {
     test("handleReject tidak menimpa panggilan yang sudah diklaim agent lain (race antar-agent)", async () => {
         const wacid = "wacid.SIGREJECTRACE1"
         await createRingingCall(wacid)
-        // agent2 sudah lebih dulu klaim panggilan ini sebelum klik "Tolak" agent1 diproses.
         await callStateService.transition(wacid, CallStatus.CONNECTING, { userId: agent1Id })
 
         const hungUp: string[] = []
@@ -496,8 +495,6 @@ describe("CallSignalingService.handleReject / handleHangup", () => {
         const updated = await callRepository.findByWacid(wacid)
         expect(updated!.status).toBe(CallStatus.ABANDONED)
         expect(updated!.endReason).toBe(EndReason.AGENT_HANGUP)
-        // Panggilan yang tidak pernah tersambung tidak perlu dilaporkan ke log NusaWA
-        // (formatnya juga cuma untuk panggilan masuk yang benar-benar dijawab).
         expect(nusawaLog.enqueued).toHaveLength(0)
     })
 })

@@ -16,10 +16,6 @@ describe("normalizePhoneNumber", () => {
 })
 
 describe("toE164", () => {
-    /**
-     * Meta membalas 200 OK untuk INVITE tanpa tanda plus tetapi tidak pernah
-     * mendering-kan ponsel tujuan — panggilan keluar diam-diam gagal.
-     */
     test("selalu menambahkan tanda plus di depan", () => {
         expect(toE164("62895611024559")).toBe("+62895611024559")
         expect(toE164("08956110245 59")).toBe("+62895611024559")

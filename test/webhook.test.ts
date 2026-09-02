@@ -164,7 +164,7 @@ describe("Call Lifecycle - stale webhook", () => {
         expect(call!.status).toBe(CallStatus.RINGING)
 
         const eventCount = await countCallEvents(wacid)
-        expect(eventCount).toBe(2) // RINGING + the stale ACCEPTED (recorded for audit, not acted on)
+        expect(eventCount).toBe(2)
     })
 })
 

@@ -26,7 +26,7 @@ export class User {
 
     @Index()
     @Column({ name: "employee_id" })
-    employeeId!: number
+    employeeId!: string
 
     @Index()
     @Column()

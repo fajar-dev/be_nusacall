@@ -139,13 +139,6 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
         }
     }
 
-    /**
-     * Sinyal paling akurat bahwa pelanggan BENAR-BENAR sudah mengangkat
-     * panggilan keluar — beda dengan "bridge agent+pelanggan berhasil
-     * dibentuk" (StasisStart "agent"), yang bisa saja terjadi selagi
-     * pelanggan masih berdering (softphone browser agent auto-jawab begitu
-     * Asterisk menghubunginya, tidak menunggu pelanggan di ujung sana).
-     */
     private async handleChannelStateChange(event: AriChannelStateChangeEvent): Promise<void> {
         if (event.channel.state !== "Up") return
 
@@ -253,10 +246,6 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
         if (currentStatus === CallStatus.ACTIVE) {
             return CallStatus.COMPLETED
         }
-        // PENDING ikut di sini juga: untuk panggilan keluar, PENDING adalah
-        // satu-satunya status sebelum benar-benar tersambung (tidak pernah
-        // lewat RINGING/CONNECTING) — channel yang berakhir selagi masih
-        // PENDING berarti pelanggan tidak pernah mengangkat sama sekali.
         if (currentStatus === CallStatus.PENDING || currentStatus === CallStatus.RINGING || currentStatus === CallStatus.CONNECTING) {
             return CallStatus.ABANDONED
         }
@@ -268,8 +257,6 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
             return EndReason.CUSTOMER_HANGUP
         }
         if (terminalStatus === CallStatus.ABANDONED) {
-            // Keluar & tidak pernah tersambung -> pelanggan tidak pernah angkat.
-            // Masuk & berakhir sebelum agent angkat -> penelepon menutup sendiri.
             return direction === CallDirection.OUTBOUND ? EndReason.ANSWER_TIMEOUT : EndReason.CUSTOMER_HANGUP
         }
         return EndReason.MEDIA_FAILURE

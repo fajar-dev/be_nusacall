@@ -1,8 +1,5 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach, mock } from "bun:test"
 
-// ariClient adalah singleton module-level — dipalsukan sebelum modul manapun
-// yang mengimpornya (termasuk signaling.module) dimuat, sama seperti pola di
-// asterisk-call-handler.test.ts.
 const fakeAriClient = {
     onStasisStart: () => {},
     onStasisEnd: () => {},
@@ -48,9 +45,6 @@ describe("POST /api/call/outbound — akun unofficial", () => {
         })
         const { headers } = await createUserAndToken()
 
-        // Tidak ada baris CallPermission sama sekali untuk kontak ini — kalau
-        // akun ini masih dianggap official, endpoint akan menolak dengan 502
-        // (checkPermission gagal karena tidak ada Meta app yang cocok).
         const { status, body } = await request(app, "/api/call/outbound", {
             method: "POST",
             body: { phoneNumberId: account.phoneNumberId, contactId: contact.id },

@@ -118,7 +118,6 @@ describe("CallRecordingService.getRecordingUrls", () => {
         expect(urls.durationSeconds).toBe(30)
     })
 
-    /** Rekaman era WebRTC tersimpan sebagai .opus — kuncinya harus tetap bisa diputar. */
     test("rekaman lama berformat opus tetap dapat diakses", async () => {
         const call = await seedCall()
         const service = new CallRecordingService(repository, fakeStorage())

@@ -1,8 +1,5 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach, mock } from "bun:test"
 
-// ariClient adalah singleton module-level, jadi dipalsukan lewat mock.module
-// sebelum modul manapun yang mengimpornya (termasuk AsteriskCallHandlerService)
-// dimuat — satu-satunya cara realistis mengendalikan sisi ARI tanpa Asterisk asli.
 let stasisStartListener: ((event: any) => void) | null = null
 let stasisEndListener: ((event: any) => void) | null = null
 let stateChangeListener: ((event: any) => void) | null = null
@@ -63,10 +60,6 @@ beforeEach(async () => {
     await cleanTestDatabase()
 })
 
-/**
- * Panggilan masuk sudah aktif lebih dulu lewat CallSignalingService.handleAnswer
- * saat agent menekan angkat — StasisStart di sini hanya perlu membentuk bridge.
- */
 describe("AsteriskCallHandlerService — bridging leg agent", () => {
     test("bridge agent+pelanggan terbentuk BELUM berarti panggilan keluar sudah ACTIVE", async () => {
         const wacid = "wacid.OUTBOUND-BRIDGE1"
@@ -81,8 +74,6 @@ describe("AsteriskCallHandlerService — bridging leg agent", () => {
         stasisStartListener!({ args: ["agent"], channel: { id: "agent-channel-1" } })
         await new Promise((r) => setTimeout(r, 50))
 
-        // Softphone browser agent auto-jawab begitu Asterisk menghubunginya —
-        // itu TIDAK sama dengan pelanggan di ujung sana benar-benar mengangkat.
         const call = await callRepository.findByWacid(wacid)
         expect(call!.status).toBe(CallStatus.PENDING)
         expect(call!.answeredAt).toBeNull()
@@ -112,8 +103,6 @@ describe("AsteriskCallHandlerService — bridging leg agent", () => {
     test("ChannelStateChange 'Up' diabaikan untuk channel yang bukan wacid panggilan keluar manapun", async () => {
         stateChangeListener!({ channel: { id: "agent-channel-1", state: "Up" } })
         await new Promise((r) => setTimeout(r, 20))
-        // Tidak melempar error, tidak ada yang perlu diverifikasi lebih lanjut —
-        // cukup pastikan findByWacid(channelId agent) yang null tidak bikin crash.
         expect(true).toBe(true)
     })
 

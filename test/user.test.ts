@@ -31,7 +31,7 @@ async function seedUser(overrides: Partial<{ email: string; name: string; isActi
     return await getUserService().save({
         email: overrides.email ?? `seed${Date.now()}${Math.floor(Math.random() * 1000)}@nusa.id`,
         name: overrides.name ?? "Seeded User",
-        employeeId: Math.floor(Math.random() * 1_000_000),
+        employeeId: String(Math.floor(Math.random() * 1_000_000)),
         isActive: overrides.isActive ?? true,
         ...(overrides.branchId !== undefined ? { branchId: overrides.branchId } : {}),
     })
@@ -57,7 +57,7 @@ describe("GET /api/user", () => {
 
         expect(status).toBe(200)
         expect(body.success).toBe(true)
-        expect(body.meta.total).toBeGreaterThanOrEqual(3) // 2 seeded + the token's own user
+        expect(body.meta.total).toBeGreaterThanOrEqual(3)
     })
 
     test("searches by name or email", async () => {
@@ -224,7 +224,7 @@ describe("POST /api/user", () => {
         const { status, body } = await request(app, "/api/user", {
             method: "POST",
             headers,
-            body: { name: "New Agent", email: "new-agent@nusa.id", employeeId: 12345 },
+            body: { name: "New Agent", email: "new-agent@nusa.id", employeeId: "12345" },
         })
 
         expect(status).toBe(201)
@@ -239,7 +239,7 @@ describe("POST /api/user", () => {
         const { status } = await request(app, "/api/user", {
             method: "POST",
             headers,
-            body: { name: "Dup", email: "dup@nusa.id", employeeId: 54321 },
+            body: { name: "Dup", email: "dup@nusa.id", employeeId: "54321" },
         })
 
         expect(status).toBe(400)

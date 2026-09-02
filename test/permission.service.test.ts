@@ -66,7 +66,7 @@ describe("PermissionService.checkPermission", () => {
 
         expect(calls).toBe(1)
         expect(second.permission.status).toBe(PermissionStatus.TEMPORARY)
-        expect(second.quota).toBeNull() // cache hits don't carry fresh quota numbers
+        expect(second.quota).toBeNull()
     })
 
     test("re-checks Meta once the cache TTL has expired", async () => {

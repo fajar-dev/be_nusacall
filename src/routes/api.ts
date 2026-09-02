@@ -6,6 +6,8 @@ import { UpdateAccountValidator } from "../modules/account/validators/account.va
 import { authMiddleware } from "../core/middlewares/auth.middleware"
 import { validationHook } from "../core/helpers/validator"
 import { BadRequestException } from "../core/exceptions/base"
+import { ApiResponse } from "../core/helpers/response"
+import { minioClient } from "../infrastructure/minio/minio.client"
 import { authController } from "../modules/auth/auth.module"
 import { callController } from "../modules/call/call.module"
 import { accountController } from "../modules/account/account.module"
@@ -80,10 +82,7 @@ routes.post("/upload", authMiddleware, async (c) => {
     const extension = file.name.split(".").pop() || "bin"
     const objectName = `uploads/${crypto.randomUUID()}.${extension}`
 
-    const { minioClient } = await import("../infrastructure/minio/minio.client")
     await minioClient.upload(objectName, buffer, file.type)
-
-    const { ApiResponse } = await import("../core/helpers/response")
     return ApiResponse.success(c, { path: objectName }, "File uploaded successfully")
 })
 
@@ -91,7 +90,6 @@ routes.get("/proxy", async (c) => {
     const path = c.req.query("path")
     if (!path) return c.json({ message: "Missing 'path' query parameter" }, 400)
 
-    const { minioClient } = await import("../infrastructure/minio/minio.client")
     return minioClient.proxyHandler(path)
 })
 

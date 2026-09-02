@@ -35,7 +35,7 @@ const TestDataSource = new DataSource({
     database: testDbName,
     synchronize: true,
     dropSchema: true,
-    timezone: "Z", // see src/config/database.ts — mysql2 defaults to local-time serialization
+    timezone: "Z",
     entities: [Call, CallEvent, NusawaLogQueue, CallRecording, CallPermission, Account, User, UserSipCredential, Organization, Contact, ContactBranch, Branch],
     logging: false,
 })
@@ -151,7 +151,7 @@ export async function request(app: Hono, path: string, options: RequestOptions =
     return { status: res.status, body: json, headers: res.headers }
 }
 
-export async function createUserAndToken(overrides: Partial<{ email: string; isActive: boolean; employeeId: number }> = {}) {
+export async function createUserAndToken(overrides: Partial<{ email: string; isActive: boolean; employeeId: string }> = {}) {
     const { UserService } = require("../src/modules/user/user.service")
     const { UserRepository } = require("../src/modules/user/repositories/user.repository")
     const { AuthHelper } = require("../src/core/helpers/auth")
@@ -162,7 +162,7 @@ export async function createUserAndToken(overrides: Partial<{ email: string; isA
     const user = await userService.save({
         email,
         name: "Test User",
-        employeeId: overrides.employeeId ?? Math.floor(Math.random() * 1_000_000),
+        employeeId: overrides.employeeId ?? String(Math.floor(Math.random() * 1_000_000)),
         isActive: overrides.isActive ?? true,
     })
 
