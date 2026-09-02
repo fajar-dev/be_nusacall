@@ -2,11 +2,6 @@ import { ICallRecordingRepository } from "./interfaces/call-recording.repository
 import { CallRecording } from "./entities/call-recording.entity"
 import { logger } from "../../core/helpers/logger"
 import { NotFoundException } from "../../core/exceptions/base"
-import type { RecordedTrack } from "../../infrastructure/media/call-recorder"
-import { mixToStereo, type MixedRecording } from "../../infrastructure/media/recording-mixer"
-import { dirname, join } from "node:path"
-
-export type RecordingMixer = (tracks: RecordedTrack[], outputPath: string) => Promise<MixedRecording | null>
 
 export interface IObjectStorage {
     upload(objectName: string, buffer: Buffer, contentType: string): Promise<string>
@@ -18,46 +13,37 @@ export interface RecordingUrls {
     durationSeconds: number
 }
 
-const OPUS_MIME_TYPE = "audio/ogg"
+const WAV_MIME_TYPE = "audio/wav"
 
 /**
- * Menyimpan rekaman yang dihasilkan jembatan media. Kedua arah digabung lebih
- * dulu menjadi satu berkas stereo, pelanggan di kiri dan agen di kanan.
+ * Menyimpan rekaman yang dihasilkan Asterisk. Asterisk merekam di level bridge,
+ * jadi kedua arah sudah tercampur jadi satu berkas — tidak ada lagi langkah
+ * penggabungan di sisi backend.
  */
 export class CallRecordingService {
     constructor(
         private readonly repository: ICallRecordingRepository,
         private readonly storage: IObjectStorage,
-        private readonly mix: RecordingMixer = mixToStereo,
     ) {}
 
-    async storeRecordings(
+    async storeRecording(
         callId: number,
         wacid: string,
-        tracks: RecordedTrack[],
+        filePath: string,
+        durationSeconds: number,
         readFile: (path: string) => Promise<Buffer>,
     ): Promise<void> {
-        if (!tracks.length) return
-
-        const mixedPath = join(dirname(tracks[0]!.path), "mixed.opus")
-        const mixed = await this.mix(tracks, mixedPath)
-        if (!mixed) {
-            logger.error("Call recording could not be mixed — nothing stored", { wacid })
-            return
-        }
-
-        const durationSeconds = Math.round(mixed.durationSeconds)
         const key = this.objectKey(wacid)
 
         try {
-            const bytes = await readFile(mixed.path)
-            await this.storage.upload(key, bytes, OPUS_MIME_TYPE)
+            const bytes = await readFile(filePath)
+            await this.storage.upload(key, bytes, WAV_MIME_TYPE)
         } catch (err) {
-            logger.error("Failed uploading call recording", { wacid, err })
+            logger.error("Failed uploading call recording", { wacid, filePath, err })
             return
         }
 
-        await this.repository.store({ callId, s3Key: key, durationSeconds })
+        await this.repository.store({ callId, s3Key: key, durationSeconds: Math.round(durationSeconds) })
         logger.info("Call recording stored", { wacid, durationSeconds, key })
     }
 
@@ -82,6 +68,6 @@ export class CallRecordingService {
         const m = String(now.getUTCMonth() + 1).padStart(2, "0")
         const d = String(now.getUTCDate()).padStart(2, "0")
         const safeWacid = wacid.replace(/[^A-Za-z0-9._-]/g, "_")
-        return `recordings/${y}/${m}/${d}/${safeWacid}.opus`
+        return `recordings/${y}/${m}/${d}/${safeWacid}.wav`
     }
 }

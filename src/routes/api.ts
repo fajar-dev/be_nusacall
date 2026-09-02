@@ -26,6 +26,7 @@ routes.post("/auth/google", zValidator("json", GoogleLoginValidator, validationH
 routes.post("/auth/refresh", zValidator("json", RefreshTokenValidator, validationHook), (c) => authController.refreshToken(c))
 routes.post("/auth/logout", authMiddleware, (c) => authController.logout(c))
 routes.get("/auth/me", authMiddleware, (c) => authController.me(c))
+routes.get("/auth/sip", authMiddleware, (c) => authController.sipCredentials(c))
 
 routes.get("/auth/qrcode/generate", (c) => authController.generateQrCode(c))
 routes.get("/auth/qrcode/:token/status", (c) => authController.qrCodeStatus(c))

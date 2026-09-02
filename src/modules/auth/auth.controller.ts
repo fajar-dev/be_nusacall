@@ -5,6 +5,7 @@ import { ApiResponse } from "../../core/helpers/response"
 import { AuthSerializer } from "./serializers/auth.serialize"
 import { NusaworkAuthSerializer } from "./serializers/nusawork-auth.serialize"
 import { BadRequestException } from "../../core/exceptions/base"
+import { config } from "../../config/config"
 
 export class AuthController {
     constructor(
@@ -49,6 +50,20 @@ export class AuthController {
         const user = c.get("user")
         const serialized = await AuthSerializer.single(user)
         return ApiResponse.success(c, serialized, "User profile retrieved successfully")
+    }
+
+    /** Kredensial softphone milik user yang sedang login — dipakai browser untuk mendaftar ke Asterisk. */
+    async sipCredentials(c: Context) {
+        const user = c.get("user")
+        const { agentSipProvisioningService } = await import("../user/agent-sip-provisioning.service")
+        const credential = await agentSipProvisioningService.getCredential(user.id)
+
+        return ApiResponse.success(c, {
+            username: credential.username,
+            password: credential.password,
+            wsUrl: config.agentSip.wsUrl,
+            domain: config.agentSip.domain,
+        }, "SIP credentials retrieved successfully")
     }
 
     async logout(c: Context) {

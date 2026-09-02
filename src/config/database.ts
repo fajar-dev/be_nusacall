@@ -9,6 +9,7 @@ import { CallRecording } from "../modules/call/entities/call-recording.entity"
 import { CallPermission } from "../modules/permission/entities/call-permission.entity"
 import { Account } from "../modules/account/entities/account.entity"
 import { User } from "../modules/user/entities/user.entity"
+import { UserSipCredential } from "../modules/user/entities/user-sip-credential.entity"
 import { Organization } from "../modules/organization/entities/organization.entity"
 import { Contact } from "../modules/contact/entities/contact.entity"
 import { ContactBranch } from "../modules/contact/entities/contact-branch.entity"
@@ -23,7 +24,7 @@ const defaultDataSource = new DataSource({
     database: config.database.name,
     synchronize: config.database.sync,
     timezone: "Z",
-    entities: [Call, CallEvent, NusawaLogQueue, CallRecording, CallPermission, Account, User, Organization, Contact, ContactBranch, Branch],
+    entities: [Call, CallEvent, NusawaLogQueue, CallRecording, CallPermission, Account, User, UserSipCredential, Organization, Contact, ContactBranch, Branch],
     migrations: [],
     subscribers: [],
 })

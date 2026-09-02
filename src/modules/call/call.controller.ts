@@ -75,7 +75,7 @@ export class CallController {
 
     async outbound(c: Context) {
         const user = c.get("user") as User
-        const data = c.req.valid("json" as never) as { phoneNumberId: string; contactId: number; offerSdp: string }
+        const data = c.req.valid("json" as never) as { phoneNumberId: string; contactId: number }
 
         const { permissionService } = await import("../permission/permission.module")
         const { permission } = await permissionService.checkPermission(data.phoneNumberId, data.contactId)
@@ -87,7 +87,7 @@ export class CallController {
 
         const { callSignalingService } = await import("../../gateway/signaling.module")
         try {
-            const result = await callSignalingService.initiateOutbound(user.id, user.email, data.phoneNumberId, data.contactId, data.offerSdp)
+            const result = await callSignalingService.initiateOutbound(user.id, user.email, data.phoneNumberId, data.contactId)
             return ApiResponse.success(c, result)
         } catch (err) {
             const code = (err as { context?: { code?: number } })?.context?.code

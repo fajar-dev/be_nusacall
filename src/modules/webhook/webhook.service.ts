@@ -7,7 +7,6 @@ import { CallEventStatus } from "../call/enums/call-event-status.enum"
 import { ICallSignalingNotifier } from "../call/interfaces/call-signaling.interface"
 import { ICallRepository } from "../call/interfaces/call.repository.interface"
 import { ContactService } from "../contact/contact.service"
-import { sessionRegistry } from "../../infrastructure/media/session-registry"
 import { logger } from "../../core/helpers/logger"
 import { config } from "../../config/config"
 
@@ -132,7 +131,6 @@ export class WebhookService {
                     durationSeconds: 0,
                 })
                 if (transitioned) {
-                    await sessionRegistry.remove(statusObj.id, "customer_rejected")
                     const call = await this.calls.findByWacid(statusObj.id)
                     if (call) this.signaling.notifyCallEnded(call, EndReason.CUSTOMER_REJECTED)
                 }

@@ -7,7 +7,6 @@ import { swaggerUI } from '@hono/swagger-ui'
 import api from './routes/api'
 import { webhookController } from './modules/webhook/webhook.module'
 import { signalingGateway, asteriskCallHandler } from './gateway/signaling.module'
-import { sessionRegistry } from './infrastructure/media/session-registry'
 import { startJobs } from './jobs'
 import { ApiResponse } from './core/helpers/response'
 import { BaseException, ValidationException } from './core/exceptions/base'
@@ -49,15 +48,7 @@ app.get('/health', async (c) => {
         checks: {
             database: dbConnected ? 'connected' : 'disconnected',
         },
-        media: {
-            activeSessions: sessionRegistry.activeCount,
-        },
     }, statusCode)
-})
-
-app.post('/internal/drain', async (c) => {
-    await sessionRegistry.closeAll('drain_requested')
-    return c.json({ drained: true, remainingSessions: sessionRegistry.activeCount })
 })
 
 app.get('/wh', (c) => webhookController.verify(c))

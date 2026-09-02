@@ -8,6 +8,7 @@ import { NusawaLogQueue } from "../src/modules/call/entities/nusawa-log-queue.en
 import { CallRecording } from "../src/modules/call/entities/call-recording.entity"
 import { CallPermission } from "../src/modules/permission/entities/call-permission.entity"
 import { Account } from "../src/modules/account/entities/account.entity"
+import { UserSipCredential } from "../src/modules/user/entities/user-sip-credential.entity"
 import { User } from "../src/modules/user/entities/user.entity"
 import { Organization } from "../src/modules/organization/entities/organization.entity"
 import { Contact } from "../src/modules/contact/entities/contact.entity"
@@ -35,7 +36,7 @@ const TestDataSource = new DataSource({
     synchronize: true,
     dropSchema: true,
     timezone: "Z", // see src/config/database.ts — mysql2 defaults to local-time serialization
-    entities: [Call, CallEvent, NusawaLogQueue, CallRecording, CallPermission, Account, User, Organization, Contact, ContactBranch, Branch],
+    entities: [Call, CallEvent, NusawaLogQueue, CallRecording, CallPermission, Account, User, UserSipCredential, Organization, Contact, ContactBranch, Branch],
     logging: false,
 })
 

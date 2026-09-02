@@ -57,17 +57,10 @@ export const config = {
         reconcileAfterMinutes: Number(process.env.CALL_RECONCILE_AFTER_MINUTES) || 30,
     },
 
-    media: {
-        iceGatheringTimeoutMs: Number(process.env.ICE_GATHERING_TIMEOUT_MS) || 3000,
-        sessionMaxDurationMinutes: Number(process.env.MEDIA_SESSION_MAX_MINUTES) || 240,
-        publicIp: process.env.MEDIA_PUBLIC_IP || '',
-        udpPortMin: Number(process.env.MEDIA_UDP_PORT_MIN) || 40000,
-        udpPortMax: Number(process.env.MEDIA_UDP_PORT_MAX) || 40100,
-    },
-
     recording: {
         recordingEnabled: process.env.CALL_RECORDING_ENABLED === 'true',
-        ffmpegPath: process.env.FFMPEG_PATH || 'ffmpeg',
+        // Asterisk dan backend co-located, jadi berkas rekaman dibaca langsung dari disk.
+        spoolDir: process.env.ASTERISK_RECORDING_DIR || '/var/spool/asterisk/recording',
     },
 
     outbound: {
@@ -81,8 +74,12 @@ export const config = {
         ariPassword: process.env.ASTERISK_ARI_PASSWORD || '',
         sipHostname: process.env.ASTERISK_SIP_HOSTNAME || '',
         sipPort: Number(process.env.ASTERISK_SIP_PORT) || 5061,
-        externalMediaHost: process.env.ASTERISK_EXTERNAL_MEDIA_HOST || '127.0.0.1',
-        externalMediaPortMin: Number(process.env.ASTERISK_EXTERNAL_MEDIA_PORT_MIN) || 41000,
-        externalMediaPortMax: Number(process.env.ASTERISK_EXTERNAL_MEDIA_PORT_MAX) || 41100,
+        agentConfigPath: process.env.ASTERISK_AGENT_CONFIG_PATH || '/etc/asterisk/pjsip_agents.conf',
+    },
+
+    // Dikirim ke browser agent supaya softphone-nya bisa mendaftar ke Asterisk.
+    agentSip: {
+        wsUrl: process.env.AGENT_SIP_WS_URL || '',
+        domain: process.env.AGENT_SIP_DOMAIN || '',
     },
 }

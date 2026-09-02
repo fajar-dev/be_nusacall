@@ -137,6 +137,15 @@ async function sync() {
             logger.info(`Marked ${missingEmployees.length} missing/resigned employees as inactive.`)
         }
 
+        // Endpoint SIP mengikuti daftar user aktif, jadi disegarkan setelah sinkronisasi.
+        try {
+            const { agentSipProvisioningService } = await import("../modules/user/agent-sip-provisioning.service")
+            const { endpoints } = await agentSipProvisioningService.syncAll()
+            logger.info(`Provisioned ${endpoints} agent SIP endpoints.`)
+        } catch (err) {
+            logger.error("Agent SIP provisioning failed — employees were still synced", { err })
+        }
+
         const duration = ((Date.now() - startTime) / 1000).toFixed(2)
         logger.info(`Completed in ${duration}s. Synced ${synced} employees.`)
 

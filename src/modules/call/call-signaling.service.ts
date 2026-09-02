@@ -1,10 +1,8 @@
-import { randomUUID } from "node:crypto"
 import { ICallRepository } from "./interfaces/call.repository.interface"
 import { CallStateService } from "./call-state.service"
 import { CallStatus } from "./enums/call-status.enum"
 import { CallDirection } from "./enums/call-direction.enum"
 import { EndReason } from "./enums/end-reason.enum"
-import { sessionRegistry } from "../../infrastructure/media/session-registry"
 import { presenceRegistry } from "../user/presence.registry"
 import { RoutingService } from "../routing/routing.service"
 import { NusawaLogService } from "./nusawa-log.service"
@@ -49,7 +47,6 @@ export class CallSignalingService implements ICallSignalingNotifier {
                 endedAt: new Date(),
                 durationSeconds: this.durationSince(call.answeredAt),
             })
-            await sessionRegistry.remove(call.wacid, "no_agent_available")
             return
         }
 
@@ -87,7 +84,6 @@ export class CallSignalingService implements ICallSignalingNotifier {
         })
         if (!transitioned) return
 
-        await sessionRegistry.remove(wacid, "answer_timeout")
         await this.logCallOutcome(call, CallLogOutcome.MISSED)
 
         const stillRinging = presenceRegistry.listAll().filter((p) => p.currentCallId === call.id)
@@ -97,10 +93,14 @@ export class CallSignalingService implements ICallSignalingNotifier {
         }
     }
 
-    async handleAnswer(userId: number, agentEmail: string, wacid: string, offerSdp: string): Promise<void> {
+    /**
+     * Agent menekan angkat. Arbitrase tetap di sini (rank guard menentukan siapa
+     * yang menang), tapi medianya diserahkan ke Asterisk: softphone agent dipanggil,
+     * dan penyambungan ke leg pelanggan terjadi saat panggilan itu terangkat.
+     */
+    async handleAnswer(userId: number, agentEmail: string, wacid: string): Promise<void> {
         const call = await this.callRepository.findByWacid(wacid)
-        const session = sessionRegistry.get(wacid)
-        if (!call || !session) {
+        if (!call) {
             this.notifier.send(agentEmail, packet("error", wacid, { code: "not_found", message: "Call not found" }))
             return
         }
@@ -115,25 +115,20 @@ export class CallSignalingService implements ICallSignalingNotifier {
         presenceRegistry.setCurrentCall(agentEmail, call.id)
         this.releaseOtherRingingAgents(call, agentEmail)
 
-        const answerSdp = await session.attachAgent(offerSdp)
-        this.notifier.send(agentEmail, packet("webrtc_answer", wacid, { sdp: answerSdp }))
-
         try {
-            await this.asterisk.acceptCall(wacid)
+            await this.asterisk.connectAgent(wacid, userId)
         } catch (err) {
-            logger.error("Asterisk accept failed after agent answered", { wacid, err })
+            logger.error("Failed calling the agent softphone", { wacid, userId, err })
             await this.callState.transition(wacid, CallStatus.FAILED, {
                 endReason: EndReason.MEDIA_FAILURE,
                 endedAt: new Date(),
                 durationSeconds: this.durationSince(call.answeredAt),
             })
-            await sessionRegistry.remove(wacid, "accept_failed")
             this.notifier.send(agentEmail, packet("call_ended", wacid, { endReason: EndReason.MEDIA_FAILURE }))
             presenceRegistry.setCurrentCall(agentEmail, null)
             return
         }
 
-        session.startForwarding()
         await this.callState.transition(wacid, CallStatus.ACTIVE, {
             answeredAt: new Date(),
             recordingEnabled: config.recording.recordingEnabled,
@@ -157,7 +152,6 @@ export class CallSignalingService implements ICallSignalingNotifier {
             errorMessage: reason ?? null,
             durationSeconds: this.durationSince(call.answeredAt),
         })
-        await sessionRegistry.remove(wacid, "agent_rejected")
         await this.logCallOutcome(call, CallLogOutcome.REJECTED)
         this.releaseOtherRingingAgents(call, agentEmail)
         presenceRegistry.setCurrentCall(agentEmail, null)
@@ -179,7 +173,6 @@ export class CallSignalingService implements ICallSignalingNotifier {
             endedAt: new Date(),
             durationSeconds,
         })
-        await sessionRegistry.remove(wacid, "agent_hangup")
         await this.logCallOutcome(call, CallLogOutcome.COMPLETED, durationSeconds)
         presenceRegistry.setCurrentCall(agentEmail, null)
         this.notifier.send(agentEmail, packet("call_ended", wacid, { endReason: EndReason.AGENT_HANGUP }))
@@ -208,32 +201,17 @@ export class CallSignalingService implements ICallSignalingNotifier {
         return Math.max(0, Math.round((Date.now() - start.getTime()) / 1000))
     }
 
-    async initiateOutbound(userId: number, agentEmail: string, phoneNumberId: string, contactId: number, offerSdp: string): Promise<{ wacid: string; answerSdp: string }> {
+    /**
+     * Leg pelanggan di-originate lebih dulu; softphone agent baru dipanggil ketika
+     * leg itu masuk Stasis (lihat AsteriskCallHandlerService.handleOutboundCustomerStart),
+     * supaya agent tidak berdering untuk nomor yang ternyata tidak bisa dihubungi.
+     */
+    async initiateOutbound(userId: number, agentEmail: string, phoneNumberId: string, contactId: number): Promise<{ wacid: string }> {
         const contact = await this.contacts.getById(contactId)
         const account = await this.accounts.findByPhoneNumberId(phoneNumberId)
         if (!account) throw new NotFoundException("Account not found")
 
-        const tempKey = `pending.${randomUUID()}`
-        const session = sessionRegistry.create(tempKey)
-
-        let agentAnswerSdp: string
-        try {
-            agentAnswerSdp = await session.attachAgent(offerSdp)
-        } catch (err) {
-            await sessionRegistry.remove(tempKey, "outbound_media_setup_failed")
-            throw err
-        }
-
-        let wacid: string
-        try {
-            const result = await this.asterisk.originateOutbound(account, contact.phoneNumber)
-            wacid = result.wacid
-        } catch (err) {
-            await sessionRegistry.remove(tempKey, "outbound_originate_failed")
-            throw err
-        }
-
-        sessionRegistry.rekey(tempKey, wacid)
+        const { wacid } = await this.asterisk.originateOutbound(account, contact.phoneNumber)
 
         const call = await this.callRepository.save({
             wacid, phoneNumberId, contactId,
@@ -244,7 +222,7 @@ export class CallSignalingService implements ICallSignalingNotifier {
         })
         presenceRegistry.setCurrentCall(agentEmail, call.id)
 
-        return { wacid, answerSdp: agentAnswerSdp }
+        return { wacid }
     }
 
     private releaseOtherRingingAgents(call: Call, exceptEmail: string): void {

@@ -27,11 +27,17 @@ export interface AriChannelStateChangeEvent {
     channel: AriChannel
 }
 
+export interface AriRecordingFinishedEvent {
+    type: "RecordingFinished"
+    recording: { name: string; format: string; duration?: number; target_uri: string }
+}
+
 type AriEvent = { type: string; [key: string]: unknown }
 
 type StasisStartListener = (event: AriStasisStartEvent) => void
 type StasisEndListener = (event: AriStasisEndEvent) => void
 type ChannelStateChangeListener = (event: AriChannelStateChangeEvent) => void
+type RecordingFinishedListener = (event: AriRecordingFinishedEvent) => void
 
 export class AriClient {
     private ws: WebSocket | null = null
@@ -39,8 +45,9 @@ export class AriClient {
     private readonly stasisStartListeners: StasisStartListener[] = []
     private readonly stasisEndListeners: StasisEndListener[] = []
     private readonly stateChangeListeners: ChannelStateChangeListener[] = []
+    private readonly recordingFinishedListeners: RecordingFinishedListener[] = []
 
-    private async request<T>(method: "get" | "post" | "delete", path: string, params?: Record<string, string | undefined>): Promise<T> {
+    private async request<T>(method: "get" | "post" | "put" | "delete", path: string, params?: Record<string, string | undefined>): Promise<T> {
         const url = `${config.asterisk.ariBaseUrl}/ari${path}`
         let res: AxiosResponse
         try {
@@ -113,6 +120,8 @@ export class AriClient {
             for (const listener of this.stasisEndListeners) listener(event as unknown as AriStasisEndEvent)
         } else if (event.type === "ChannelStateChange") {
             for (const listener of this.stateChangeListeners) listener(event as unknown as AriChannelStateChangeEvent)
+        } else if (event.type === "RecordingFinished") {
+            for (const listener of this.recordingFinishedListeners) listener(event as unknown as AriRecordingFinishedEvent)
         }
     }
 
@@ -128,6 +137,10 @@ export class AriClient {
         this.stateChangeListeners.push(listener)
     }
 
+    onRecordingFinished(listener: RecordingFinishedListener): void {
+        this.recordingFinishedListeners.push(listener)
+    }
+
     async originateChannel(params: { endpoint: string; app: string; appArgs?: string; callerId?: string; timeoutSeconds?: number }): Promise<AriChannel> {
         return this.request("post", "/channels", {
             endpoint: params.endpoint,
@@ -135,15 +148,6 @@ export class AriClient {
             appArgs: params.appArgs,
             callerId: params.callerId,
             timeout: params.timeoutSeconds ? String(params.timeoutSeconds) : undefined,
-        })
-    }
-
-    /** Originate langsung ke dialplan (bukan ke app Stasis) — dipakai untuk channel dummy diam. */
-    async originateToDialplan(params: { endpoint: string; context: string; extension: string }): Promise<AriChannel> {
-        return this.request("post", "/channels", {
-            endpoint: params.endpoint,
-            context: params.context,
-            extension: params.extension,
         })
     }
 
@@ -171,16 +175,17 @@ export class AriClient {
         await this.request("delete", `/bridges/${bridgeId}`)
     }
 
-    async createExternalMedia(params: { app: string; externalHost: string; format?: string }): Promise<AriChannel> {
-        return this.request("post", "/channels/externalMedia", {
-            app: params.app,
-            external_host: params.externalHost,
-            format: params.format ?? "opus",
-            encapsulation: "rtp",
-            transport: "udp",
-            connection_type: "client",
-            direction: "both",
+    async recordBridge(bridgeId: string, name: string, format = "wav"): Promise<void> {
+        await this.request("post", `/bridges/${bridgeId}/record`, {
+            name,
+            format,
+            ifExists: "overwrite",
         })
+    }
+
+    /** Memuat ulang modul lewat ARI — backend tidak punya hak root untuk memanggil CLI Asterisk. */
+    async reloadModule(moduleName: string): Promise<void> {
+        await this.request("put", `/asterisk/modules/${moduleName}`)
     }
 }
 

@@ -2,13 +2,11 @@ import { describe, test, expect, beforeAll, afterAll, beforeEach } from "bun:tes
 import { initTestDatabase, destroyTestDatabase, cleanTestDatabase } from "./setup"
 import { getDataSource } from "../src/config/database"
 import { TypeOrmCallRecordingRepository } from "../src/modules/call/repositories/call-recording.repository"
-import { CallRecordingService, type IObjectStorage, type RecordingMixer } from "../src/modules/call/call-recording.service"
-import { OggOpusWriter, OPUS_FRAME_SAMPLES_20MS } from "../src/infrastructure/media/ogg-opus-writer"
+import { CallRecordingService, type IObjectStorage } from "../src/modules/call/call-recording.service"
 import { Call } from "../src/modules/call/entities/call.entity"
 import { Contact } from "../src/modules/contact/entities/contact.entity"
 import { CallDirection } from "../src/modules/call/enums/call-direction.enum"
 import { CallStatus } from "../src/modules/call/enums/call-status.enum"
-import type { RecordedTrack } from "../src/infrastructure/media/call-recorder"
 
 let repository: TypeOrmCallRecordingRepository
 
@@ -48,131 +46,50 @@ async function seedCall(): Promise<Call> {
     })
 }
 
-function collectOgg(frames: number): Buffer {
-    const pages: Buffer[] = []
-    const writer = new OggOpusWriter(2, (page) => pages.push(page))
-    for (let i = 0; i < frames; i++) {
-        writer.write(Buffer.alloc(80, i % 256), OPUS_FRAME_SAMPLES_20MS)
-    }
-    writer.finish()
-    return Buffer.concat(pages)
-}
+const RECORDING_PATH = "/var/spool/asterisk/recording/nusacall-wacid.abc.wav"
 
-function parsePages(data: Buffer) {
-    const crcTable: number[] = []
-    for (let i = 0; i < 256; i++) {
-        let r = i << 24
-        for (let j = 0; j < 8; j++) r = r & 0x80000000 ? ((r << 1) ^ 0x04c11db7) >>> 0 : (r << 1) >>> 0
-        crcTable.push(r >>> 0)
-    }
-    const crcOf = (buf: Buffer) => {
-        let crc = 0
-        for (const byte of buf) crc = ((crc << 8) ^ crcTable[((crc >>> 24) ^ byte) & 0xff]!) >>> 0
-        return crc >>> 0
-    }
-
-    const pages: { headerType: number; granule: number; payload: Buffer; crcOk: boolean }[] = []
-    let offset = 0
-    while (offset < data.length) {
-        expect(data.subarray(offset, offset + 4).toString("ascii")).toBe("OggS")
-        const segmentCount = data.readUInt8(offset + 26)
-        const table = data.subarray(offset + 27, offset + 27 + segmentCount)
-        const payloadLength = table.reduce((sum, v) => sum + v, 0)
-        const pageLength = 27 + segmentCount + payloadLength
-
-        const page = Buffer.from(data.subarray(offset, offset + pageLength))
-        const storedCrc = page.readUInt32LE(22)
-        page.writeUInt32LE(0, 22)
-
-        pages.push({
-            headerType: data.readUInt8(offset + 5),
-            granule: Number(data.readBigInt64LE(offset + 6)),
-            payload: data.subarray(offset + 27 + segmentCount, offset + pageLength),
-            crcOk: crcOf(page) === storedCrc,
-        })
-        offset += pageLength
-    }
-    return pages
-}
-
-describe("OggOpusWriter", () => {
-    test("produces a structurally valid Ogg stream with correct CRCs", () => {
-        const pages = parsePages(collectOgg(100))
-
-        expect(pages.every(p => p.crcOk)).toBe(true)
-        expect(pages[0]!.headerType & 0x02).toBe(0x02)
-        expect(pages[pages.length - 1]!.headerType & 0x04).toBe(0x04)
-    })
-
-    test("starts with OpusHead then OpusTags as RFC 7845 requires", () => {
-        const pages = parsePages(collectOgg(10))
-
-        expect(pages[0]!.payload.subarray(0, 8).toString("ascii")).toBe("OpusHead")
-        expect(pages[0]!.payload.readUInt8(9)).toBe(2)
-        expect(pages[0]!.payload.readUInt32LE(12)).toBe(48000)
-        expect(pages[1]!.payload.subarray(0, 8).toString("ascii")).toBe("OpusTags")
-    })
-
-    test("granule position tracks real duration — 500 frames of 20 ms is 10 seconds", () => {
-        const pages = parsePages(collectOgg(500))
-        const finalGranule = pages[pages.length - 1]!.granule
-
-        expect(finalGranule).toBe(500 * OPUS_FRAME_SAMPLES_20MS)
-        expect(finalGranule / 48000).toBe(10)
-    })
-
-    test("reports emptiness when no audio was captured", () => {
-        const writer = new OggOpusWriter(2, () => {})
-        expect(writer.isEmpty).toBe(true)
-        writer.write(Buffer.alloc(80), OPUS_FRAME_SAMPLES_20MS)
-        expect(writer.isEmpty).toBe(false)
-    })
-})
-
-describe("CallRecordingService.storeRecordings", () => {
-    const tracks = (): RecordedTrack[] => [
-        { track: "customer", path: "/tmp/nusacall-test/customer.opus", durationSeconds: 12.4, startedAt: new Date(1000) },
-        { track: "agent", path: "/tmp/nusacall-test/agent.opus", durationSeconds: 12.1, startedAt: new Date(3000) },
-    ]
-
-    const fakeMixer = (durationSeconds = 14.1): RecordingMixer =>
-        async (_tracks, outputPath) => ({ path: outputPath, durationSeconds })
-
-    test("menyimpan satu berkas gabungan, bukan satu per arah", async () => {
+describe("CallRecordingService.storeRecording", () => {
+    test("mengunggah berkas rekaman Asterisk dan mencatat kuncinya", async () => {
         const call = await seedCall()
-        const uploaded: string[] = []
+        const uploaded: { key: string; contentType: string }[] = []
         const service = new CallRecordingService(repository, fakeStorage({
-            upload: async (objectName) => { uploaded.push(objectName); return objectName },
-        }), fakeMixer())
+            upload: async (objectName, _buffer, contentType) => {
+                uploaded.push({ key: objectName, contentType })
+                return objectName
+            },
+        }))
 
-        await service.storeRecordings(call.id, call.wacid, tracks(), async () => Buffer.from("fake-ogg"))
+        await service.storeRecording(call.id, call.wacid, RECORDING_PATH, 14.6, async () => Buffer.from("fake-wav"))
 
         expect(uploaded).toHaveLength(1)
-        expect(uploaded[0]).not.toContain("-customer")
-        expect(uploaded[0]).not.toContain("-agent")
+        expect(uploaded[0]!.contentType).toBe("audio/wav")
+        expect(uploaded[0]!.key).toEndWith(".wav")
+
         const row = await repository.findByCallId(call.id)
-        expect(row!.s3Key).toBe(uploaded[0]!)
-        expect(row!.durationSeconds).toBe(14)
+        expect(row!.s3Key).toBe(uploaded[0]!.key)
+        expect(row!.durationSeconds).toBe(15)
     })
 
-    test("berkas gabungan ditulis berdampingan dengan trek sumbernya", async () => {
+    test("membaca berkas dari jalur yang diberikan Asterisk", async () => {
         const call = await seedCall()
-        let mixedTo = ""
-        const service = new CallRecordingService(repository, fakeStorage(), async (_t, outputPath) => {
-            mixedTo = outputPath
-            return { path: outputPath, durationSeconds: 5 }
+        const readPaths: string[] = []
+        const service = new CallRecordingService(repository, fakeStorage())
+
+        await service.storeRecording(call.id, call.wacid, RECORDING_PATH, 5, async (path) => {
+            readPaths.push(path)
+            return Buffer.from("fake-wav")
         })
 
-        await service.storeRecordings(call.id, call.wacid, tracks(), async () => Buffer.from("fake-ogg"))
-
-        expect(mixedTo).toBe("/tmp/nusacall-test/mixed.opus")
+        expect(readPaths).toEqual([RECORDING_PATH])
     })
 
-    test("tidak menyimpan apa pun ketika penggabungan gagal", async () => {
+    test("tidak menyimpan apa pun ketika berkasnya tidak terbaca", async () => {
         const call = await seedCall()
-        const service = new CallRecordingService(repository, fakeStorage(), async () => null)
+        const service = new CallRecordingService(repository, fakeStorage())
 
-        await service.storeRecordings(call.id, call.wacid, tracks(), async () => Buffer.from("fake-ogg"))
+        await service.storeRecording(call.id, call.wacid, RECORDING_PATH, 5, async () => {
+            throw new Error("file is gone")
+        })
 
         expect(await repository.findByCallId(call.id)).toBeNull()
     })
@@ -181,9 +98,9 @@ describe("CallRecordingService.storeRecordings", () => {
         const call = await seedCall()
         const service = new CallRecordingService(repository, fakeStorage({
             upload: async () => { throw new Error("storage is down") },
-        }), fakeMixer())
+        }))
 
-        await service.storeRecordings(call.id, call.wacid, tracks(), async () => Buffer.from("fake-ogg"))
+        await service.storeRecording(call.id, call.wacid, RECORDING_PATH, 5, async () => Buffer.from("fake-wav"))
 
         expect(await repository.findByCallId(call.id)).toBeNull()
     })
@@ -193,12 +110,23 @@ describe("CallRecordingService.getRecordingUrls", () => {
     test("mengembalikan satu URL bertanda tangan", async () => {
         const call = await seedCall()
         const service = new CallRecordingService(repository, fakeStorage())
-        await repository.store({ callId: call.id, durationSeconds: 30, s3Key: "recordings/a.opus" })
+        await repository.store({ callId: call.id, durationSeconds: 30, s3Key: "recordings/a.wav" })
 
         const urls = await service.getRecordingUrls(call.id)
 
-        expect(urls.url).toContain("recordings/a.opus")
+        expect(urls.url).toContain("recordings/a.wav")
         expect(urls.durationSeconds).toBe(30)
+    })
+
+    /** Rekaman era WebRTC tersimpan sebagai .opus — kuncinya harus tetap bisa diputar. */
+    test("rekaman lama berformat opus tetap dapat diakses", async () => {
+        const call = await seedCall()
+        const service = new CallRecordingService(repository, fakeStorage())
+        await repository.store({ callId: call.id, durationSeconds: 12, s3Key: "recordings/2026/08/31/lama.opus" })
+
+        const urls = await service.getRecordingUrls(call.id)
+
+        expect(urls.url).toContain("lama.opus")
     })
 
     test("melempar NotFound ketika panggilan tidak punya rekaman", async () => {

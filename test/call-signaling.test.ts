@@ -1,5 +1,4 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from "bun:test"
-import { RTCPeerConnection, RTCRtpCodecParameters } from "werift"
 import { initTestDatabase, destroyTestDatabase, cleanTestDatabase, createUserAndToken } from "./setup"
 import { createStatusWebhookPayload } from "./helpers"
 import { TypeOrmCallRepository } from "../src/modules/call/repositories/call.repository"
@@ -15,8 +14,6 @@ import { CallIconVisibility } from "../src/modules/account/enums/call-icon-visib
 import { RoutingService } from "../src/modules/routing/routing.service"
 import { CallStatus } from "../src/modules/call/enums/call-status.enum"
 import { CallDirection } from "../src/modules/call/enums/call-direction.enum"
-import { sessionRegistry } from "../src/infrastructure/media/session-registry"
-import { AsteriskRtpLeg } from "../src/infrastructure/media/asterisk-rtp-leg"
 import { presenceRegistry } from "../src/modules/user/presence.registry"
 import { getDataSource } from "../src/config/database"
 import { config } from "../src/config/config"
@@ -25,28 +22,6 @@ import type { NusawaLogService } from "../src/modules/call/nusawa-log.service"
 import type { IAgentNotifier, WsOutboundPacket } from "../src/modules/call/interfaces/call-signaling.interface"
 
 const TEST_PHONE_NUMBER_ID = "202063559668129"
-
-function opusCodec() {
-    return new RTCRtpCodecParameters({ mimeType: "audio/opus", clockRate: 48000, channels: 2, payloadType: 111 })
-}
-
-async function waitIceComplete(pc: RTCPeerConnection) {
-    if (pc.iceGatheringState === "complete") return
-    await new Promise<void>((resolve) => {
-        const check = () => { if (pc.iceGatheringState === "complete") resolve() }
-        pc.iceGatheringStateChange.subscribe(check)
-        setTimeout(resolve, 5000)
-    })
-}
-
-async function fakeBrowserOfferSdp(): Promise<string> {
-    const pc = new RTCPeerConnection({ codecs: { audio: [opusCodec()] } })
-    pc.addTransceiver("audio", { direction: "sendrecv" })
-    const offer = await pc.createOffer()
-    await pc.setLocalDescription(offer)
-    await waitIceComplete(pc)
-    return pc.localDescription!.sdp
-}
 
 class FakeNotifier implements IAgentNotifier {
     sent: { email: string; packet: WsOutboundPacket }[] = []
@@ -69,7 +44,7 @@ class FakeNotifier implements IAgentNotifier {
 
 function fakeAsteriskControl(overrides: Partial<IAsteriskCallControl> = {}): IAsteriskCallControl {
     return {
-        acceptCall: async () => {},
+        connectAgent: async () => {},
         hangupChannel: async () => {},
         originateOutbound: async () => ({ wacid: `wacid.OUT${Date.now()}` }),
         ...overrides,
@@ -132,9 +107,6 @@ async function createRingingCall(wacid: string) {
         status: CallStatus.PENDING,
         statusRank: 10,
     })
-
-    const session = sessionRegistry.create(wacid)
-    session.attachAsteriskLeg(await AsteriskRtpLeg.bind())
 
     await callStateService.transition(wacid, CallStatus.RINGING, { ringingAt: new Date() })
     presenceRegistry.register("agent1@nusa.id", "conn-1")
@@ -254,17 +226,11 @@ describe("CallSignalingService.handleAnswer", () => {
         presenceRegistry.setCurrentCall("agent1@nusa.id", null)
 
         const service = newSignalingService(new FakeNotifier())
-        const agentPc = new RTCPeerConnection({ codecs: { audio: [opusCodec()] } })
-        agentPc.addTransceiver("audio", { direction: "sendrecv" })
-        const offer = await agentPc.createOffer()
-        await agentPc.setLocalDescription(offer)
-        await waitIceComplete(agentPc)
 
-        await service.handleAnswer(agent1Id, "agent1@nusa.id", wacid, agentPc.localDescription!.sdp)
+        await service.handleAnswer(agent1Id, "agent1@nusa.id", wacid)
 
         expect(presenceRegistry.get("agent1@nusa.id")!.currentCallId).toBe(call!.id)
-        agentPc.close()
-    }, 20000)
+    })
 
     test("wires the agent's SDP, calls Asterisk acceptCall, and activates the call", async () => {
         const wacid = "wacid.SIGANSWER1"
@@ -273,11 +239,10 @@ describe("CallSignalingService.handleAnswer", () => {
         const acceptedIds: string[] = []
         const notifier = new FakeNotifier()
         const service = newSignalingService(notifier, fakeAsteriskControl({
-            acceptCall: async (id) => { acceptedIds.push(id) },
+            connectAgent: async (id) => { acceptedIds.push(id) },
         }))
 
-        const offerSdp = await fakeBrowserOfferSdp()
-        await service.handleAnswer(agent1Id, "agent1@nusa.id", wacid, offerSdp)
+        await service.handleAnswer(agent1Id, "agent1@nusa.id", wacid)
 
         const updated = await callRepository.findByWacid(wacid)
         expect(updated!.status).toBe(CallStatus.ACTIVE)
@@ -285,7 +250,6 @@ describe("CallSignalingService.handleAnswer", () => {
         expect(acceptedIds).toEqual([wacid])
 
         const packets = notifier.packetsFor("agent1@nusa.id").map((p) => p.type)
-        expect(packets).toContain("webrtc_answer")
         expect(packets).toContain("call_state")
     })
 
@@ -297,7 +261,7 @@ describe("CallSignalingService.handleAnswer", () => {
             await createRingingCall(wacid)
             const service = newSignalingService(new FakeNotifier())
 
-            await service.handleAnswer(agent1Id, "agent1@nusa.id", wacid, await fakeBrowserOfferSdp())
+            await service.handleAnswer(agent1Id, "agent1@nusa.id", wacid)
 
             const updated = await callRepository.findByWacid(wacid)
             expect(updated!.recordingEnabled).toBe(true)
@@ -315,10 +279,8 @@ describe("CallSignalingService.handleAnswer", () => {
         const notifier = new FakeNotifier()
         const service = newSignalingService(notifier)
 
-        const offer1 = await fakeBrowserOfferSdp()
-        const offer2 = await fakeBrowserOfferSdp()
-        await service.handleAnswer(agent1Id, "agent1@nusa.id", wacid, offer1)
-        await service.handleAnswer(agent2Id, "agent2@nusa.id", wacid, offer2)
+        await service.handleAnswer(agent1Id, "agent1@nusa.id", wacid)
+        await service.handleAnswer(agent2Id, "agent2@nusa.id", wacid)
 
         const agent2Packets = notifier.packetsFor("agent2@nusa.id")
         expect(agent2Packets.some((p) => p.type === "call_taken")).toBe(true)
@@ -337,8 +299,7 @@ describe("CallSignalingService.handleAnswer", () => {
         const notifier = new FakeNotifier()
         const service = newSignalingService(notifier)
 
-        const offerSdp = await fakeBrowserOfferSdp()
-        await service.handleAnswer(agent1Id, "agent1@nusa.id", wacid, offerSdp)
+        await service.handleAnswer(agent1Id, "agent1@nusa.id", wacid)
 
         const agent2Packets = notifier.packetsFor("agent2@nusa.id")
         expect(agent2Packets.some((p) => p.type === "call_taken")).toBe(true)
@@ -351,11 +312,10 @@ describe("CallSignalingService.handleAnswer", () => {
 
         const notifier = new FakeNotifier()
         const service = newSignalingService(notifier, fakeAsteriskControl({
-            acceptCall: async () => { throw new Error("Asterisk rejected the answer") },
+            connectAgent: async () => { throw new Error("Asterisk could not reach the agent softphone") },
         }))
 
-        const offerSdp = await fakeBrowserOfferSdp()
-        await service.handleAnswer(agent1Id, "agent1@nusa.id", wacid, offerSdp)
+        await service.handleAnswer(agent1Id, "agent1@nusa.id", wacid)
 
         const updated = await callRepository.findByWacid(wacid)
         expect(updated!.status).toBe(CallStatus.FAILED)
@@ -370,12 +330,10 @@ describe("CallSignalingService.initiateOutbound", () => {
             originateOutbound: async () => ({ wacid: "wacid.OUT1" }),
         }))
 
-        const offerSdp = await fakeBrowserOfferSdp()
         const outContact = await contactService.findOrCreate("628999888777", null)
-        const result = await service.initiateOutbound(agent1Id, "agent1@nusa.id", TEST_PHONE_NUMBER_ID, outContact.id, offerSdp)
+        const result = await service.initiateOutbound(agent1Id, "agent1@nusa.id", TEST_PHONE_NUMBER_ID, outContact.id)
 
         expect(result.wacid).toBe("wacid.OUT1")
-        expect(result.answerSdp).toContain("v=0")
 
         const call = await callRepository.findByWacid("wacid.OUT1")
         expect(call).not.toBeNull()
@@ -384,14 +342,13 @@ describe("CallSignalingService.initiateOutbound", () => {
         expect(presenceRegistry.get("agent1@nusa.id")?.currentCallId).toBe(call!.id)
     })
 
-    test("cleans up the media session and creates no Call row when originate fails", async () => {
+    test("creates no Call row when originate fails", async () => {
         const service = newSignalingService(new FakeNotifier(), fakeAsteriskControl({
             originateOutbound: async () => { throw new Error("Asterisk originate failed") },
         }))
 
-        const offerSdp = await fakeBrowserOfferSdp()
         const failContact = await contactService.findOrCreate("628999888777", null)
-        await expect(service.initiateOutbound(agent1Id, "agent1@nusa.id", TEST_PHONE_NUMBER_ID, failContact.id, offerSdp)).rejects.toThrow()
+        await expect(service.initiateOutbound(agent1Id, "agent1@nusa.id", TEST_PHONE_NUMBER_ID, failContact.id)).rejects.toThrow()
 
         const call = await callRepository.findByWacid("628999888777")
         expect(call).toBeNull()

@@ -1,6 +1,4 @@
-import { ariClient, type AriStasisStartEvent, type AriStasisEndEvent, type AriChannelStateChangeEvent } from "../../infrastructure/asterisk/ari.client"
-import { AsteriskRtpLeg } from "../../infrastructure/media/asterisk-rtp-leg"
-import { sessionRegistry } from "../../infrastructure/media/session-registry"
+import { ariClient, type AriStasisStartEvent, type AriStasisEndEvent } from "../../infrastructure/asterisk/ari.client"
 import { CallStateService } from "./call-state.service"
 import { ICallRepository } from "./interfaces/call.repository.interface"
 import { ContactService } from "../contact/contact.service"
@@ -15,20 +13,24 @@ import { CallLogOutcome } from "./enums/call-log-outcome.enum"
 import { config } from "../../config/config"
 import { logger } from "../../core/helpers/logger"
 
-interface PendingBridge {
+interface ActiveCall {
     bridgeId: string
-    externalMediaChannelId: string
-    dummyChannelId: string
+    customerChannelId: string
+    agentChannelId: string | null
+    recordingName: string | null
 }
 
 /**
- * Menggantikan peran webhook Meta + CallMediaCoordinator untuk mode SIP:
- * mendengarkan event ARI (StasisStart/StasisEnd/ChannelStateChange) dari
- * Asterisk dan mengelola bridge + leg media untuk tiap panggilan.
+ * Kontrol panggilan lewat ARI. Backend tidak lagi mengangkut audio sama sekali —
+ * Asterisk yang menjembatani leg pelanggan (trunk SIP Meta) dengan leg agent
+ * (softphone browser lewat SIP-over-WebSocket). Yang tersisa di sini murni
+ * keputusan: kapan berdering, siapa yang tersambung, kapan berakhir.
  */
 export class AsteriskCallHandlerService implements IAsteriskCallControl {
     private signaling: ICallSignalingNotifier | null = null
-    private readonly bridges = new Map<string, PendingBridge>()
+    private readonly active = new Map<string, ActiveCall>()
+    /** Channel agent perlu dipetakan balik ke wacid saat StasisStart-nya tiba. */
+    private readonly agentChannelToWacid = new Map<string, string>()
 
     constructor(
         private readonly callState: CallStateService,
@@ -37,7 +39,7 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
         private readonly accounts: IAccountRepository,
     ) {}
 
-    /** Dependensi melingkar dengan CallSignalingService dipecah lewat setter, sama seperti attachBoardListener/attachService di modul lain. */
+    /** Dependensi melingkar dengan CallSignalingService dipecah lewat setter, sama seperti attachService di gateway. */
     attachSignaling(signaling: ICallSignalingNotifier): void {
         this.signaling = signaling
     }
@@ -53,11 +55,6 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
                 logger.error("Failed handling ARI StasisEnd", { channelId: event.channel.id, err })
             })
         })
-        ariClient.onChannelStateChange((event) => {
-            this.handleChannelStateChange(event).catch((err) => {
-                logger.error("Failed handling ARI ChannelStateChange", { channelId: event.channel.id, err })
-            })
-        })
         ariClient.connect()
     }
 
@@ -65,10 +62,11 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
         const [kind] = event.args
         if (kind === "inbound") {
             await this.handleInboundStart(event)
+        } else if (kind === "agent") {
+            await this.handleAgentStart(event)
         } else if (kind === "outbound") {
-            await this.handleOutboundStart(event)
+            await this.handleOutboundCustomerStart(event)
         }
-        // Channel externalMedia sendiri juga singgah di Stasis tanpa arg yang dikenali — dibiarkan, cukup dibridge.
     }
 
     private async handleInboundStart(event: AriStasisStartEvent): Promise<void> {
@@ -77,14 +75,14 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
 
         if (!phoneNumberId) {
             logger.error("Inbound SIP call missing phoneNumberId arg — hanging up", { wacid })
-            await ariClient.hangupChannel(wacid, "normal").catch(() => {})
+            await this.hangupChannel(wacid, "normal")
             return
         }
 
         const account = await this.accounts.findByPhoneNumberId(phoneNumberId)
         if (!account) {
             logger.error("Inbound SIP call for unknown phoneNumberId — hanging up", { wacid, phoneNumberId })
-            await ariClient.hangupChannel(wacid, "normal").catch(() => {})
+            await this.hangupChannel(wacid, "normal")
             return
         }
 
@@ -98,98 +96,77 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
             statusRank: 10,
         })
 
-        try {
-            const bridge = await this.setupBridge(wacid)
-            this.bridges.set(wacid, bridge)
-            await ariClient.ringChannel(wacid)
-        } catch (err) {
-            await this.failSetup(wacid, err)
-            return
-        }
+        await ariClient.ringChannel(wacid).catch((err) => {
+            logger.warn("Failed to send ringing indication", { wacid, err })
+        })
 
         await this.signaling?.notifyIncoming(call)
     }
 
-    private async handleOutboundStart(event: AriStasisStartEvent): Promise<void> {
-        const wacid = event.channel.id
-        if (!sessionRegistry.get(wacid)) {
-            logger.warn("Outbound SIP channel entered Stasis with no matching media session", { wacid })
+    /**
+     * Leg agent sudah dijawab browser. Sambungkan ke leg pelanggan lewat bridge,
+     * baru angkat leg pelanggan supaya penelepon tidak mendengar sunyi lebih dulu.
+     */
+    private async handleAgentStart(event: AriStasisStartEvent): Promise<void> {
+        const agentChannelId = event.channel.id
+        const wacid = this.agentChannelToWacid.get(agentChannelId)
+        if (!wacid) {
+            logger.warn("Agent channel entered Stasis without a matching call", { agentChannelId })
+            await this.hangupChannel(agentChannelId, "normal")
             return
         }
+        this.agentChannelToWacid.delete(agentChannelId)
 
         try {
-            const bridge = await this.setupBridge(wacid)
-            this.bridges.set(wacid, bridge)
-            await ariClient.addChannelToBridge(bridge.bridgeId, wacid)
+            const bridge = await ariClient.createBridge()
+            await ariClient.addChannelToBridge(bridge.id, agentChannelId)
+            await ariClient.addChannelToBridge(bridge.id, wacid)
+            await ariClient.answerChannel(wacid)
+
+            const entry: ActiveCall = { bridgeId: bridge.id, customerChannelId: wacid, agentChannelId, recordingName: null }
+
+            if (config.recording.recordingEnabled) {
+                const recordingName = `nusacall-${wacid}`
+                await ariClient.recordBridge(bridge.id, recordingName)
+                entry.recordingName = recordingName
+            }
+
+            this.active.set(wacid, entry)
         } catch (err) {
-            await this.failSetup(wacid, err)
+            logger.error("Failed bridging agent to customer", { wacid, agentChannelId, err })
+            await this.hangupChannel(agentChannelId, "normal")
+            await this.failCall(wacid, err)
         }
-        // Forwarding baru dimulai saat channel benar-benar "Up" — lihat handleChannelStateChange.
     }
 
-    private async failSetup(wacid: string, err: unknown): Promise<void> {
-        logger.error("Failed preparing SIP call media", { wacid, err })
+    /** Leg pelanggan untuk panggilan keluar; agent-nya di-originate saat leg ini terangkat. */
+    private async handleOutboundCustomerStart(event: AriStasisStartEvent): Promise<void> {
+        const wacid = event.channel.id
+        const call = await this.calls.findByWacid(wacid)
+        if (!call) {
+            logger.warn("Outbound customer channel entered Stasis with no call row", { wacid })
+            return
+        }
+        if (call.userId) await this.connectAgent(wacid, call.userId)
+    }
+
+    private async failCall(wacid: string, err: unknown): Promise<void> {
         await this.callState.transition(wacid, CallStatus.FAILED, {
             endReason: EndReason.MEDIA_FAILURE,
             endedAt: new Date(),
             errorMessage: err instanceof Error ? err.message : String(err),
         })
-        await ariClient.hangupChannel(wacid, "congestion").catch(() => {})
-        await sessionRegistry.remove(wacid, "sip_media_setup_failed")
+        await this.hangupChannel(wacid, "congestion")
     }
 
-    private async setupBridge(wacid: string): Promise<PendingBridge> {
-        const session = sessionRegistry.create(wacid)
-        const rtpLeg = await AsteriskRtpLeg.bind()
-        session.attachAsteriskLeg(rtpLeg)
-
-        const bridge = await ariClient.createBridge()
-        const externalMediaChannel = await ariClient.createExternalMedia({
+    async connectAgent(wacid: string, userId: number): Promise<void> {
+        const channel = await ariClient.originateChannel({
+            endpoint: `PJSIP/agent-${userId}`,
             app: config.asterisk.ariApp,
-            externalHost: `${config.asterisk.externalMediaHost}:${rtpLeg.localPort}`,
+            appArgs: "agent",
+            timeoutSeconds: config.call.answerTimeoutSeconds,
         })
-        await ariClient.addChannelToBridge(bridge.id, externalMediaChannel.id)
-
-        // Asterisk memilih engine "simple_bridge" (bukan softmix) untuk bridge persis 2 anggota
-        // PJSIP+ExternalMedia, dan simple_bridge diam-diam mendrop RTP satu arah untuk kombinasi
-        // ini — bug yang sudah dikenal komunitas Asterisk. Anggota ke-3 yang diam memaksa softmix.
-        const dummyChannel = await ariClient.originateToDialplan({
-            endpoint: "Local/s@nusacall-dummy",
-            context: "nusacall-dummy",
-            extension: "s",
-        })
-        await ariClient.addChannelToBridge(bridge.id, dummyChannel.id)
-
-        return { bridgeId: bridge.id, externalMediaChannelId: externalMediaChannel.id, dummyChannelId: dummyChannel.id }
-    }
-
-    private async handleChannelStateChange(event: AriChannelStateChangeEvent): Promise<void> {
-        if (event.channel.state !== "Up") return
-        const wacid = event.channel.id
-        if (!this.bridges.has(wacid)) return
-
-        const call = await this.calls.findByWacid(wacid)
-        if (!call || call.direction !== CallDirection.OUTBOUND || call.status === CallStatus.ACTIVE) return
-
-        const session = sessionRegistry.get(wacid)
-        if (!session) return
-
-        session.startForwarding()
-        const transitioned = await this.callState.transition(wacid, CallStatus.ACTIVE, {
-            answeredAt: new Date(),
-            recordingEnabled: config.recording.recordingEnabled,
-        })
-        if (transitioned && this.signaling) {
-            const updated = await this.calls.findByWacid(wacid)
-            if (updated) this.signaling.notifyOutboundActive(updated)
-        }
-    }
-
-    async acceptCall(wacid: string): Promise<void> {
-        const pending = this.bridges.get(wacid)
-        if (!pending) throw new Error(`No pending bridge for call ${wacid}`)
-        await ariClient.answerChannel(wacid)
-        await ariClient.addChannelToBridge(pending.bridgeId, wacid)
+        this.agentChannelToWacid.set(channel.id, wacid)
     }
 
     async hangupChannel(wacid: string, reason?: string): Promise<void> {
@@ -210,21 +187,18 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
     }
 
     private async handleStasisEnd(event: AriStasisEndEvent): Promise<void> {
-        const wacid = event.channel.id
-        const pending = this.bridges.get(wacid)
-        this.bridges.delete(wacid)
-        if (pending) {
-            /** Menghancurkan bridge TIDAK menghangupkan anggotanya — externalMedia & dummy harus di-hangup eksplisit, kalau tidak channel-nya menggantung selamanya di Stasis/dialplan. */
-            await ariClient.hangupChannel(pending.externalMediaChannelId, "normal").catch(() => {})
-            await ariClient.hangupChannel(pending.dummyChannelId, "normal").catch(() => {})
-            await ariClient.destroyBridge(pending.bridgeId).catch(() => {})
+        const channelId = event.channel.id
+        this.agentChannelToWacid.delete(channelId)
+
+        const entry = this.active.get(channelId)
+        if (entry) {
+            this.active.delete(channelId)
+            if (entry.agentChannelId) await this.hangupChannel(entry.agentChannelId, "normal")
+            await ariClient.destroyBridge(entry.bridgeId).catch(() => {})
         }
 
-        const call = await this.calls.findByWacid(wacid)
-        if (!call || isTerminalCallStatus(call.status)) {
-            await sessionRegistry.remove(wacid, "stasis_end")
-            return
-        }
+        const call = await this.calls.findByWacid(channelId)
+        if (!call || isTerminalCallStatus(call.status)) return
 
         const endedAt = new Date()
         const terminalStatus = this.resolveTerminalState(call.status)
@@ -233,8 +207,7 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
             : terminalStatus === CallStatus.REJECTED ? EndReason.CUSTOMER_REJECTED
             : EndReason.MEDIA_FAILURE
 
-        const transitioned = await this.callState.transition(wacid, terminalStatus, { endedAt, endReason, durationSeconds })
-        await sessionRegistry.remove(wacid, "stasis_end")
+        const transitioned = await this.callState.transition(channelId, terminalStatus, { endedAt, endReason, durationSeconds })
 
         if (transitioned && this.signaling) {
             const outcome = terminalStatus === CallStatus.COMPLETED ? CallLogOutcome.COMPLETED

@@ -103,7 +103,7 @@ class SignalingGateway implements IAgentNotifier {
             case "ping":
                 return
             case "answer_call":
-                await this.service.handleAnswer(userId, email, wacid, packet.data?.sdp as string)
+                await this.service.handleAnswer(userId, email, wacid)
                 return
             case "reject_call":
                 await this.service.handleReject(email, wacid, packet.data?.reason as string | undefined)

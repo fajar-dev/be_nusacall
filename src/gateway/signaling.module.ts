@@ -1,3 +1,5 @@
+import { join } from "node:path"
+import { readFile } from "node:fs/promises"
 import { signalingGateway } from "./signaling.gateway"
 import { CallSignalingService } from "../modules/call/call-signaling.service"
 import { AsteriskCallHandlerService } from "../modules/call/asterisk-call-handler.service"
@@ -6,8 +8,8 @@ import { CallSerializer } from "../modules/call/serializers/call.serialize"
 import { routingService } from "../modules/routing/routing.module"
 import { contactService } from "../modules/contact/contact.module"
 import { accountRepository } from "../modules/account/account.module"
-import { sessionRegistry } from "../infrastructure/media/session-registry"
-import { readFile } from "node:fs/promises"
+import { ariClient } from "../infrastructure/asterisk/ari.client"
+import { config } from "../config/config"
 import { logger } from "../core/helpers/logger"
 
 export const asteriskCallHandler = new AsteriskCallHandlerService(
@@ -38,11 +40,15 @@ callStateService.attachBoardListener(async (call) => {
 
 export { signalingGateway }
 
-sessionRegistry.attachRecordingListener(async (wacid, tracks) => {
+/** Nama rekaman dibentuk sebagai `nusacall-<wacid>` saat bridge mulai direkam. */
+ariClient.onRecordingFinished(async (event) => {
+    const wacid = event.recording.name.replace(/^nusacall-/, "")
     const call = await callRepository.findByWacid(wacid)
     if (!call) {
         logger.warn("Recording finished for an unknown wacid — nothing to attach it to", { wacid })
         return
     }
-    await callRecordingService.storeRecordings(call.id, wacid, tracks, readFile)
+
+    const filePath = join(config.recording.spoolDir, `${event.recording.name}.${event.recording.format}`)
+    await callRecordingService.storeRecording(call.id, wacid, filePath, event.recording.duration ?? 0, readFile)
 })
