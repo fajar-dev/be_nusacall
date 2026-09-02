@@ -21,16 +21,9 @@ interface ActiveCall {
     recordingName: string | null
 }
 
-/**
- * Kontrol panggilan lewat ARI. Backend tidak lagi mengangkut audio sama sekali —
- * Asterisk yang menjembatani leg pelanggan (trunk SIP Meta) dengan leg agent
- * (softphone browser lewat SIP-over-WebSocket). Yang tersisa di sini murni
- * keputusan: kapan berdering, siapa yang tersambung, kapan berakhir.
- */
 export class AsteriskCallHandlerService implements IAsteriskCallControl {
     private signaling: ICallSignalingNotifier | null = null
     private readonly active = new Map<string, ActiveCall>()
-    /** Channel agent perlu dipetakan balik ke wacid saat StasisStart-nya tiba. */
     private readonly agentChannelToWacid = new Map<string, string>()
 
     constructor(
@@ -40,7 +33,6 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
         private readonly accounts: IAccountRepository,
     ) {}
 
-    /** Dependensi melingkar dengan CallSignalingService dipecah lewat setter, sama seperti attachService di gateway. */
     attachSignaling(signaling: ICallSignalingNotifier): void {
         this.signaling = signaling
     }
@@ -104,10 +96,6 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
         await this.signaling?.notifyIncoming(call)
     }
 
-    /**
-     * Leg agent sudah dijawab browser. Sambungkan ke leg pelanggan lewat bridge,
-     * baru angkat leg pelanggan supaya penelepon tidak mendengar sunyi lebih dulu.
-     */
     private async handleAgentStart(event: AriStasisStartEvent): Promise<void> {
         const agentChannelId = event.channel.id
         const wacid = this.agentChannelToWacid.get(agentChannelId)
@@ -124,7 +112,12 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
             await ariClient.addChannelToBridge(bridge.id, wacid)
             await ariClient.answerChannel(wacid)
 
-            const entry: ActiveCall = { bridgeId: bridge.id, customerChannelId: wacid, agentChannelId, recordingName: null }
+            const entry: ActiveCall = {
+                bridgeId: bridge.id,
+                customerChannelId: wacid,
+                agentChannelId,
+                recordingName: null,
+            }
 
             if (config.recording.recordingEnabled) {
                 const recordingName = `nusacall-${wacid}`
@@ -134,11 +127,6 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
 
             this.active.set(wacid, entry)
 
-            // Panggilan masuk sudah ditandai ACTIVE saat agent menekan angkat
-            // (CallSignalingService.handleAnswer). Panggilan keluar tidak lewat jalur
-            // itu sama sekali, jadi tanpa ini statusnya tetap "pending" sepanjang
-            // percakapan — begitu pelanggan menutup lebih dulu, handleStasisEnd salah
-            // menyimpulkan "pending -> berakhir" sebagai kegagalan, bukan panggilan selesai.
             const call = await this.calls.findByWacid(wacid)
             if (call?.direction === CallDirection.OUTBOUND) {
                 await this.callState.transition(wacid, CallStatus.ACTIVE, {
@@ -153,7 +141,6 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
         }
     }
 
-    /** Leg pelanggan untuk panggilan keluar; agent-nya di-originate saat leg ini terangkat. */
     private async handleOutboundCustomerStart(event: AriStasisStartEvent): Promise<void> {
         const wacid = event.channel.id
         const call = await this.calls.findByWacid(wacid)
@@ -161,7 +148,9 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
             logger.warn("Outbound customer channel entered Stasis with no call row", { wacid })
             return
         }
-        if (call.userId) await this.connectAgent(wacid, call.userId)
+        if (call.userId) {
+            await this.connectAgent(wacid, call.userId)
+        }
     }
 
     private async failCall(wacid: string, err: unknown): Promise<void> {
@@ -207,26 +196,38 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
         const entry = this.active.get(channelId)
         if (entry) {
             this.active.delete(channelId)
-            if (entry.agentChannelId) await this.hangupChannel(entry.agentChannelId, "normal")
+            if (entry.agentChannelId) {
+                await this.hangupChannel(entry.agentChannelId, "normal")
+            }
             await ariClient.destroyBridge(entry.bridgeId).catch(() => {})
         }
 
         const call = await this.calls.findByWacid(channelId)
-        if (!call || isTerminalCallStatus(call.status)) return
+        if (!call || isTerminalCallStatus(call.status)) {
+            return
+        }
 
         const endedAt = new Date()
         const terminalStatus = this.resolveTerminalState(call.status)
         const durationSeconds = this.elapsedSeconds(call.answeredAt, endedAt)
-        const endReason = terminalStatus === CallStatus.COMPLETED ? EndReason.CUSTOMER_HANGUP
-            : terminalStatus === CallStatus.REJECTED ? EndReason.CUSTOMER_REJECTED
-            : EndReason.MEDIA_FAILURE
+        const endReason = terminalStatus === CallStatus.COMPLETED
+            ? EndReason.CUSTOMER_HANGUP
+            : terminalStatus === CallStatus.REJECTED
+                ? EndReason.CUSTOMER_REJECTED
+                : EndReason.MEDIA_FAILURE
 
-        const transitioned = await this.callState.transition(channelId, terminalStatus, { endedAt, endReason, durationSeconds })
+        const transitioned = await this.callState.transition(channelId, terminalStatus, {
+            endedAt,
+            endReason,
+            durationSeconds,
+        })
 
         if (transitioned && this.signaling) {
-            const outcome = terminalStatus === CallStatus.COMPLETED ? CallLogOutcome.COMPLETED
-                : terminalStatus === CallStatus.REJECTED ? CallLogOutcome.REJECTED
-                : CallLogOutcome.MISSED
+            const outcome = terminalStatus === CallStatus.COMPLETED
+                ? CallLogOutcome.COMPLETED
+                : terminalStatus === CallStatus.REJECTED
+                    ? CallLogOutcome.REJECTED
+                    : CallLogOutcome.MISSED
             const updated = { ...call, endedAt, endReason, durationSeconds }
             await this.signaling.logCallOutcome(updated, outcome, durationSeconds)
             this.signaling.notifyCallEnded(updated, endReason)
@@ -234,13 +235,19 @@ export class AsteriskCallHandlerService implements IAsteriskCallControl {
     }
 
     private resolveTerminalState(currentStatus: CallStatus): CallStatus {
-        if (currentStatus === CallStatus.ACTIVE) return CallStatus.COMPLETED
-        if (currentStatus === CallStatus.RINGING || currentStatus === CallStatus.CONNECTING) return CallStatus.ABANDONED
+        if (currentStatus === CallStatus.ACTIVE) {
+            return CallStatus.COMPLETED
+        }
+        if (currentStatus === CallStatus.RINGING || currentStatus === CallStatus.CONNECTING) {
+            return CallStatus.ABANDONED
+        }
         return CallStatus.FAILED
     }
 
     private elapsedSeconds(answeredAt: Date | null | undefined, endedAt: Date): number {
-        if (!answeredAt) return 0
+        if (!answeredAt) {
+            return 0
+        }
         return Math.max(0, Math.round((endedAt.getTime() - answeredAt.getTime()) / 1000))
     }
 }
